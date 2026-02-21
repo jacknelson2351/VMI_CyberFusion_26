@@ -1,0 +1,152 @@
+[
+  {
+    "id": "fc6feadc",
+    "name": "Riddle Registry",
+    "category": "forensics",
+    "flag_format": "",
+    "description": "Hi, intrepid investigator! \ud83d\udcc4\ud83d\udd0d You've stumbled upon a peculiar PDF filled with what seems like nothing more than garbled nonsense. But beware! Not everything is as it appears. Amidst the chaos lies a hidden treasure\u2014an elusive flag waiting to be uncovered.\nFind the PDF file here Hidden Confidential Document and uncover the flag within the metadata.",
+    "files": [
+      "confidential.pdf"
+    ],
+    "status": "solved",
+    "flag": "picoCTF{puzzl3d_m3tadata_f0und!_f94300c4}",
+    "retry_summary": "### CTF Attempt Summary - Riddle Registry\n\n**Files:**\n- `/ctf/confidential.pdf`\n\n**Tried Actions:**\n1. **pdfinfo Command:**\n   - **Attempted:** `pdfinfo /ctf/confidential.pdf`\n   - **Outcome:** Command not found; utility unavailable.\n\n2. **Initial string search for flags:**\n   - **Command:** `strings -n 8 /ctf/confidential.pdf | grep -iE 'CTF\\\\\\\\{[^}]+\\\\\\\\}|FLAG\\\\\\\\{[^}]+\\\\\\\\}|flag\\\\\\\\{[^}]+\\\\\\\\}'`\n   - **Outcome:** No output, likely due to command limitations.\n\n3. **Binary-safe flag search via Python script:**\n   - **Command:** Python script searching for flags and XMP metadata.\n   - **Outcome:** Awaiting results from execution.\n\n**Unexplored Paths:**\n- Stream decompression and analysis of other objects within the PDF if current searches yield no flags.\n\n**Next Approach:**\n- Execute a decisive command that aims to confirm or falsify the existence of the flag, considering limits of previous attempts. A suggested command could focus on extracting low-level PDF information or attempting a different method of interpreting the PDF structure directly.\n\n### Revised Strategy:\n- Utilize a command that directly attempts to extract the contents of the PDF streams or covertly embedded flags without relying on unavailable utilities. This could reveal potential flags or data buried deeper within the file.",
+    "created_at": "2026-02-20T18:07:50.067363",
+    "cost_usd": 0.00254575,
+    "tokens_in": 3703,
+    "tokens_out": 810
+  },
+  {
+    "id": "c4bb3c67",
+    "name": "Log Hunt",
+    "category": "web",
+    "flag_format": "",
+    "description": "Our server seems to be leaking pieces of a secret flag in its logs. The parts are scattered and sometimes repeated. Can you reconstruct the original flag?\nDownload the logs and figure out the full flag from the fragments.",
+    "files": [
+      "server.log"
+    ],
+    "status": "solved",
+    "flag": "picoCTF{us3_y0urlinux_sk1lls_cedfa5fb}",
+    "retry_summary": null,
+    "created_at": "2026-02-20T21:55:19.193502",
+    "cost_usd": 0.00723725,
+    "tokens_in": 9789,
+    "tokens_out": 2395
+  },
+  {
+    "id": "a64b1b69",
+    "name": "Hidden in plainsight",
+    "category": "forensics",
+    "flag_format": "",
+    "description": "You\u2019re given a seemingly ordinary JPG image. Something is tucked away out of sight inside the file. Your task is to discover the hidden payload and extract the flag.\nDownload the jpg image here.",
+    "files": [
+      "img.jpg"
+    ],
+    "status": "solved",
+    "flag": "picoCTF{h1dd3n_1n_1m4g3_656e4d79}",
+    "retry_summary": "### Summary of Failed CTF Attempt\n\n**Challenge**: Hidden in plainsight  \n**Category**: FORENSICS  \n**Working Directory**: /ctf/  \n\n**Files Attempted**:\n- `img.jpg`: A JPEG image suspected to contain hidden data (total size: 73,494 bytes).\n\n**Attempts Made**:\n1. **Initial Verification**: Confirmed the presence of the image and its file type.\n2. **Metadata Extraction**: Used tools like `exiftool` to gather all metadata, which revealed a key directive.\n3. **Initial Data Checks**: Executed commands to retrieve magic bytes and embedded text, confirming the potential for hidden data.\n\n**Main Directive**: Received encoded tool directives indicating the use of `steghide` with credentials acquired from the image's metadata (`cEF6endvcmQ=` and `could`). \n\n**Reasons for Failure**:\n- Failed to execute the extraction with `steghide` immediately after decoding the metadata directive. Prior exploratory commands may have diverted from the best approach outlined in the metadata.\n\n**Unexplored Options**: \n- Sequences for exploring JPEG EOF/appended-data and deeper steganography methods like running `stegseek` or `outguess`.\n\n**Next Approach**:\n1. **Immediate Execution of `steghide`** with the provided credentials (`could`).\n2. **Prioritize Direct Extraction** within `/ctf/img.jpg` to recover any hidden payload effectively.\n3. **If extraction fails again**, consider the next approaches for metadata reassessment or manual JPEG carving before further explorations. \n\nThis structured approach should be ready for retrying the CTF attempt by focusing primarily on executing the extracted tool directive.",
+    "created_at": "2026-02-20T21:56:36.287571",
+    "cost_usd": 0.00325075,
+    "tokens_in": 6827,
+    "tokens_out": 772
+  },
+  {
+    "id": "0e5ad6ec",
+    "name": "Flag in Flame",
+    "category": "forensics",
+    "flag_format": "",
+    "description": "The SOC team discovered a suspiciously large log file after a recent breach. When they opened it, they found an enormous block of encoded text instead of typical logs. Could there be something hidden within? Your mission is to inspect the resulting file and reveal the real purpose of it. The team is relying on your skills to uncover any concealed information within this unusual log.\nDownload the encoded data here: Logs Data. Be prepared\u2014the file is large, and examining it thoroughly is crucial .",
+    "files": [
+      "logs.txt"
+    ],
+    "status": "solving",
+    "flag": "iM4M4{4M4wuvG}",
+    "retry_summary": "### CTF Attempt Summary\n\n#### Files:\n- **Found**: \n  - `/ctf/logs.txt`: Initial file examined.\n  - `/ctf/logs_decoded.png`: Output from the base64 decoding of `logs.txt`.\n\n#### Actions Tried and Their Outcomes:\n1. **Initial Triage of `/ctf/logs.txt`**:\n   - Commands: Checked file type, size, performed hexdump, and strings analysis.\n   - Outcome: Limited insights into the content.\n\n2. **Decisive Base64 Decoding**:\n   - Command: Converted the contents of `logs.txt` into `logs_decoded.png`.\n   - Outcome: Successfully outputted a PNG image but needed verification.\n\n3. **Steganography Check**:\n   - Planned: Using `zsteg` for steganography analysis of `logs_decoded.png`.\n   - Outcome: Initiated but waiting for results.\n\n#### Hypotheses:\n- **Confirmed**: That `logs.txt` contained Base64 encoded data, likely a PNG image.\n- **Ruled Out**: Simpler hidden data formats or non-encoded content.\n\n#### Most Promising Unexplored Path:\n- Conducting a detailed PNG steganography analysis using `zsteg`, as this is a direct follow-up with the potential for high yield.\n\n### Next Approach:\n- Given the low yield from previous actions, the strategy will change. A decisive command will be run to test a new hypothesis that the `logs_decoded.png` contains no hidden data, which can be falsified by checking for significant data hidden in the least significant bits (LSBs) using tools like `zsteg`.\n\n#### Command to Run:\n- Change hypothesis to: \"Assuming the PNG does not contain hidden data.\"\n- Command: **Run `zsteg` on the newly created PNG to verify if any hidden data exists.**\n",
+    "created_at": "2026-02-20T22:50:04.432499",
+    "cost_usd": 0.06666725,
+    "tokens_in": 116381,
+    "tokens_out": 18786
+  },
+  {
+    "id": "ff384639",
+    "name": "flag_printer",
+    "category": "crypto",
+    "flag_format": "",
+    "description": "I made a program to solve a problem, but it seems too slow :(\nDownload the program here.\nDownload the message here.",
+    "files": [
+      "encoded.txt",
+      "flag_printer.py"
+    ],
+    "status": "solving",
+    "flag": null,
+    "retry_summary": null,
+    "created_at": "2026-02-20T23:44:21.365536",
+    "cost_usd": 0.02428175,
+    "tokens_in": 13343,
+    "tokens_out": 10473
+  },
+  {
+    "id": "8717b85a",
+    "name": "hash-only-2",
+    "category": "misc",
+    "flag_format": "",
+    "description": "Here is a binary that has enough privilege to read the content of the flag file but will only let you know its hash. If only it could just give you the actual content!\nConnect using ssh ctf-player@rescued-float.picoctf.net -p 62285 with the password, 3f39b042 and run the binary named \"flaghasher\".",
+    "files": [],
+    "status": "solving",
+    "flag": null,
+    "retry_summary": null,
+    "created_at": "2026-02-21T00:21:36.494061",
+    "cost_usd": 0.03818025,
+    "tokens_in": 45265,
+    "tokens_out": 13432
+  },
+  {
+    "id": "5cfc820a",
+    "name": "byp4ss3d",
+    "category": "web",
+    "flag_format": "",
+    "description": "A university's online registration portal asks students to upload their ID cards for verification. The developer put some filters in place to ensure only image files are uploaded but are they enough? Take a look at how the upload is implemented. Maybe there's a way to slip past the checks and interact with the server in ways you shouldn't.\nYou can access the web application at here!http://amiable-citadel.picoctf.net:60814/",
+    "files": [],
+    "status": "solving",
+    "flag": null,
+    "retry_summary": null,
+    "created_at": "2026-02-21T00:33:45.639455",
+    "cost_usd": 0.05640875,
+    "tokens_in": 84147,
+    "tokens_out": 17686
+  },
+  {
+    "id": "81f8e4ba",
+    "name": "Crack the Gate 2",
+    "category": "web",
+    "flag_format": "",
+    "description": "The login system has been upgraded with a basic rate-limiting mechanism that locks out repeated failed attempts from the same source. We\u2019ve received a tip that the system might still trust user-controlled headers. Your objective is to bypass the rate-limiting restriction and log in using the known email address: ctf-player@picoctf.org and uncover the hidden secret.\nThe website is running here. Can you try to log in?.\nDownload the passwords list here. http://amiable-citadel.picoctf.net:57911/",
+    "files": [
+      "passwords.txt"
+    ],
+    "status": "solved",
+    "flag": "picoCTF{xff_byp4ss_brut3_3477bf15}",
+    "retry_summary": null,
+    "created_at": "2026-02-21T00:40:31.774584",
+    "cost_usd": 0.00305825,
+    "tokens_in": 3033,
+    "tokens_out": 1150
+  },
+  {
+    "id": "ece262f1",
+    "name": "Virtual Machine 1",
+    "category": "rev",
+    "flag_format": "",
+    "description": "The enemy has upgraded their mechanical analog computer. Start an instance to begin.\nWe grabbed this design doc from enemy servers: Download. We know that the rotation of the red axle is input and the rotation of the blue axle is output. Reverse engineer the mechanism and get past their checker program:\nnc saturn.picoctf.net 58927",
+    "files": [
+      "VirtualMachine1.dae"
+    ],
+    "status": "solving",
+    "flag": null,
+    "retry_summary": null,
+    "created_at": "2026-02-21T00:42:38.615392",
+    "cost_usd": 0.07084025,
+    "tokens_in": 159449,
+    "tokens_out": 15489
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "openai_api_key": "",
+  "model": "gpt-5-mini",
+  "prompt_profile": "compact",
+  "tool_context_limit": 4000,
+  "strict_auto_submit": true,
+  "hypothesis_budget": 2,
+  "allow_runtime_installs": false,
+  "broad_eval_min_total_challenges": 100,
+  "broad_eval_min_categories": 5,
+  "broad_eval_min_challenges_per_category": 10,
+  "broad_eval_min_solve_rate": 0.6
+}

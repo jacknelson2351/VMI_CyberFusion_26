@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Big Stein (The Penetrator)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<style>
+/* ── Reset & Base ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #07080a;
+  --bg1:      #0d0f12;
+  --bg2:      #111418;
+  --bg3:      #161b20;
+  --border:   #1e2530;
+  --border2:  #253040;
+  --green:    #00e5a0;
+  --green-dim:#005a40;
+  --amber:    #f5a623;
+  --red:      #ff4d6d;
+  --blue:     #4da6ff;
+  --cyan:     #00d4ff;
+  --purple:   #b06eff;
+  --text:     #c8d6e5;
+  --text-dim: #4a5568;
+  --text-muted: #2d3748;
+
+  --cat-pwn:      #ff4d6d;
+  --cat-web:      #00d4ff;
+  --cat-crypto:   #f5c842;
+  --cat-forensics:#7ed56f;
+  --cat-rev:      #ff8fab;
+  --cat-misc:     #b06eff;
+  --cat-osint:    #ffd700;
+  --cat-network:  #4da6ff;
+
+  --font-mono: 'Space Mono', monospace;
+  --font-sans: 'Syne', sans-serif;
+  --radius:   8px;
+  --radius-lg:14px;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  overflow: hidden;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+
+/* ── Layout ────────────────────────────────────────────────────── */
+#app { height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Topbar ────────────────────────────────────────────────────── */
+#topbar {
+  height: 52px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 100;
+}
+
+#topbar-logo {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0;
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#topbar-logo .brand-name {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  white-space: nowrap;
+}
+#topbar-logo .sep { color: var(--border2); }
+#topbar-title { color: var(--text-dim); font-size: 13px; font-weight: 400; }
+
+#topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  border: 1px solid var(--border2);
+  background: var(--bg2);
+}
+.status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
+.status-pill.ok .dot   { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-pill.warn .dot { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.status-pill.err .dot  { background: var(--red); }
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 16px;
+  border-radius: var(--radius);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btn-primary   { background: var(--green); color: #000; }
+.btn-primary:hover:not(:disabled) { background: #00ffb3; box-shadow: 0 0 20px rgba(0,229,160,0.3); }
+
+.btn-amber     { background: var(--amber); color: #000; }
+.btn-amber:hover:not(:disabled) { background: #ffc04a; }
+
+.btn-ghost     { background: var(--bg3); color: var(--text); border: 1px solid var(--border2); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+
+.btn-danger    { background: rgba(255,77,109,0.15); color: var(--red); border: 1px solid rgba(255,77,109,0.3); }
+.btn-danger:hover:not(:disabled) { background: rgba(255,77,109,0.25); }
+
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+.btn-icon { padding: 7px 10px; }
+
+/* ── Views ─────────────────────────────────────────────────────── */
+.view { display: none; flex: 1; overflow: hidden; }
+.view.active { display: flex; flex-direction: column; }
+
+/* ── Dashboard ─────────────────────────────────────────────────── */
+#view-dashboard { flex-direction: column; }
+
+#dash-header {
+  padding: 20px 24px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#dash-header h1 {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  font-stretch: 100%;
+  text-transform: none;
+  color: #fff;
+}
+
+.dash-cost {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: linear-gradient(90deg, rgba(0,212,255,0.12), rgba(0,0,0,0));
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.dash-cost .label { letter-spacing: 0.12em; color: var(--text-muted); font-weight: 700; }
+.dash-cost .value { color: #fff; font-weight: 700; }
+.dash-cost .tokens { color: var(--text-dim); }
+
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-tab {
+  padding: 5px 13px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+.filter-tab:hover { border-color: var(--border2); color: var(--text); }
+.filter-tab.active { border-color: var(--green); color: var(--green); background: rgba(0,229,160,0.06); }
+
+#cards-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+#cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+/* ── Challenge Card ─────────────────────────────────────────────── */
+.card {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--card-accent, var(--green));
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.card:hover {
+  border-color: var(--border2);
+  background: var(--bg2);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+}
+.card:hover::before { opacity: 1; }
+.card-alert {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,77,109,0.45);
+  background: rgba(255,77,109,0.18);
+  color: #ffd6de;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.card-cat {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+  color: var(--card-accent);
+}
+.card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+.card-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  height: 36px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.card-status {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; }
+.status-unsolved .status-dot { background: var(--text-muted); }
+.status-solving  .status-dot { background: var(--amber); animation: pulse 1.5s infinite; }
+.status-solved   .status-dot { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.status-running  .status-dot { background: var(--green); animation: pulse 1.2s infinite; box-shadow: 0 0 8px var(--green); }
+.status-waiting  .status-dot { background: var(--text-muted); }
+.status-idle     .status-dot { background: var(--text-muted); }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.card-meta {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* empty state */
+.empty-state {
+  grid-column: 1/-1;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+.empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text-dim); }
+.empty-state p  { font-size: 13px; line-height: 1.6; }
+
+/* ── Modal ──────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  width: 560px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  animation: modal-in 0.2s ease;
+}
+@keyframes modal-in { from { opacity:0; transform:scale(0.96) translateY(8px); } }
+
+.modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-title { font-size: 16px; font-weight: 800; }
+.modal-close {
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text-dim); width: 28px; height: 28px;
+  border-radius: 6px; cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.modal-close:hover { color: #fff; border-color: var(--text-dim); }
+
+.modal-body { padding: 20px 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ── Forms ──────────────────────────────────────────────────────── */
+.field { margin-bottom: 16px; }
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+}
+.field input, .field select, .field textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  transition: border-color 0.15s;
+  outline: none;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(0,229,160,0.1);
+}
+.field textarea { min-height: 120px; resize: vertical; font-size: 13px; line-height: 1.6; }
+.field select option { background: var(--bg2); }
+
+.fields-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* ── Build Modal ─────────────────────────────────────────────────── */
+#build-log {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  height: 320px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+#build-log .log-line { word-break: break-all; }
+#build-log .log-line.done  { color: var(--green); font-weight: 700; }
+#build-log .log-line.error { color: var(--red); font-weight: 700; }
+
+/* ── Challenge View ──────────────────────────────────────────────── */
+#view-challenge {
+  flex-direction: row;
+}
+
+/* Sidebar */
+#ch-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--bg1);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#ch-sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.back-btn {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-dim);
+  cursor: pointer; margin-bottom: 14px;
+  transition: color 0.15s;
+  background: none; border: none;
+  font-family: var(--font-sans);
+}
+.back-btn:hover { color: var(--green); }
+
+.ch-name-block {}
+.ch-category-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-bottom: 5px;
+}
+.ch-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.3;
+}
+
+#ch-sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.sidebar-section {
+  margin-bottom: 20px;
+}
+.sidebar-section-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+/* Status badge */
+.ch-status-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  border-radius: 99px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid;
+}
+.badge-unsolved { border-color: var(--border2); color: var(--text-dim); }
+.badge-solving  { border-color: var(--amber); color: var(--amber); background: rgba(245,166,35,0.08); }
+.badge-running  { border-color: var(--green); color: var(--green); background: rgba(0,229,160,0.08); }
+.badge-waiting  { border-color: var(--text-muted); color: var(--text-muted); background: rgba(255,255,255,0.03); }
+.badge-idle     { border-color: var(--text-muted); color: var(--text-muted); background: rgba(255,255,255,0.03); }
+.badge-solved   { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,0.08); }
+.badge-solved   { border-color: var(--green); color: var(--green); background: rgba(0,229,160,0.08); }
+
+/* Description */
+.ch-description {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* File list */
+.file-list { display: flex; flex-direction: column; gap: 5px; }
+.file-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.file-item .file-icon { font-size: 13px; }
+.file-empty { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+
+/* Upload zone */
+#upload-zone {
+  border: 1px dashed var(--border2);
+  border-radius: var(--radius);
+  padding: 18px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+#upload-zone:hover, #upload-zone.drag-over {
+  border-color: var(--green);
+  background: rgba(0,229,160,0.04);
+}
+#upload-zone .upload-icon { font-size: 24px; margin-bottom: 6px; }
+#upload-zone .upload-text { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+#upload-zone .upload-hint { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 4px; }
+#upload-input-hidden { display: none; }
+
+#upload-progress {
+  margin-top: 8px;
+  display: none;
+}
+#upload-progress.visible { display: block; }
+.upload-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.upload-bar-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 99px;
+  width: 0%;
+  transition: width 0.3s;
+  animation: upload-shimmer 1.5s infinite;
+}
+@keyframes upload-shimmer {
+  0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; }
+}
+
+/* Cost */
+.cost-display {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--amber);
+  font-weight: 700;
+}
+.cost-tokens { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+
+/* Sidebar actions */
+#ch-sidebar-actions {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+/* Main area */
+#ch-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Prompt bar */
+#prompt-bar {
+  padding: 12px 16px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+#prompt-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 9px 14px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+#prompt-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,229,160,0.1); }
+#prompt-input::placeholder { color: var(--text-muted); }
+
+/* Flag banner */
+#flag-banner {
+  background: linear-gradient(90deg, rgba(0,229,160,0.12), rgba(0,229,160,0.04));
+  border: 1px solid var(--green);
+  border-radius: var(--radius);
+  margin: 12px 16px 0;
+  padding: 12px 16px;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  animation: flag-in 0.4s ease;
+}
+#flag-banner.visible { display: flex; }
+@keyframes flag-in { from { opacity:0; transform:scale(0.98); } }
+.flag-label { font-family: var(--font-mono); font-size: 11px; color: var(--green); font-weight: 700; letter-spacing: 0.1em; }
+.flag-value { font-family: var(--font-mono); font-size: 14px; color: #fff; font-weight: 700; flex: 1; word-break: break-all; }
+.flag-copy  { background: rgba(0,229,160,0.15); border: 1px solid rgba(0,229,160,0.3); color: var(--green); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: var(--font-mono); transition: all 0.15s; }
+.flag-copy:hover { background: rgba(0,229,160,0.25); }
+
+/* Logs area */
+#logs-area {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1fr;
+  overflow: hidden;
+  gap: 0;
+}
+
+.log-pane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+.log-pane:last-child { border-right: none; }
+
+.log-pane-header {
+  padding: 8px 14px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.log-pane-header .pane-icon { font-size: 13px; }
+.agent-activity {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+.agent-activity .activity-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: 0 0 0 0 rgba(0,229,160,0.0);
+}
+.agent-activity.running .activity-dot {
+  background: var(--green);
+  animation: pulse 1.2s infinite;
+}
+.agent-activity .activity-label {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.agent-activity .activity-time {
+  color: var(--text-muted);
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.agent-status-line {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, rgba(0,229,160,0.08), rgba(0,0,0,0));
+}
+
+.log-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+/* Plan entries */
+.plan-entry {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--cyan);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.plan-entry:last-child { border-bottom: none; margin-bottom: 0; }
+.plan-entry.replan { color: var(--amber); }
+.plan-timestamp { font-size: 10px; color: var(--text-muted); margin-bottom: 5px; }
+
+/* Agent entries */
+.agent-entry { margin-bottom: 8px; }
+.agent-entry.reasoning { color: var(--text-dim); white-space: pre-wrap; word-break: break-word; }
+.agent-entry.command   {
+  background: rgba(0,229,160,0.06);
+  border: 1px solid rgba(0,229,160,0.15);
+  border-radius: 5px;
+  padding: 6px 10px;
+  color: var(--green);
+  word-break: break-all;
+}
+.agent-entry.command::before { content: '$ '; opacity: 0.6; }
+.agent-entry.gdb-command { background: rgba(180,100,255,0.06); border-color: rgba(180,100,255,0.15); color: var(--purple); }
+.agent-entry.gdb-command::before { content: '⚙ '; }
+.agent-entry.system { color: var(--text-muted); font-style: italic; font-size: 10px; }
+.agent-entry.error  { color: var(--red); }
+
+/* Output entries */
+.output-entry {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 10.5px;
+}
+.output-entry:last-child { border-bottom: none; margin-bottom: 0; }
+.output-timestamp { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
+.output-content { color: #a8b8cc; }
+
+/* ── Toast ──────────────────────────────────────────────────────── */
+#toast-container {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  z-index: 9999;
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 13px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  animation: toast-in 0.2s ease;
+  display: flex; align-items: center; gap: 10px;
+  pointer-events: auto;
+}
+@keyframes toast-in { from { opacity:0; transform:translateY(10px); } }
+.toast.success { border-color: rgba(0,229,160,0.4); }
+.toast.error   { border-color: rgba(255,77,109,0.4); }
+
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Topbar ────────────────────────────────────────── -->
+  <div id="topbar">
+    <div id="topbar-logo">
+      <span>◈</span>
+      <span class="brand-name">Big Stein (The Penetrator)</span>
+      <span class="sep">|</span>
+      <span id="topbar-title" style="font-weight:400;font-size:13px;color:var(--text-dim);">vibecoded by jack</span>
+    </div>
+    <div id="topbar-right">
+      <div id="docker-status" class="status-pill">
+        <div class="dot"></div>
+        <span>checking docker…</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="btn-build-open" title="Build Docker image">
+        ⚙ Build Image
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Dashboard View ───────────────────────────────── -->
+  <div class="view active" id="view-dashboard">
+    <div id="dash-header">
+      <h1>Challenges</h1>
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-cat="all">ALL</button>
+        <button class="filter-tab" data-cat="pwn">PWN</button>
+        <button class="filter-tab" data-cat="web">WEB</button>
+        <button class="filter-tab" data-cat="crypto">CRYPTO</button>
+        <button class="filter-tab" data-cat="forensics">FORENSICS</button>
+        <button class="filter-tab" data-cat="rev">REV</button>
+        <button class="filter-tab" data-cat="misc">MISC</button>
+        <button class="filter-tab" data-cat="osint">OSINT</button>
+        <button class="filter-tab" data-cat="network">NETWORK</button>
+      </div>
+      <div class="dash-cost" id="dash-cost">
+        <span class="label">SESSION COST</span>
+        <span class="value" id="dash-cost-value">$0.0000</span>
+        <span class="tokens" id="dash-cost-tokens">0 in / 0 out</span>
+      </div>
+      <div>
+        <button class="btn btn-primary" id="btn-new-challenge">+ New Challenge</button>
+      </div>
+    </div>
+    <div id="cards-scroll">
+      <div id="cards-grid"></div>
+    </div>
+  </div>
+
+  <!-- ── Challenge View ───────────────────────────────── -->
+  <div class="view" id="view-challenge">
+    <!-- Sidebar -->
+    <div id="ch-sidebar">
+      <div id="ch-sidebar-header">
+        <button class="back-btn" id="btn-back">← Back to Challenges</button>
+        <div class="ch-name-block">
+          <div class="ch-category-badge" id="ch-category-badge">PWN</div>
+          <div class="ch-title" id="ch-title">Challenge Name</div>
+        </div>
+      </div>
+
+      <div id="ch-sidebar-body">
+        <!-- Status -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Status</div>
+          <div id="ch-status-badge" class="ch-status-badge badge-unsolved">
+            <span class="status-dot"></span> UNSOLVED
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Description</div>
+          <div class="ch-description" id="ch-description">No description.</div>
+        </div>
+
+        <!-- Files -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Files</div>
+          <div class="file-list" id="file-list">
+            <span class="file-empty">No files uploaded</span>
+          </div>
+        </div>
+
+        <!-- Upload -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Upload Files</div>
+          <div id="upload-zone">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Drop files here or click to browse</div>
+            <div class="upload-hint">Zips/tars are auto-extracted</div>
+            <input type="file" id="upload-input-hidden" multiple>
+          </div>
+          <div id="upload-progress">
+            <div class="upload-bar"><div class="upload-bar-fill" id="upload-bar-fill"></div></div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-family:var(--font-mono)" id="upload-status-text">Uploading…</div>
+          </div>
+        </div>
+
+        <!-- Cost -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">API Cost</div>
+          <div class="cost-display" id="cost-display">—</div>
+          <div class="cost-tokens" id="cost-tokens"></div>
+        </div>
+      </div>
+
+      <div id="ch-sidebar-actions">
+        <button class="btn btn-danger btn-sm" id="btn-reset" style="width:100%">↺ Reset Container</button>
+        <button class="btn btn-danger btn-sm" id="btn-delete" style="width:100%;background:rgba(255,77,109,0.08)">✕ Delete Challenge</button>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div id="ch-main">
+      <!-- Prompt bar -->
+      <div id="prompt-bar">
+        <input type="text" id="prompt-input" placeholder="Extra context for the agent (optional)…">
+        <button class="btn btn-primary" id="btn-launch">▶ Launch</button>
+        <button class="btn btn-amber" id="btn-retry">↺ Retry w/ Memory</button>
+        <button class="btn btn-danger" id="btn-stop">■ Stop</button>
+      </div>
+
+      <!-- Flag banner -->
+      <div id="flag-banner">
+        <span style="font-size:20px">🎉</span>
+        <div>
+          <div class="flag-label">FLAG CAPTURED</div>
+          <div class="flag-value" id="flag-value">flag{...}</div>
+        </div>
+        <button class="flag-copy" id="flag-copy">Copy</button>
+      </div>
+
+      <!-- Logs -->
+      <div id="logs-area">
+        <!-- Plan pane -->
+        <div class="log-pane">
+          <div class="log-pane-header">
+            <span class="pane-icon">📋</span> ATTACK PLAN
+          </div>
+          <div class="log-scroll" id="plan-log"></div>
+        </div>
+
+        <!-- Agent pane -->
+        <div class="log-pane">
+          <div class="log-pane-header">
+            <span class="pane-icon">🤖</span> AGENT REASONING
+            <span class="agent-activity" id="agent-activity">
+              <span class="activity-dot"></span>
+              <span class="activity-label" id="agent-activity-label">IDLE</span>
+              <span class="activity-time" id="agent-activity-time"></span>
+            </span>
+          </div>
+          <div class="agent-status-line" id="agent-status-line">Idle.</div>
+          <div class="log-scroll" id="agent-log"></div>
+        </div>
+
+        <!-- Output pane -->
+        <div class="log-pane">
+          <div class="log-pane-header">
+            <span class="pane-icon">🐳</span> CONTAINER OUTPUT
+          </div>
+          <div class="log-scroll" id="output-log"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── New Challenge Modal ────────────────────────────── -->
+<div class="modal-overlay" id="modal-new">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">New Challenge</div>
+      <button class="modal-close" data-close="modal-new">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="fields-row">
+        <div class="field">
+          <label>CHALLENGE NAME</label>
+          <input type="text" id="new-name" placeholder="e.g. Baby Stack, SQL Injection 101">
+        </div>
+        <div class="field">
+          <label>CATEGORY</label>
+          <select id="new-cat">
+            <option value="pwn">PWN</option>
+            <option value="web">WEB</option>
+            <option value="crypto">CRYPTO</option>
+            <option value="forensics">FORENSICS</option>
+            <option value="rev">REV</option>
+            <option value="misc">MISC</option>
+            <option value="osint">OSINT</option>
+            <option value="network">NETWORK</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>FLAG FORMAT <span style="color:var(--text-muted);font-weight:400">(optional — helps agent recognize the flag)</span></label>
+        <input type="text" id="new-flagfmt" placeholder="e.g.  cyberfusion{...}   or   flag{...}">
+      </div>
+      <div class="field">
+        <label>DESCRIPTION <span style="color:var(--text-muted);font-weight:400">(paste the full challenge text here)</span></label>
+        <textarea id="new-desc" placeholder="Paste the complete challenge description, URLs, hints, anything the agent should know…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="modal-new">Cancel</button>
+      <button class="btn btn-primary" id="btn-create-challenge">Create Challenge</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Build Image Modal ────────────────────────────────── -->
+<div class="modal-overlay" id="modal-build">
+  <div class="modal" style="width:640px">
+    <div class="modal-header">
+      <div class="modal-title">⚙ Build Docker Image</div>
+      <button class="modal-close" data-close="modal-build">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;line-height:1.6;">
+        This builds a Kali Linux Docker image with all CTF tools pre-installed.
+        Takes <strong style="color:var(--text)">5–15 minutes</strong> and requires ~4GB of disk space.
+        Only needs to be done once.
+      </p>
+      <div id="build-log"><span style="color:var(--text-muted)">Press Build to start…</span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="modal-build" id="btn-close-build">Close</button>
+      <button class="btn btn-primary" id="btn-start-build">⚙ Build Image</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast container ──────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<script>
+// ── State ───────────────────────────────────────────────
+const state = {
+  challenges: [],
+  currentCid: null,
+  filter: 'all',
+  agentRunning: false,
+  lastActivityAt: null,
+  lastActivityLabel: '',
+  logCache: {},
+  cardErrors: {},
+};
+
+const CAT_COLORS = {
+  pwn:'#ff4d6d', web:'#00d4ff', crypto:'#f5c842', forensics:'#7ed56f',
+  rev:'#ff8fab', misc:'#b06eff', osint:'#ffd700', network:'#4da6ff',
+};
+
+// ── Socket.IO ────────────────────────────────────────────
+const socket = io();
+
+socket.on('connect', () => {
+  if (state.currentCid) socket.emit('join', { cid: state.currentCid });
+  for (const c of state.challenges) {
+    if (c.running) socket.emit('join', { cid: c.id });
+  }
+});
+
+function cacheLog(cid, entry) {
+  if (!cid) return;
+  if (!state.logCache[cid]) state.logCache[cid] = [];
+  state.logCache[cid].push(entry);
+  if (state.logCache[cid].length > 2000) state.logCache[cid].splice(0, 200);
+}
+
+function handleLogEvent(ev, data) {
+  const cid = data && data.cid;
+  const t = Date.now() / 1000;
+  if (cid) {
+    const idx = state.challenges.findIndex(ch => ch.id === cid);
+    if (idx >= 0 && !state.challenges[idx].running) {
+      state.challenges[idx].running = true;
+      renderCards();
+    }
+    if (cid === state.currentCid) {
+      state.agentRunning = true;
+      updateRunningUI();
+    }
+  }
+  cacheLog(cid, { event: ev, data, ts: t });
+  if (!cid || cid !== state.currentCid) return false;
+  if (ev === 'plan') appendPlan(data.text || '', !!data.replan, t);
+  else if (ev === 'thought') appendAgent(data.text || '', data.type || 'reasoning');
+  else if (ev === 'command') appendAgent(data.cmd || '', data.gdb ? 'gdb-command' : 'command');
+  else if (ev === 'output') appendOutput(data.text || '', t);
+  else if (ev === 'flag') {
+    if (data.flag) showFlag(data.flag);
+    appendAgent(`🎉 FLAG FOUND: ${data.flag || ''}`, 'reasoning');
+    if (data.how) appendAgent(data.how, 'system');
+  } else if (ev === 'done') {
+    if (data.message) appendAgent(data.message, 'system');
+  }
+  return true;
+}
+
+function setCardError(cid, message) {
+  if (!cid) return;
+  state.cardErrors[cid] = String(message || 'Error');
+}
+
+function clearCardError(cid) {
+  if (!cid || !state.cardErrors[cid]) return;
+  delete state.cardErrors[cid];
+}
+
+socket.on('thought', (data) => {
+  handleLogEvent('thought', data);
+  if (data && data.cid === state.currentCid) markActivity('thinking');
+});
+socket.on('thought_stream_start', ({ id, type, cid }) => {
+  if (!cid || cid === state.currentCid) startAgentStream(id, type || 'reasoning');
+  if (cid === state.currentCid) markActivity('thinking');
+});
+socket.on('thought_stream_delta', ({ id, text, cid }) => {
+  if (!cid || cid === state.currentCid) appendAgentStream(id, text || '');
+  if (cid === state.currentCid) markActivity('writing');
+});
+socket.on('thought_stream_end', ({ id }) => {
+  endAgentStream(id);
+});
+socket.on('command', (data) => {
+  handleLogEvent('command', data);
+  if (data && data.cid === state.currentCid) markActivity('running command');
+});
+socket.on('output', (data) => {
+  handleLogEvent('output', data);
+  if (data && data.cid === state.currentCid) markActivity('container output');
+});
+socket.on('plan', (data) => {
+  handleLogEvent('plan', data);
+  if (data && data.cid === state.currentCid) markActivity('planning');
+});
+socket.on('flag', (data) => {
+  handleLogEvent('flag', data);
+  if (data && data.cid === state.currentCid) markActivity('flag found');
+});
+socket.on('done', (data) => {
+  handleLogEvent('done', data);
+  if (data && data.cid) {
+    const idx = state.challenges.findIndex(ch => ch.id === data.cid);
+    if (idx >= 0) {
+      state.challenges[idx].running = false;
+      if (data.status) state.challenges[idx].status = data.status;
+    }
+    renderCards();
+  }
+  if (!data || data.cid !== state.currentCid) return;
+  state.agentRunning = false;
+  updateRunningUI();
+  refreshCurrentChallenge();
+  markActivity('idle');
+});
+socket.on('error', (data) => {
+  handleLogEvent('error', data);
+  if (data && data.cid) {
+    setCardError(data.cid, data.message || 'Error');
+    renderCards();
+  }
+});
+socket.on('cost', ({ cost, cost_usd, tokens_in, tokens_out, known, model, cid }) => {
+  if (!cid || cid === state.currentCid) {
+    const costEl = document.getElementById('cost-display');
+    costEl.textContent = cost;
+    if (known) {
+      costEl.removeAttribute('title');
+    } else {
+      costEl.title = `Pricing not configured for ${model}. Set model_pricing in config.json.`;
+    }
+    document.getElementById('cost-tokens').textContent = `${tokens_in.toLocaleString()} in / ${tokens_out.toLocaleString()} out`;
+  }
+
+  if (cid) {
+    const idx = state.challenges.findIndex(ch => ch.id === cid);
+    if (idx >= 0) {
+      if (typeof cost_usd === 'number') state.challenges[idx].cost_usd = cost_usd;
+      state.challenges[idx].tokens_in = tokens_in || 0;
+      state.challenges[idx].tokens_out = tokens_out || 0;
+      updateDashboardMetrics();
+      renderCards();
+    }
+  }
+});
+socket.on('file_uploaded', ({ name, listing }) => {
+  toast(`✓ Uploaded: ${name}`, 'success');
+  refreshCurrentChallenge();
+  appendOutput(`Uploaded: ${name}\n\n/ctf/ contents:\n${listing}`);
+  hideUploadProgress();
+});
+socket.on('build_log', ({ line, done, error }) => {
+  const log = document.getElementById('build-log');
+  const el = document.createElement('div');
+  el.className = 'log-line' + (done && !error ? ' done' : '') + (error ? ' error' : '');
+  el.textContent = line;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+  if (done) {
+    document.getElementById('btn-start-build').disabled = false;
+    document.getElementById('btn-start-build').textContent = '⚙ Build Image';
+    checkDockerStatus();
+  }
+});
+
+// ── API helpers ──────────────────────────────────────────
+async function api(path, opts = {}) {
+  const r = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  return r.json();
+}
+
+// ── Docker status ────────────────────────────────────────
+async function checkDockerStatus() {
+  try {
+    const s = await api('/api/docker/status');
+    const el = document.getElementById('docker-status');
+    if (!s.running) {
+      el.className = 'status-pill err';
+      el.innerHTML = '<div class="dot"></div><span>Docker not running</span>';
+    } else if (!s.image) {
+      el.className = 'status-pill warn';
+      el.innerHTML = '<div class="dot"></div><span>Image not built</span>';
+    } else {
+      el.className = 'status-pill ok';
+      const n = s.active_agents || 0;
+      el.innerHTML = `<div class="dot"></div><span>Docker ready • ${n} running</span>`;
+    }
+  } catch {
+    const el = document.getElementById('docker-status');
+    el.className = 'status-pill err';
+    el.innerHTML = '<div class="dot"></div><span>Docker offline</span>';
+  }
+}
+checkDockerStatus();
+setInterval(checkDockerStatus, 15000);
+
+// ── Challenges ────────────────────────────────────────────
+async function loadChallenges() {
+  state.challenges = await api('/api/challenges');
+  renderCards();
+  updateDashboardMetrics();
+  // Join rooms for active challenges so logs keep streaming in background
+  for (const c of state.challenges) {
+    if (c.running) socket.emit('join', { cid: c.id });
+  }
+}
+
+function renderCards() {
+  const grid = document.getElementById('cards-grid');
+  const filtered = state.filter === 'all'
+    ? state.challenges
+    : state.challenges.filter(c => c.category === state.filter);
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🏴</div>
+        <h3>No challenges yet</h3>
+        <p>Click <strong>+ New Challenge</strong> to add your first CTF challenge.</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(c => {
+    const color = CAT_COLORS[c.category] || '#888';
+    const info = statusInfo(c);
+    const statusClass = `status-${info.key}`;
+    const statusText = info.label;
+    const cardErr = state.cardErrors[c.id];
+    const nFiles = (c.files || []).length;
+    const cost = c.cost_usd > 0 ? `$${c.cost_usd.toFixed(3)}` : '—';
+    const desc = (c.description || 'No description').slice(0, 90) + (c.description?.length > 90 ? '…' : '');
+
+    return `
+      <div class="card" onclick="openChallenge('${c.id}')" style="--card-accent:${color}">
+        ${cardErr ? `<div class="card-alert" title="${escHtml(cardErr)}">ERROR</div>` : ''}
+        <div class="card-cat" style="color:${color}">${c.category.toUpperCase()}</div>
+        <div class="card-name">${escHtml(c.name)}</div>
+        <div class="card-desc">${escHtml(desc)}</div>
+        <div class="card-footer">
+          <div class="card-status ${statusClass}">
+            <div class="status-dot"></div>
+            <span style="color:${info.color}">${statusText}</span>
+          </div>
+          <div class="card-meta">
+            <span title="Files">📎 ${nFiles}</span>
+            <span title="Cost">💰 ${cost}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function updateDashboardMetrics() {
+  let totalCost = 0;
+  let totalIn = 0;
+  let totalOut = 0;
+  for (const c of state.challenges) {
+    totalCost += Number(c.cost_usd || 0);
+    totalIn += Number(c.tokens_in || 0);
+    totalOut += Number(c.tokens_out || 0);
+  }
+  const costEl = document.getElementById('dash-cost-value');
+  const tokEl = document.getElementById('dash-cost-tokens');
+  if (costEl) costEl.textContent = `$${totalCost.toFixed(4)}`;
+  if (tokEl) tokEl.textContent = `${totalIn.toLocaleString()} in / ${totalOut.toLocaleString()} out`;
+}
+
+// ── Challenge view ────────────────────────────────────────
+function openChallenge(cid) {
+  const c = state.challenges.find(ch => ch.id === cid);
+  if (!c) return;
+
+  clearCardError(cid);
+  renderCards();
+
+  state.currentCid = cid;
+  state.agentRunning = false;
+
+  // Join socket room
+  socket.emit('join', { cid });
+
+  // Clear logs
+  document.getElementById('plan-log').innerHTML = '';
+  document.getElementById('agent-log').innerHTML = '';
+  document.getElementById('output-log').innerHTML = '';
+  document.getElementById('flag-banner').classList.remove('visible');
+  document.getElementById('cost-display').textContent = '—';
+  document.getElementById('cost-tokens').textContent = '';
+
+  // Populate sidebar
+  const color = CAT_COLORS[c.category] || '#888';
+  const badge = document.getElementById('ch-category-badge');
+  badge.textContent = c.category.toUpperCase();
+  badge.style.color = color;
+  document.getElementById('ch-title').textContent = c.name;
+  document.getElementById('ch-description').textContent = c.description || 'No description provided.';
+
+  renderFileList(c.files || []);
+  renderStatusBadge(c.status, c.running);
+
+  if (c.status === 'solved' && c.flag) showFlag(c.flag);
+
+  switchView('view-challenge');
+  updateRunningUI();
+
+  // Load persisted logs for this challenge
+  api(`/api/challenges/${state.currentCid}/logs`).then(logs => {
+    document.getElementById('plan-log').innerHTML = '';
+    document.getElementById('agent-log').innerHTML = '';
+    document.getElementById('output-log').innerHTML = '';
+    if (Array.isArray(logs)) {
+      state.logCache[state.currentCid] = logs;
+      for (const entry of logs) {
+        const ev = entry.event;
+        const data = entry.data || {};
+        const t = entry.ts || null;
+        if (ev === 'plan') {
+          appendPlan(data.text || '', !!data.replan, t);
+        } else if (ev === 'thought') {
+          appendAgent(data.text || '', data.type || 'reasoning');
+        } else if (ev === 'command') {
+          appendAgent(data.cmd || '', data.gdb ? 'gdb-command' : 'command');
+        } else if (ev === 'output') {
+          appendOutput(data.text || '', t);
+        } else if (ev === 'flag') {
+          if (data.flag) showFlag(data.flag);
+          appendAgent(`🎉 FLAG FOUND: ${data.flag || ''}`, 'reasoning');
+          if (data.how) appendAgent(data.how, 'system');
+        } else if (ev === 'done') {
+          if (data.message) appendAgent(data.message, 'system');
+        }
+      }
+    }
+  });
+}
+
+function renderFileList(files) {
+  const list = document.getElementById('file-list');
+  if (!files.length) {
+    list.innerHTML = '<span class="file-empty">No files uploaded</span>';
+    return;
+  }
+  list.innerHTML = files.map(f => `
+    <div class="file-item">
+      <span class="file-icon">📄</span>
+      <span style="word-break:break-all;min-width:0">${escHtml(f)}</span>
+    </div>`).join('');
+}
+
+function statusInfo(c) {
+  if (c.running) return { key: 'running', label: 'RUNNING', color: 'var(--green)' };
+  if (c.status === 'solved') return { key: 'solved', label: 'SOLVED', color: 'var(--cyan)' };
+  return { key: 'idle', label: 'IDLE', color: 'var(--text-muted)' };
+}
+
+function renderStatusBadge(status, running = false) {
+  const el = document.getElementById('ch-status-badge');
+  const info = statusInfo({ status, running });
+  el.className = `ch-status-badge badge-${info.key}`;
+  el.innerHTML = `<span class="status-dot"></span> ${info.label}`;
+}
+
+async function refreshCurrentChallenge() {
+  if (!state.currentCid) return;
+  const c = await api(`/api/challenges/${state.currentCid}`);
+  // Update in state
+  const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
+  if (idx >= 0) state.challenges[idx] = c;
+  renderFileList(c.files || []);
+  renderStatusBadge(c.status, c.running);
+  state.agentRunning = !!c.running;
+  updateRunningUI();
+  if (c.status === 'solved' && c.flag) showFlag(c.flag);
+}
+
+// ── Logs ──────────────────────────────────────────────────
+function formatTs(t) {
+  if (!t) return ts();
+  const d = new Date(t * 1000);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
+function appendPlan(text, replan = false, t = null) {
+  const log = document.getElementById('plan-log');
+  const el = document.createElement('div');
+  el.className = `plan-entry${replan ? ' replan' : ''}`;
+  el.innerHTML = `<div class="plan-timestamp">${formatTs(t)}</div>${escHtml(text)}`;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+}
+
+function appendAgent(text, type = 'reasoning') {
+  const log = document.getElementById('agent-log');
+  const el = document.createElement('div');
+  el.className = `agent-entry ${type}`;
+  el.textContent = text;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+}
+
+const agentStreams = new Map();
+function startAgentStream(id, type = 'reasoning') {
+  const log = document.getElementById('agent-log');
+  const el = document.createElement('div');
+  el.className = `agent-entry ${type}`;
+  el.dataset.streamId = id;
+  el.textContent = '';
+  log.appendChild(el);
+  agentStreams.set(id, el);
+  log.scrollTop = log.scrollHeight;
+}
+function appendAgentStream(id, text) {
+  const el = agentStreams.get(id);
+  if (!el) return;
+  el.textContent += text;
+  const log = document.getElementById('agent-log');
+  log.scrollTop = log.scrollHeight;
+}
+function endAgentStream(id) {
+  agentStreams.delete(id);
+}
+
+function appendOutput(text, t = null) {
+  const log = document.getElementById('output-log');
+  const el = document.createElement('div');
+  el.className = 'output-entry';
+  el.innerHTML = `<div class="output-timestamp">${formatTs(t)}</div><div class="output-content">${escHtml(text)}</div>`;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+}
+
+function markActivity(label) {
+  state.lastActivityAt = Date.now();
+  state.lastActivityLabel = label || state.lastActivityLabel || 'active';
+  updateAgentActivity();
+}
+
+function formatAgo(ms) {
+  if (ms < 1000) return 'just now';
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
+}
+
+function updateAgentActivity() {
+  const el = document.getElementById('agent-activity');
+  const labelEl = document.getElementById('agent-activity-label');
+  const timeEl = document.getElementById('agent-activity-time');
+  const statusLine = document.getElementById('agent-status-line');
+  if (!el || !labelEl || !timeEl) return;
+
+  if (!state.agentRunning) {
+    el.classList.remove('running');
+    labelEl.textContent = 'IDLE';
+    timeEl.textContent = '';
+    if (statusLine) statusLine.textContent = 'Idle.';
+    return;
+  }
+
+  el.classList.add('running');
+  const baseLabel = state.lastActivityLabel || 'RUNNING';
+  labelEl.textContent = baseLabel.toUpperCase();
+  let agoText = '…';
+  let ageMs = null;
+  if (state.lastActivityAt) {
+    ageMs = Date.now() - state.lastActivityAt;
+    agoText = formatAgo(ageMs);
+  }
+  timeEl.textContent = agoText;
+
+  if (statusLine) {
+    if (ageMs !== null && ageMs > 5000) {
+      statusLine.textContent = `Running (no new output for ${agoText}). Waiting on model response…`;
+    } else if (state.lastActivityLabel) {
+      statusLine.textContent = `Running: ${state.lastActivityLabel}.`;
+    } else {
+      statusLine.textContent = 'Running.';
+    }
+  }
+}
+
+let activityTimer = null;
+function startActivityTimer() {
+  if (activityTimer) return;
+  activityTimer = setInterval(updateAgentActivity, 1000);
+}
+function stopActivityTimer() {
+  if (activityTimer) clearInterval(activityTimer);
+  activityTimer = null;
+}
+
+function showFlag(flag) {
+  const banner = document.getElementById('flag-banner');
+  document.getElementById('flag-value').textContent = flag;
+  banner.classList.add('visible');
+}
+
+// ── Upload ────────────────────────────────────────────────
+function setupUpload() {
+  const zone  = document.getElementById('upload-zone');
+  const input = document.getElementById('upload-input-hidden');
+
+  zone.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => uploadFiles(input.files));
+
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    zone.classList.add('drag-over');
+  });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    uploadFiles(e.dataTransfer.files);
+  });
+}
+
+function showUploadProgress(name) {
+  document.getElementById('upload-progress').classList.add('visible');
+  document.getElementById('upload-status-text').textContent = `Uploading ${name}…`;
+  document.getElementById('upload-bar-fill').style.width = '60%';
+}
+function hideUploadProgress() {
+  document.getElementById('upload-bar-fill').style.width = '100%';
+  setTimeout(() => {
+    document.getElementById('upload-progress').classList.remove('visible');
+    document.getElementById('upload-bar-fill').style.width = '0%';
+  }, 800);
+}
+
+async function uploadFiles(files) {
+  if (!state.currentCid || !files.length) return;
+  for (const file of files) {
+    showUploadProgress(file.name);
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await fetch(`/api/challenges/${state.currentCid}/upload`, {
+        method: 'POST', body: fd,
+      });
+      const data = await r.json();
+      if (data.error) {
+        toast(`Upload failed: ${data.error}`, 'error');
+        hideUploadProgress();
+      } else {
+        hideUploadProgress();
+        refreshCurrentChallenge(); // ensure UI updates even if socket events drop
+      }
+    } catch (e) {
+      toast(`Upload error: ${e}`, 'error');
+      hideUploadProgress();
+    }
+  }
+  document.getElementById('upload-input-hidden').value = '';
+}
+
+// ── Agent ─────────────────────────────────────────────────
+function updateRunningUI() {
+  document.getElementById('btn-launch').disabled  = state.agentRunning;
+  document.getElementById('btn-retry').disabled   = state.agentRunning;
+  document.getElementById('btn-stop').disabled    = !state.agentRunning;
+  updateAgentActivity();
+  if (state.agentRunning) startActivityTimer();
+  else stopActivityTimer();
+}
+
+async function launch(retry = false) {
+  if (!state.currentCid) return;
+  const extra = document.getElementById('prompt-input').value.trim();
+  document.getElementById('prompt-input').value = '';
+
+  state.agentRunning = true;
+  markActivity('starting');
+  updateRunningUI();
+
+  // Clear logs on fresh launch
+  if (!retry) {
+    document.getElementById('plan-log').innerHTML = '';
+    document.getElementById('agent-log').innerHTML = '';
+    document.getElementById('output-log').innerHTML = '';
+    document.getElementById('flag-banner').classList.remove('visible');
+    document.getElementById('cost-display').textContent = '—';
+    document.getElementById('cost-tokens').textContent = '';
+  }
+
+  const res = await api(`/api/challenges/${state.currentCid}/launch`, {
+    method: 'POST',
+    body: { retry, extra_context: extra },
+  });
+
+  if (res.error) {
+    toast(`Launch failed: ${res.error}`, 'error');
+    state.agentRunning = false;
+    updateRunningUI();
+  } else {
+    const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
+    if (idx >= 0) {
+      state.challenges[idx].status = 'solving';
+      state.challenges[idx].running = true;
+    }
+    renderStatusBadge('solving', true);
+    updateDashboardMetrics();
+    renderCards();
+  }
+}
+
+// ── Event Listeners ───────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  setupUpload();
+  loadChallenges();
+
+  // Back button
+  document.getElementById('btn-back').addEventListener('click', () => {
+    state.currentCid = null;
+    switchView('view-dashboard');
+    loadChallenges();
+  });
+
+  // Filter tabs
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      state.filter = tab.dataset.cat;
+      renderCards();
+    });
+  });
+
+  // New challenge
+  document.getElementById('btn-new-challenge').addEventListener('click', () => openModal('modal-new'));
+  document.getElementById('btn-create-challenge').addEventListener('click', async () => {
+    const name = document.getElementById('new-name').value.trim();
+    if (!name) { document.getElementById('new-name').focus(); return; }
+    const newChal = await api('/api/challenges', {
+      method: 'POST',
+      body: {
+        name,
+        category: document.getElementById('new-cat').value,
+        flag_format: document.getElementById('new-flagfmt').value.trim(),
+        description: document.getElementById('new-desc').value.trim(),
+      }
+    });
+    document.getElementById('new-name').value = '';
+    document.getElementById('new-flagfmt').value = '';
+    document.getElementById('new-desc').value = '';
+    closeModal('modal-new');
+    // Add to local state and open immediately so the upload zone is visible
+    state.challenges.push(newChal);
+    openChallenge(newChal.id);
+  });
+
+  // Enter to create challenge
+  document.getElementById('new-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-create-challenge').click();
+  });
+
+  // Agent controls
+  document.getElementById('btn-launch').addEventListener('click', () => launch(false));
+  document.getElementById('btn-retry').addEventListener('click', () => launch(true));
+  document.getElementById('btn-stop').addEventListener('click', async () => {
+    let res = null;
+    try {
+      res = await api(`/api/challenges/${state.currentCid}/stop`, { method: 'POST' });
+    } catch (e) {
+      toast(`Stop failed: ${e}`, 'error');
+      return;
+    }
+    if (res && res.error) {
+      toast(`Stop failed: ${res.error}`, 'error');
+      return;
+    }
+    state.agentRunning = false;
+    updateRunningUI();
+    const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
+    if (idx >= 0) state.challenges[idx].running = false;
+    renderStatusBadge('unsolved', false);
+    updateDashboardMetrics();
+    renderCards();
+    appendAgent('■ Agent stopped.', 'system');
+  });
+
+  // Enter to launch
+  document.getElementById('prompt-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !state.agentRunning) launch(false);
+  });
+
+  // Reset & Delete
+  document.getElementById('btn-reset').addEventListener('click', async () => {
+    if (!confirm('Reset container? This clears all files and agent state.')) return;
+    await api(`/api/challenges/${state.currentCid}/reset`, { method: 'POST' });
+    state.agentRunning = false;
+    updateRunningUI();
+    document.getElementById('plan-log').innerHTML = '';
+    document.getElementById('agent-log').innerHTML = '';
+    document.getElementById('output-log').innerHTML = '';
+    document.getElementById('flag-banner').classList.remove('visible');
+    renderFileList([]);
+    renderStatusBadge('unsolved');
+    toast('Container reset.', 'success');
+  });
+
+  document.getElementById('btn-delete').addEventListener('click', async () => {
+    const c = state.challenges.find(ch => ch.id === state.currentCid);
+    if (!confirm(`Delete "${c?.name}"? This cannot be undone.`)) return;
+    await api(`/api/challenges/${state.currentCid}`, { method: 'DELETE' });
+    state.currentCid = null;
+    switchView('view-dashboard');
+    loadChallenges();
+    toast('Challenge deleted.', 'success');
+  });
+
+  // Flag copy
+  document.getElementById('flag-copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('flag-value').textContent);
+    document.getElementById('flag-copy').textContent = 'Copied!';
+    setTimeout(() => { document.getElementById('flag-copy').textContent = 'Copy'; }, 2000);
+  });
+
+  // Build image
+  document.getElementById('btn-build-open').addEventListener('click', () => openModal('modal-build'));
+  document.getElementById('btn-start-build').addEventListener('click', async () => {
+    document.getElementById('build-log').innerHTML = '';
+    document.getElementById('btn-start-build').disabled = true;
+    document.getElementById('btn-start-build').textContent = '⏳ Building…';
+    await api('/api/docker/build', { method: 'POST' });
+  });
+
+  // Modal close buttons
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => closeModal(btn.dataset.close));
+  });
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) closeModal(overlay.id);
+    });
+  });
+});
+
+// ── Helpers ──────────────────────────────────────────────
+function switchView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function ts() {
+  return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+  el.innerHTML = `<span>${icon}</span><span>${escHtml(msg)}</span>`;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+</script>
+</body>
+</html>
