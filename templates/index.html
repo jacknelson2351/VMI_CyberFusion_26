@@ -623,6 +623,20 @@ html, body {
 #prompt-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,229,160,0.1); }
 #prompt-input::placeholder { color: var(--text-muted); }
 
+#model-select {
+  min-width: 170px;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+#model-select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,229,160,0.1); }
+
 /* Flag banner */
 #flag-banner {
   background: linear-gradient(90deg, rgba(0,229,160,0.12), rgba(0,229,160,0.04));
@@ -732,6 +746,7 @@ html, body {
 .plan-entry:last-child { border-bottom: none; margin-bottom: 0; }
 .plan-entry.replan { color: var(--amber); }
 .plan-timestamp { font-size: 10px; color: var(--text-muted); margin-bottom: 5px; }
+.plan-stream-body { white-space: pre-wrap; word-break: break-word; }
 
 /* Agent entries */
 .agent-entry { margin-bottom: 8px; }
@@ -745,6 +760,15 @@ html, body {
   word-break: break-all;
 }
 .agent-entry.command::before { content: '$ '; opacity: 0.6; }
+.agent-entry.notice-command {
+  background: rgba(245,166,35,0.08);
+  border: 1px solid rgba(245,166,35,0.32);
+  border-radius: 5px;
+  padding: 6px 10px;
+  color: var(--amber);
+  word-break: break-word;
+}
+.agent-entry.notice-command::before { content: '! '; opacity: 0.75; }
 .agent-entry.gdb-command { background: rgba(180,100,255,0.06); border-color: rgba(180,100,255,0.15); color: var(--purple); }
 .agent-entry.gdb-command::before { content: '⚙ '; }
 .agent-entry.system { color: var(--text-muted); font-style: italic; font-size: 10px; }
@@ -807,6 +831,9 @@ html, body {
       </div>
       <button class="btn btn-ghost btn-sm" id="btn-build-open" title="Build Docker image">
         ⚙ Build Image
+      </button>
+      <button class="btn btn-danger btn-sm" id="btn-reset-all" title="Delete all challenges and uploads">
+        ☢ Reset All
       </button>
     </div>
   </div>
@@ -909,6 +936,11 @@ html, body {
       <!-- Prompt bar -->
       <div id="prompt-bar">
         <input type="text" id="prompt-input" placeholder="Extra context for the agent (optional)…">
+        <select id="model-select" title="Model (cheap to expensive)">
+          {% for model in launch_models %}
+          <option value="{{ model.id }}" {% if model.id == default_launch_model %}selected{% endif %}>{{ model.label }}</option>
+          {% endfor %}
+        </select>
         <button class="btn btn-primary" id="btn-launch">▶ Launch</button>
         <button class="btn btn-amber" id="btn-retry">↺ Retry w/ Memory</button>
         <button class="btn btn-danger" id="btn-stop">■ Stop</button>
@@ -1080,12 +1112,18 @@ function handleLogEvent(ev, data) {
   cacheLog(cid, { event: ev, data, ts: t });
   if (!cid || cid !== state.currentCid) return false;
   if (ev === 'plan') appendPlan(data.text || '', !!data.replan, t);
-  else if (ev === 'thought') appendAgent(data.text || '', data.type || 'reasoning');
-  else if (ev === 'command') appendAgent(data.cmd || '', data.gdb ? 'gdb-command' : 'command');
+  else if (ev === 'thought') {
+    const thoughtType = data.type || 'reasoning';
+    if (thoughtType === 'reasoning') appendPlan(data.text || '', false, t);
+    else appendAgent(data.text || '', thoughtType);
+  } else if (ev === 'command') {
+    const cmdType = data.gdb ? 'gdb-command' : (data.notice ? 'notice-command' : 'command');
+    appendAgent(data.cmd || '', cmdType);
+  }
   else if (ev === 'output') appendOutput(data.text || '', t);
   else if (ev === 'flag') {
     if (data.flag) showFlag(data.flag);
-    appendAgent(`🎉 FLAG FOUND: ${data.flag || ''}`, 'reasoning');
+    appendAgent(`🎉 FLAG FOUND: ${data.flag || ''}`, 'system');
     if (data.how) appendAgent(data.how, 'system');
   } else if (ev === 'done') {
     if (data.message) appendAgent(data.message, 'system');
@@ -1108,15 +1146,20 @@ socket.on('thought', (data) => {
   if (data && data.cid === state.currentCid) markActivity('thinking');
 });
 socket.on('thought_stream_start', ({ id, type, cid }) => {
-  if (!cid || cid === state.currentCid) startAgentStream(id, type || 'reasoning');
+  if (!cid || cid === state.currentCid) {
+    if ((type || 'reasoning') === 'reasoning') startPlanStream(id);
+    else startAgentStream(id, type || 'reasoning');
+  }
   if (cid === state.currentCid) markActivity('thinking');
 });
 socket.on('thought_stream_delta', ({ id, text, cid }) => {
-  if (!cid || cid === state.currentCid) appendAgentStream(id, text || '');
+  if (!cid || cid === state.currentCid) {
+    if (!appendPlanStream(id, text || '')) appendAgentStream(id, text || '');
+  }
   if (cid === state.currentCid) markActivity('writing');
 });
 socket.on('thought_stream_end', ({ id }) => {
-  endAgentStream(id);
+  if (!endPlanStream(id)) endAgentStream(id);
 });
 socket.on('command', (data) => {
   handleLogEvent('command', data);
@@ -1325,6 +1368,8 @@ function openChallenge(cid) {
   document.getElementById('plan-log').innerHTML = '';
   document.getElementById('agent-log').innerHTML = '';
   document.getElementById('output-log').innerHTML = '';
+  planStreams.clear();
+  agentStreams.clear();
   document.getElementById('flag-banner').classList.remove('visible');
   document.getElementById('cost-display').textContent = '—';
   document.getElementById('cost-tokens').textContent = '';
@@ -1350,6 +1395,8 @@ function openChallenge(cid) {
     document.getElementById('plan-log').innerHTML = '';
     document.getElementById('agent-log').innerHTML = '';
     document.getElementById('output-log').innerHTML = '';
+    planStreams.clear();
+    agentStreams.clear();
     if (Array.isArray(logs)) {
       state.logCache[state.currentCid] = logs;
       for (const entry of logs) {
@@ -1359,14 +1406,17 @@ function openChallenge(cid) {
         if (ev === 'plan') {
           appendPlan(data.text || '', !!data.replan, t);
         } else if (ev === 'thought') {
-          appendAgent(data.text || '', data.type || 'reasoning');
+          const thoughtType = data.type || 'reasoning';
+          if (thoughtType === 'reasoning') appendPlan(data.text || '', false, t);
+          else appendAgent(data.text || '', thoughtType);
         } else if (ev === 'command') {
-          appendAgent(data.cmd || '', data.gdb ? 'gdb-command' : 'command');
+          const cmdType = data.gdb ? 'gdb-command' : (data.notice ? 'notice-command' : 'command');
+          appendAgent(data.cmd || '', cmdType);
         } else if (ev === 'output') {
           appendOutput(data.text || '', t);
         } else if (ev === 'flag') {
           if (data.flag) showFlag(data.flag);
-          appendAgent(`🎉 FLAG FOUND: ${data.flag || ''}`, 'reasoning');
+          appendAgent(`🎉 FLAG FOUND: ${data.flag || ''}`, 'system');
           if (data.how) appendAgent(data.how, 'system');
         } else if (ev === 'done') {
           if (data.message) appendAgent(data.message, 'system');
@@ -1444,6 +1494,34 @@ function appendAgent(text, type = 'reasoning') {
 }
 
 const agentStreams = new Map();
+const planStreams = new Map();
+function startPlanStream(id) {
+  const log = document.getElementById('plan-log');
+  const el = document.createElement('div');
+  el.className = 'plan-entry';
+  el.dataset.streamId = id;
+  el.innerHTML = `<div class="plan-timestamp">${ts()}</div>`;
+  const body = document.createElement('div');
+  body.className = 'plan-stream-body';
+  body.textContent = '';
+  el.appendChild(body);
+  log.appendChild(el);
+  planStreams.set(id, body);
+  log.scrollTop = log.scrollHeight;
+}
+function appendPlanStream(id, text) {
+  const body = planStreams.get(id);
+  if (!body) return false;
+  body.textContent += text;
+  const log = document.getElementById('plan-log');
+  log.scrollTop = log.scrollHeight;
+  return true;
+}
+function endPlanStream(id) {
+  if (!planStreams.has(id)) return false;
+  planStreams.delete(id);
+  return true;
+}
 function startAgentStream(id, type = 'reasoning') {
   const log = document.getElementById('agent-log');
   const el = document.createElement('div');
@@ -1456,13 +1534,16 @@ function startAgentStream(id, type = 'reasoning') {
 }
 function appendAgentStream(id, text) {
   const el = agentStreams.get(id);
-  if (!el) return;
+  if (!el) return false;
   el.textContent += text;
   const log = document.getElementById('agent-log');
   log.scrollTop = log.scrollHeight;
+  return true;
 }
 function endAgentStream(id) {
+  if (!agentStreams.has(id)) return false;
   agentStreams.delete(id);
+  return true;
 }
 
 function appendOutput(text, t = null) {
@@ -1607,6 +1688,7 @@ function updateRunningUI() {
   document.getElementById('btn-launch').disabled  = state.agentRunning;
   document.getElementById('btn-retry').disabled   = state.agentRunning;
   document.getElementById('btn-stop').disabled    = !state.agentRunning;
+  document.getElementById('model-select').disabled = state.agentRunning;
   updateAgentActivity();
   if (state.agentRunning) startActivityTimer();
   else stopActivityTimer();
@@ -1615,6 +1697,7 @@ function updateRunningUI() {
 async function launch(retry = false) {
   if (!state.currentCid) return;
   const extra = document.getElementById('prompt-input').value.trim();
+  const model = document.getElementById('model-select').value;
   document.getElementById('prompt-input').value = '';
 
   state.agentRunning = true;
@@ -1626,6 +1709,8 @@ async function launch(retry = false) {
     document.getElementById('plan-log').innerHTML = '';
     document.getElementById('agent-log').innerHTML = '';
     document.getElementById('output-log').innerHTML = '';
+    planStreams.clear();
+    agentStreams.clear();
     document.getElementById('flag-banner').classList.remove('visible');
     document.getElementById('cost-display').textContent = '—';
     document.getElementById('cost-tokens').textContent = '';
@@ -1633,7 +1718,7 @@ async function launch(retry = false) {
 
   const res = await api(`/api/challenges/${state.currentCid}/launch`, {
     method: 'POST',
-    body: { retry, extra_context: extra },
+    body: { retry, extra_context: extra, model },
   });
 
   if (res.error) {
@@ -1741,6 +1826,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('plan-log').innerHTML = '';
     document.getElementById('agent-log').innerHTML = '';
     document.getElementById('output-log').innerHTML = '';
+    planStreams.clear();
+    agentStreams.clear();
     document.getElementById('flag-banner').classList.remove('visible');
     renderFileList([]);
     renderStatusBadge('unsolved');
@@ -1771,6 +1858,39 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-start-build').disabled = true;
     document.getElementById('btn-start-build').textContent = '⏳ Building…';
     await api('/api/docker/build', { method: 'POST' });
+  });
+
+  // Global reset
+  document.getElementById('btn-reset-all').addEventListener('click', async () => {
+    if (!confirm('Reset ALL challenges and uploads? This permanently deletes every challenge, upload, and log.')) return;
+    let res = null;
+    try {
+      res = await api('/api/reset-all', { method: 'POST' });
+    } catch (e) {
+      toast(`Reset failed: ${e}`, 'error');
+      return;
+    }
+    if (res && res.error) {
+      toast(`Reset failed: ${res.error}`, 'error');
+      return;
+    }
+    state.currentCid = null;
+    state.challenges = [];
+    state.agentRunning = false;
+    state.logCache = {};
+    state.cardErrors = {};
+    updateRunningUI();
+    switchView('view-dashboard');
+    document.getElementById('plan-log').innerHTML = '';
+    document.getElementById('agent-log').innerHTML = '';
+    document.getElementById('output-log').innerHTML = '';
+    planStreams.clear();
+    agentStreams.clear();
+    document.getElementById('flag-banner').classList.remove('visible');
+    renderCards();
+    updateDashboardMetrics();
+    await loadChallenges();
+    toast('All challenges and uploads reset.', 'success');
   });
 
   // Modal close buttons

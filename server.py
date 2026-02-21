@@ -8,10 +8,12 @@ import base64
 import json
 import os
 import re
+import shutil
 import tarfile
 import threading
 import time
 import uuid
+import webbrowser
 from collections import deque
 from types import SimpleNamespace
 from datetime import datetime
@@ -22,6 +24,10 @@ from flask import Flask, jsonify, request, send_from_directory, render_template
 from flask_socketio import SocketIO, emit
 from openai import OpenAI
 from werkzeug.utils import secure_filename
+try:
+    from anthropic import Anthropic
+except Exception:
+    Anthropic = None
 
 # ─── App setup ────────────────────────────────────────────────────────────────
 
@@ -30,6 +36,21 @@ CONFIG_PATH = BASE_DIR / "config.json"
 DB_PATH     = BASE_DIR / "challenges.json"
 UPLOAD_DIR  = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+LAUNCH_MODEL_CHOICES: list[dict[str, str]] = [
+    {"id": "gpt-5-mini", "label": "gpt-5-mini (cheap)"},
+    {"id": "gpt-5.2", "label": "gpt-5.2 (mid)"},
+    {"id": "claude-opus-4-6", "label": "claude-opus-4-6 (anthropic, expensive)"},
+]
+LAUNCH_MODEL_IDS = {m["id"] for m in LAUNCH_MODEL_CHOICES}
+LAUNCH_MODEL_ALIASES = {
+    "gpt5-mini": "gpt-5-mini",
+    "gpt5.2": "gpt-5.2",
+    "opus 4.6": "claude-opus-4-6",
+    "opus-4.6": "claude-opus-4-6",
+    "claude-opus-4.6": "claude-opus-4-6",
+    "claude opus 4.6": "claude-opus-4-6",
+}
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config["SECRET_KEY"] = "ctf-agent-secret"
@@ -56,6 +77,18 @@ def _as_bool(value, default=False) -> bool:
     if s in {"0", "false", "no", "off"}:
         return False
     return default
+
+def _canonical_launch_model(model: str | None) -> str:
+    if model is None:
+        return ""
+    m = str(model).strip()
+    if not m:
+        return ""
+    return LAUNCH_MODEL_ALIASES.get(m, m)
+
+def _is_anthropic_model(model: str | None) -> bool:
+    m = (model or "").strip().lower()
+    return m.startswith(("claude-", "anthropic:", "anthropic/"))
 
 # ─── Challenge DB ─────────────────────────────────────────────────────────────
 
@@ -282,6 +315,7 @@ WORKFLOW RULES:
 - write_file → run_command is the pattern for exploit scripts: write the script, then execute it
 - Use run_gdb for binary triage and debugging; never use run_command to invoke gdb interactively
 - submit_flag immediately when any output contains a valid flag string
+- Only call submit_flag for canonical flag tokens (WORD{...}) unless the challenge defines an explicit non-standard flag format
 - Never guess flags. Derive them empirically from the challenge artifacts
 - Never repeat a failed command verbatim — change the approach each time
 - During execution turns, respond with tool calls only. During planning/re-planning, respond with text.
@@ -329,7 +363,7 @@ Use only tool calls during execution turns. Never guess flags.
 Prefer one decisive command over broad exploration. Use exactly one decisive tool call per turn.
 Do not ask the user for approval; execute the best next action autonomously.
 If no progress after 2 actions on a hypothesis, pivot strategy.
-Submit immediately when a valid flag appears. Preserve reproducibility: avoid installing new tools unless policy allows it.
+Submit immediately when a canonical flag token appears (WORD{...}) unless challenge flag format says otherwise. Preserve reproducibility: avoid installing new tools unless policy allows it.
 """
 
 CATEGORY_EXECUTION_BRIEFS = {
@@ -583,7 +617,7 @@ MEMORY IMAGE (volatility3):
   python3 $(which vol) -f /ctf/FILE windows.info
   python3 $(which vol) -f /ctf/FILE windows.pslist
   python3 $(which vol) -f /ctf/FILE windows.cmdline
-  python3 $(which vol) -f /ctf/FILE windows.filescan | grep -iE "flag|secret|pass|\.txt|\.doc|\.zip"
+  python3 $(which vol) -f /ctf/FILE windows.filescan | grep -iE "flag|secret|pass|\\.txt|\\.doc|\\.zip"
   python3 $(which vol) -f /ctf/FILE windows.dumpfiles --virtaddr ADDR -o /ctf/
   python3 $(which vol) -f /ctf/FILE windows.hashdump   ← SAM password hashes → john/hashcat
   python3 $(which vol) -f /ctf/FILE windows.clipboard
@@ -608,7 +642,7 @@ ARCHIVE PASSWORDS:
 NETWORK PCAP (in forensics context):
   tshark -r /ctf/FILE -qz io,phs
   tshark -r /ctf/FILE -Y "http.request or http.response" -T fields -e http.request.uri -e http.file_data | head -40
-  strings /ctf/FILE | grep -E "[a-zA-Z0-9_]{2,24}\{[^{}]{1,200}\}"  ← quick flag scan
+  strings /ctf/FILE | grep -E "[a-zA-Z0-9_]{2,24}\\{[^{}]{1,200}\\}"  ← quick flag scan
 """,
 
     "rev": BASE_RULES + """
@@ -817,7 +851,7 @@ PCAP TRIAGE (always start here):
   capinfos /ctf/FILE          ← file summary, duration, packet count
   tshark -r /ctf/FILE -qz io,phs  ← protocol hierarchy
   tshark -r /ctf/FILE -qz "conv,tcp"  ← TCP conversations
-  strings /ctf/FILE | grep -E "[a-zA-Z0-9_]{2,24}\{[^{}]{1,200}\}"  ← quick flag scan
+  strings /ctf/FILE | grep -E "[a-zA-Z0-9_]{2,24}\\{[^{}]{1,200}\\}"  ← quick flag scan
 
 EXTRACT BY PROTOCOL:
   HTTP traffic:
@@ -1028,6 +1062,15 @@ CTF_TOOLS = [
     }},
 ]
 
+ANTHROPIC_TOOLS = [
+    {
+        "name": t["function"]["name"],
+        "description": t["function"].get("description", ""),
+        "input_schema": t["function"].get("parameters", {"type": "object", "properties": {}}),
+    }
+    for t in CTF_TOOLS
+]
+
 MODEL_COSTS = {
     # Prices per 1M tokens (input, output). Keep in sync with OpenAI pricing.
     "gpt-5.2": (1.75, 14.00),
@@ -1160,9 +1203,18 @@ def _is_plausible_flag_token(token: str) -> bool:
     m = re.fullmatch(r"([A-Za-z][A-Za-z0-9_]{2,23})\{([^{}\n]{1,220})\}", (token or "").strip())
     if not m:
         return False
+    prefix = m.group(1).strip()
     inner = m.group(2).strip()
     if not inner:
         return False
+    p = prefix.lower()
+    # Common non-flag interface identifiers in packet captures.
+    if p.startswith("npf"):
+        return False
+    # Reject pure GUID payloads unless prefix strongly suggests CTF flag format.
+    if re.fullmatch(r"[0-9A-Fa-f]{8}-(?:[0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}", inner):
+        if not _prefix_looks_ctf_like(prefix):
+            return False
     # Reject likely JSON/object payloads.
     if (inner.startswith('"') and ":" in inner) or inner.startswith("{"):
         return False
@@ -1190,7 +1242,17 @@ def _is_approval_seeking_text(text: str) -> bool:
 # ─── CTF Agent ─────────────────────────────────────────────────────────────────
 
 class CTFAgent:
-    def __init__(self, cid, category, container, room, flag_format=""):
+    def __init__(
+        self,
+        cid,
+        category,
+        container,
+        room,
+        flag_format="",
+        model: str | None = None,
+        challenge_name: str = "",
+        challenge_description: str = "",
+    ):
         cfg          = load_config()
         self.cfg     = cfg
         self.cid     = cid
@@ -1198,11 +1260,23 @@ class CTFAgent:
         self.container = container
         self.room    = room  # socket.io room = challenge id
         self.flag_format = (flag_format or "").strip()
-        self.client  = OpenAI(api_key=cfg.get("openai_api_key") or os.environ.get("OPENAI_API_KEY"))
-        self.model   = cfg.get("model", "gpt-4o")
+        self.challenge_name = (challenge_name or "").strip()
+        self.challenge_description = challenge_description or ""
+        cfg_model = (cfg.get("model") or "gpt-4o")
+        self.model   = ((_canonical_launch_model(model) or cfg_model).strip() or "gpt-4o")
+        self.provider = "anthropic" if _is_anthropic_model(self.model) else "openai"
+        openai_key = cfg.get("openai_api_key") or os.environ.get("OPENAI_API_KEY")
+        anthropic_key = cfg.get("anthropic_api_key") or os.environ.get("ANTHROPIC_API_KEY")
+        self.openai_client = OpenAI(api_key=openai_key) if openai_key else None
+        self.anthropic_client = (
+            Anthropic(api_key=anthropic_key)
+            if anthropic_key and Anthropic is not None
+            else None
+        )
         self.prompt_profile = (cfg.get("prompt_profile") or "compact").strip().lower()
         self.allow_runtime_installs = _as_bool(cfg.get("allow_runtime_installs"), default=False)
         self.strict_auto_submit = _as_bool(cfg.get("strict_auto_submit"), default=True)
+        self.allow_nonstandard_submit = _as_bool(cfg.get("allow_nonstandard_submit"), default=False)
         self.tool_context_limit = int(cfg.get("tool_context_limit") or 4000)
         self.hypothesis_budget = int(cfg.get("hypothesis_budget") or 2)
         self.messages= []
@@ -1230,6 +1304,8 @@ class CTFAgent:
         self._evidence_version = 0
         self._hypothesis_no_progress = {}
         self._flag_evidence = {}
+        self._answer_candidates = set()
+        self._answer_mode = self._is_answer_style_challenge()
 
     def emit(self, event, data):
         if not self.running and event in {"plan", "thought", "command", "output", "flag", "cost"}:
@@ -1404,10 +1480,145 @@ class CTFAgent:
             return True
         return False
 
+    def _run_rev_qna_fastpath(self, recon: str, challenge_desc: str) -> str:
+        if self.category != "rev":
+            return ""
+        ctx = f"{challenge_desc}\n{recon}".lower()
+        if "questions" not in ctx and "each correct answer solves one flag" not in ctx:
+            return ""
+        if "rechallenge1" not in ctx and "reverse engineering challenge 1" not in ctx:
+            return ""
+
+        self.emit("thought", {"text": "Running rev Q/A fast-path for filetype/packer/domain/IP extraction.", "type": "system"})
+        cmd = (
+            "unzip -P infected -o /ctf/REChallenge1.zip -d /ctf >/dev/null 2>&1 || true; "
+            "python3 - <<'PY'\n"
+            "import re, subprocess\n"
+            "from pathlib import Path\n"
+            "exe = Path('/ctf/REChallenge1.exe')\n"
+            "if not exe.exists():\n"
+            "    print('FAST_ANS_MISSING=REChallenge1.exe')\n"
+            "    raise SystemExit(0)\n"
+            "try:\n"
+            "    fline = subprocess.check_output(['file', str(exe)], stderr=subprocess.STDOUT).decode('utf-8', 'ignore').strip()\n"
+            "except Exception:\n"
+            "    fline = ''\n"
+            "packed = exe.read_bytes()\n"
+            "packer = 'UPX' if (b'UPX0' in packed or b'UPX1' in packed or b'UPX!' in packed) else 'UNKNOWN'\n"
+            "unpacked = Path('/ctf/REChallenge1_unpacked_fast.exe')\n"
+            "if unpacked.exists():\n"
+            "    unpacked.unlink()\n"
+            "subprocess.run(['upx', '-d', '-o', str(unpacked), str(exe)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)\n"
+            "cands = [unpacked, Path('/ctf/REChallenge1_unpacked.exe'), Path('/ctf/REChallenge1_upx_unpacked.exe'), exe]\n"
+            "target = next((p for p in cands if p.exists()), exe)\n"
+            "data = target.read_bytes()\n"
+            "def valid_ip(s):\n"
+            "    try:\n"
+            "        p = [int(x) for x in s.split('.')]\n"
+            "        return len(p) == 4 and all(0 <= x <= 255 for x in p)\n"
+            "    except Exception:\n"
+            "        return False\n"
+            "ips = []\n"
+            "for m in re.finditer(rb'(?<!\\d)(?:\\d{1,3}\\.){3}\\d{1,3}(?!\\d)', data):\n"
+            "    s = m.group(0).decode('ascii', 'ignore')\n"
+            "    if valid_ip(s):\n"
+            "        ips.append(s)\n"
+            "ip = ips[0] if ips else ''\n"
+            "domains = []\n"
+            "for m in re.finditer(rb'(?i)\\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:com|net|org|io|ru|cn|xyz|info|biz)\\b', data):\n"
+            "    d = m.group(0).decode('ascii', 'ignore').lower().strip('.')\n"
+            "    if d.endswith(('.dll', '.exe', '.sys', '.obj', '.lib', '.pdb', '.startup', '.part', '.mingw')):\n"
+            "        continue\n"
+            "    domains.append(d)\n"
+            "if not domains:\n"
+            "    i = 0\n"
+            "    mov_domains = []\n"
+            "    while i + 4 <= len(data):\n"
+            "        if data[i] == 0xC6 and data[i + 1] == 0x45:\n"
+            "            j = i\n"
+            "            prev = None\n"
+            "            seq = []\n"
+            "            while j + 4 <= len(data) and data[j] == 0xC6 and data[j + 1] == 0x45:\n"
+            "                off = data[j + 2]\n"
+            "                ch = data[j + 3]\n"
+            "                if prev is not None and ((off - prev) & 0xff) != 1:\n"
+            "                    break\n"
+            "                prev = off\n"
+            "                seq.append(ch)\n"
+            "                j += 4\n"
+            "            if len(seq) >= 6:\n"
+            "                s = bytes(seq).split(b'\\x00', 1)[0].decode('latin1', 'ignore').lower()\n"
+            "                if re.fullmatch(r'[a-z0-9-]{1,63}(?:\\.[a-z0-9-]{1,63})+', s):\n"
+            "                    mov_domains.append(s)\n"
+            "            i = j if j > i else i + 1\n"
+            "        else:\n"
+            "            i += 1\n"
+            "    domains = mov_domains\n"
+            "domain = domains[0] if domains else ''\n"
+            "print('FAST_ANS_FILETYPE=' + fline)\n"
+            "print('FAST_ANS_PACKER=' + packer)\n"
+            "if domain:\n"
+            "    print('FAST_ANS_DOMAIN=' + domain)\n"
+            "if ip:\n"
+            "    print('FAST_ANS_IP=' + ip)\n"
+            "PY"
+        )
+        self.emit("command", {"cmd": "[rev-fastpath] extract filetype/packer/domain/ip"})
+        out = self.container.run(cmd, timeout=120)
+        self.emit("output", {"text": out})
+        self._update_evidence_from_output("rev-fastpath", out)
+
+        answers = {}
+        for m in re.finditer(r"^FAST_ANS_([A-Z_]+)=(.*)$", out or "", re.MULTILINE):
+            answers[m.group(1)] = (m.group(2) or "").strip()
+
+        ftype = answers.get("FILETYPE", "")
+        if ftype:
+            self._add_evidence("confirmed", ftype[:220])
+            if re.search(r"\bPE32\+\s+executable\b", ftype, re.IGNORECASE):
+                self._remember_answer_candidate("PE32+ executable")
+        packer = answers.get("PACKER", "")
+        if packer:
+            self._remember_answer_candidate(packer)
+        domain = answers.get("DOMAIN", "")
+        if domain:
+            self._remember_answer_candidate(domain)
+            self._add_evidence("confirmed", f"Recovered domain candidate: {domain}")
+        ip = answers.get("IP", "")
+        if ip:
+            self._remember_answer_candidate(ip)
+            self._add_evidence("confirmed", f"Recovered IP candidate: {ip}")
+
+        if answers:
+            parts = []
+            if ftype:
+                parts.append(f"filetype={ftype}")
+            if packer:
+                parts.append(f"packer={packer}")
+            if domain:
+                parts.append(f"domain={domain}")
+            if ip:
+                parts.append(f"ip={ip}")
+            self.emit("thought", {"text": "RE fast-path facts: " + "; ".join(parts), "type": "reasoning"})
+
+        facts = []
+        if ftype:
+            facts.append(f"- filetype: {ftype}")
+        if packer:
+            facts.append(f"- packer: {packer}")
+        if domain:
+            facts.append(f"- domain: {domain}")
+        if ip:
+            facts.append(f"- ip: {ip}")
+        if not facts:
+            return ""
+        return "\n\n[REV FAST-PATH FACTS]\n" + "\n".join(facts) + "\n"
+
     def _update_evidence_from_output(self, cmd: str, output: str):
         out = output or ""
         if not out:
             return
+        self._harvest_answer_candidates(out)
         if "command not found" in out.lower():
             miss = self._extract_missing_command(out)
             if miss:
@@ -1446,6 +1657,99 @@ class CTFAgent:
             text,
             re.IGNORECASE,
         ))
+
+    def _is_answer_style_challenge(self) -> bool:
+        text = f"{self.challenge_name}\n{self.challenge_description}".lower()
+        if not text.strip():
+            return False
+        cues = (
+            "each correct answer solves one flag",
+            "questions",
+            "what file type",
+            "what type of packer",
+            "once you unpack",
+            "cost:",
+        )
+        score = sum(1 for c in cues if c in text)
+        return score >= 2
+
+    def _normalize_answer_token(self, token: str) -> str:
+        return re.sub(r"\s+", " ", (token or "").strip().lower())
+
+    def _remember_answer_candidate(self, token: str):
+        n = self._normalize_answer_token(token)
+        if not n:
+            return
+        self._answer_candidates.add(n)
+
+    def _harvest_answer_candidates(self, text: str):
+        if not text:
+            return
+        blob = _decode_backslash_escapes(text)
+        if not blob:
+            return
+
+        # IPv4 tokens.
+        for m in re.finditer(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", blob):
+            tok = m.group(0)
+            try:
+                octets = [int(x) for x in tok.split(".")]
+                if all(0 <= x <= 255 for x in octets):
+                    self._remember_answer_candidate(tok)
+            except Exception:
+                pass
+
+        # Domain-like indicators (exclude obvious PE noise).
+        banned = (".dll", ".exe", ".sys", ".pdb", ".obj", ".lib", ".startup", ".part", ".mingw")
+        for m in re.finditer(
+            r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|io|ru|cn|xyz|biz|info)\b",
+            blob,
+            re.IGNORECASE,
+        ):
+            d = m.group(0).lower().strip(".")
+            if d.endswith(banned):
+                continue
+            self._remember_answer_candidate(d)
+
+        # File type markers from `file` output.
+        if re.search(r"\bPE32\+\s+executable\b", blob, re.IGNORECASE):
+            self._remember_answer_candidate("PE32+ executable")
+            self._remember_answer_candidate("PE32+")
+        if re.search(r"\bELF\b", blob):
+            self._remember_answer_candidate("ELF")
+
+        # Packer marker.
+        if re.search(r"\bUPX[0-9!]*\b", blob, re.IGNORECASE):
+            self._remember_answer_candidate("UPX")
+
+    def _allows_noncanonical_submit(self, flag: str, how: str) -> bool:
+        if self.allow_nonstandard_submit:
+            return True
+        if self.flag_format:
+            return self._flag_matches_format(flag)
+        if not self._answer_mode:
+            return False
+        f = (flag or "").strip()
+        if not f:
+            return False
+        n = self._normalize_answer_token(f)
+        if n in self._answer_candidates:
+            return True
+        # Accept high-signal direct answers for answer-style challenges.
+        if re.fullmatch(r"(?:\d{1,3}\.){3}\d{1,3}", f):
+            try:
+                octets = [int(x) for x in f.split(".")]
+                if all(0 <= x <= 255 for x in octets):
+                    return True
+            except Exception:
+                pass
+        if re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}", f, re.IGNORECASE):
+            return True
+        if f.upper() == "UPX":
+            return True
+        if re.search(r"\bPE32\+\b", f, re.IGNORECASE):
+            return True
+        return False
 
     def _flag_matches_format(self, flag: str) -> bool:
         fmt = self.flag_format
@@ -1494,12 +1798,109 @@ class CTFAgent:
 
         return candidates
 
+    def _is_likely_system_flag_artifact(self, token: str, text: str) -> bool:
+        t = (token or "").strip()
+        m = re.fullmatch(r"([A-Za-z][A-Za-z0-9_]{2,23})\{([^{}\n]{1,220})\}", t)
+        if not m:
+            return False
+        prefix = m.group(1).strip().lower()
+        inner = m.group(2).strip()
+        if prefix.startswith("npf"):
+            return True
+        if re.fullmatch(r"[0-9A-Fa-f]{8}-(?:[0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}", inner):
+            # If surrounding output looks like capture interface metadata, treat as artifact.
+            if re.search(r"(\\device\\npf_|npcap|dumpcap|wireshark|interface|adapter)", (text or ""), re.IGNORECASE):
+                return True
+            if not _prefix_looks_ctf_like(prefix):
+                return True
+        return False
+
+    def _has_strong_auto_submit_evidence(self, token: str, text: str, src_key: str) -> bool:
+        evidence_sources = self._flag_evidence.get(token, set())
+        return (
+            src_key == "search_flag"
+            or (text or "").count(token) >= 2
+            or len(evidence_sources) >= 2
+        )
+
+    def _choose_auto_submit_candidate(self, candidates: list[str], text: str, src_key: str) -> str | None:
+        if not candidates:
+            return None
+        if self.flag_format:
+            for c in candidates:
+                if self._flag_matches_format(c):
+                    return c
+            return None
+        if not self.strict_auto_submit:
+            for c in candidates:
+                if not self._is_likely_system_flag_artifact(c, text):
+                    return c
+            return None
+
+        # Strict mode: only auto-submit CTF-like prefixes with corroboration.
+        for c in candidates:
+            if self._is_likely_system_flag_artifact(c, text):
+                continue
+            prefix = c.split("{", 1)[0]
+            if not _prefix_looks_ctf_like(prefix):
+                continue
+            if self._has_strong_auto_submit_evidence(c, text, src_key):
+                return c
+        return None
+
+    def _effective_shell_segment(self, cmd: str) -> str:
+        c = (cmd or "").strip()
+        if not c:
+            return ""
+        segments = re.split(r"\s*(?:&&|;|\n)\s*", c)
+        wrappers = {"cd", "export", "set", "source", "true", ":"}
+        for seg in segments:
+            s = (seg or "").strip()
+            if not s:
+                continue
+            tok = s.split()[0].lower()
+            if tok in wrappers:
+                continue
+            return s
+        return c
+
+    def _token_from_segment(self, segment: str) -> str:
+        s = (segment or "").strip()
+        if not s:
+            return ""
+        parts = s.split()
+        if not parts:
+            return ""
+        i = 0
+        while i < len(parts):
+            t = parts[i].lower()
+            if t in {"env", "command", "stdbuf", "nohup"}:
+                i += 1
+                continue
+            if t == "timeout":
+                i += 1
+                if i < len(parts) and re.fullmatch(r"\d+[smhd]?", parts[i], re.IGNORECASE):
+                    i += 1
+                continue
+            break
+        return (parts[i].lower() if i < len(parts) else "")
+
+    def _is_family_block_exempt(self, family: str) -> bool:
+        if self.category == "web":
+            return False
+        essential = {
+            "cd", "ls", "pwd", "file", "cat", "head", "tail", "grep", "egrep", "sed", "awk",
+            "strings", "python", "python3", "perl", "xxd", "objdump", "readelf", "rabin2",
+            "upx", "unzip", "7z", "hexdump", "binwalk",
+        }
+        return family in essential
+
     def _command_family(self, cmd: str) -> str:
         c = (cmd or "").strip()
         if not c:
             return "unknown"
-        first = re.split(r"[;\n|&]+", c, 1)[0].strip()
-        token = first.split()[0] if first else ""
+        first = self._effective_shell_segment(c)
+        token = self._token_from_segment(first)
         t = (token or "").lower()
         low = first.lower()
 
@@ -1530,6 +1931,20 @@ class CTFAgent:
         if self.category == "web":
             return family or self._command_family(cmd)
         r = re.sub(r"\s+", " ", (reasoning or "").strip().lower())
+        generic = {
+            "",
+            "running command",
+            "running command.",
+            "run command",
+            "run command.",
+            "executing command",
+            "executing command.",
+        }
+        if r in generic:
+            sig = self._normalize_command(cmd).lower()
+            sig = re.sub(r"[^a-z0-9 _./:+-]", "", sig)
+            sig = sig[:80] or "cmd"
+            return f"{family}:{sig}"
         if r:
             r = re.sub(r"[^a-z0-9 _-]", "", r)
             return (r[:80] or family or "unknown")
@@ -1795,8 +2210,11 @@ class CTFAgent:
                 candidates = self._extract_flag_candidates(out)
                 if not candidates:
                     return False
-                chosen = candidates[0]
-                if self.flag_format and not self._flag_matches_format(chosen):
+                src_key = (source or "tool").split(":", 1)[0].strip() or "tool"
+                for c in candidates:
+                    self._flag_evidence.setdefault(c, set()).add(src_key)
+                chosen = self._choose_auto_submit_candidate(candidates, out, src_key)
+                if not chosen:
                     return False
                 update_challenge(self.cid, status="solved", flag=chosen)
                 self.emit("thought", {"text": f"Hint-action flag: {chosen}", "type": "system"})
@@ -2037,39 +2455,14 @@ class CTFAgent:
         for c in candidates:
             self._flag_evidence.setdefault(c, set()).add(src_key)
 
-        chosen = None
-        if self.flag_format:
-            for c in candidates:
-                if self._flag_matches_format(c):
-                    chosen = c
-                    break
-            if not chosen:
-                return False
-        else:
-            if not self.strict_auto_submit:
-                chosen = candidates[0]
-            else:
-                for c in candidates:
-                    prefix = c.split("{", 1)[0]
-                    evidence_sources = self._flag_evidence.get(c, set())
-                    if _prefix_looks_ctf_like(prefix) and (
-                        src_key == "search_flag"
-                        or text.count(c) >= 2
-                        or len(evidence_sources) >= 2
-                    ):
-                        chosen = c
-                        break
-                    # For unknown prefixes require strong corroboration across sources.
-                    if text.count(c) >= 2 and len(evidence_sources) >= 2:
-                        chosen = c
-                        break
-                if not chosen:
-                    preview = ", ".join(candidates[:3])
-                    self.emit("thought", {
-                        "text": f"Low-confidence flag-like token(s) detected, not auto-submitting: {preview}",
-                        "type": "system",
-                    })
-                    return False
+        chosen = self._choose_auto_submit_candidate(candidates, text, src_key)
+        if not chosen:
+            preview = ", ".join(candidates[:3])
+            self.emit("thought", {
+                "text": f"Low-confidence flag-like token(s) detected, not auto-submitting: {preview}",
+                "type": "system",
+            })
+            return False
 
         how = f"Auto-detected in {source or 'tool output'}"
         update_challenge(self.cid, status="solved", flag=chosen)
@@ -2136,9 +2529,84 @@ class CTFAgent:
     def _emit_stream_delta(self, stream_id: str, text: str, msg_type: str):
         self.emit("thought_stream_delta", {"id": stream_id, "text": text, "type": msg_type})
 
-    def _call(self, force_text=False):
-        # Always prune dangling tool_calls before sending to API.
-        self._prune_dangling_tool_calls()
+    def _emit_cost(self, in_tokens: int, out_tokens: int):
+        self.total_in += max(0, int(in_tokens or 0))
+        self.total_out += max(0, int(out_tokens or 0))
+        _, rates = resolve_model_rates(self.model, load_config())
+        if rates:
+            ir, or_ = rates
+            cost = (self.total_in * ir + self.total_out * or_) / 1_000_000
+            update_challenge(self.cid, cost_usd=cost, tokens_in=self.total_in, tokens_out=self.total_out)
+            payload = {
+                "cost": f"${cost:.4f}",
+                "cost_usd": cost,
+                "tokens_in": self.total_in,
+                "tokens_out": self.total_out,
+                "model": self.model,
+                "known": True,
+            }
+        else:
+            update_challenge(self.cid, tokens_in=self.total_in, tokens_out=self.total_out)
+            payload = {
+                "cost": "—",
+                "cost_usd": None,
+                "tokens_in": self.total_in,
+                "tokens_out": self.total_out,
+                "model": self.model,
+                "known": False,
+            }
+        self.emit("cost", payload)
+
+    def _anthropic_messages_from_history(self, messages: list[dict]) -> list[dict]:
+        out = []
+        for m in messages:
+            role = m.get("role")
+            if role == "user":
+                out.append({"role": "user", "content": str(m.get("content") or "")})
+                continue
+            if role == "assistant":
+                blocks = []
+                text = m.get("content")
+                if text:
+                    blocks.append({"type": "text", "text": str(text)})
+                for tc in m.get("tool_calls") or []:
+                    fn = tc.get("function") or {}
+                    raw_args = fn.get("arguments", {})
+                    if isinstance(raw_args, str):
+                        try:
+                            parsed_args = json.loads(raw_args) if raw_args.strip() else {}
+                        except Exception:
+                            parsed_args = {}
+                    elif isinstance(raw_args, dict):
+                        parsed_args = raw_args
+                    else:
+                        parsed_args = {}
+                    blocks.append({
+                        "type": "tool_use",
+                        "id": tc.get("id") or f"toolu_{uuid.uuid4().hex[:12]}",
+                        "name": fn.get("name", ""),
+                        "input": parsed_args if isinstance(parsed_args, dict) else {},
+                    })
+                if blocks:
+                    out.append({"role": "assistant", "content": blocks})
+                continue
+            if role == "tool":
+                tcid = m.get("tool_call_id")
+                if not tcid:
+                    continue
+                out.append({
+                    "role": "user",
+                    "content": [{
+                        "type": "tool_result",
+                        "tool_use_id": tcid,
+                        "content": str(m.get("content") or ""),
+                    }],
+                })
+        return out
+
+    def _call_openai(self, force_text=False):
+        if not self.openai_client:
+            raise RuntimeError("OpenAI model selected but no OpenAI key configured. Set openai_api_key in config.json or OPENAI_API_KEY.")
         msg_list = self._sanitize_messages(self.messages)
         kwargs = dict(
             model=self.model,
@@ -2151,7 +2619,7 @@ class CTFAgent:
             kwargs["tools"] = CTF_TOOLS
             kwargs["tool_choice"] = "auto"
 
-        stream = self.client.chat.completions.create(**kwargs)
+        stream = self.openai_client.chat.completions.create(**kwargs)
         content_parts = []
         tool_calls = {}
         usage = None
@@ -2197,32 +2665,7 @@ class CTFAgent:
             self.emit("thought_stream_end", {"id": stream_id})
 
         if usage:
-            self.total_in  += usage.prompt_tokens
-            self.total_out += usage.completion_tokens
-            _, rates = resolve_model_rates(self.model, load_config())
-            if rates:
-                ir, or_ = rates
-                cost = (self.total_in * ir + self.total_out * or_) / 1_000_000
-                update_challenge(self.cid, cost_usd=cost, tokens_in=self.total_in, tokens_out=self.total_out)
-                payload = {
-                    "cost": f"${cost:.4f}",
-                    "cost_usd": cost,
-                    "tokens_in": self.total_in,
-                    "tokens_out": self.total_out,
-                    "model": self.model,
-                    "known": True,
-                }
-            else:
-                update_challenge(self.cid, tokens_in=self.total_in, tokens_out=self.total_out)
-                payload = {
-                    "cost": "—",
-                    "cost_usd": None,
-                    "tokens_in": self.total_in,
-                    "tokens_out": self.total_out,
-                    "model": self.model,
-                    "known": False,
-                }
-            self.emit("cost", payload)
+            self._emit_cost(usage.prompt_tokens, usage.completion_tokens)
 
         content = "".join(content_parts) if content_parts else None
         tc_objs = None
@@ -2245,13 +2688,87 @@ class CTFAgent:
 
         return SimpleNamespace(content=content, tool_calls=tc_objs, tool_calls_raw=tc_raw)
 
+    def _call_anthropic(self, force_text=False):
+        if Anthropic is None:
+            raise RuntimeError("Anthropic package is not installed. Run: pip install -r requirements.txt")
+        if not self.anthropic_client:
+            raise RuntimeError("Anthropic model selected but no Anthropic key configured. Set anthropic_api_key in config.json or ANTHROPIC_API_KEY.")
+
+        msg_list = self._sanitize_messages(self.messages)
+        anthropic_messages = self._anthropic_messages_from_history(msg_list)
+        kwargs = {
+            "model": self.model,
+            "max_tokens": 4096,
+            "system": self._system_prompt(),
+            "messages": anthropic_messages,
+        }
+        if not force_text:
+            kwargs["tools"] = ANTHROPIC_TOOLS
+            kwargs["tool_choice"] = {"type": "auto"}
+
+        resp = self.anthropic_client.messages.create(**kwargs)
+        usage = getattr(resp, "usage", None)
+        if usage:
+            in_tokens = (
+                int(getattr(usage, "input_tokens", 0) or 0)
+                + int(getattr(usage, "cache_creation_input_tokens", 0) or 0)
+                + int(getattr(usage, "cache_read_input_tokens", 0) or 0)
+            )
+            out_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+            self._emit_cost(in_tokens, out_tokens)
+
+        content_blocks = getattr(resp, "content", None) or []
+        text_parts = []
+        tc_objs = []
+        tc_raw = []
+
+        for block in content_blocks:
+            btype = block.get("type") if isinstance(block, dict) else getattr(block, "type", "")
+            if btype == "text":
+                text = block.get("text") if isinstance(block, dict) else getattr(block, "text", "")
+                if text:
+                    text_parts.append(str(text))
+            elif btype == "tool_use":
+                tid = block.get("id") if isinstance(block, dict) else getattr(block, "id", "")
+                name = block.get("name") if isinstance(block, dict) else getattr(block, "name", "")
+                input_obj = block.get("input") if isinstance(block, dict) else getattr(block, "input", {})
+                if not isinstance(input_obj, dict):
+                    input_obj = {}
+                args_json = json.dumps(input_obj, ensure_ascii=False)
+                fn = SimpleNamespace(name=name, arguments=args_json)
+                tc_objs.append(SimpleNamespace(id=tid, type="function", function=fn))
+                tc_raw.append({
+                    "id": tid,
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "arguments": args_json,
+                    },
+                })
+
+        content = "".join(text_parts) if text_parts else None
+        return SimpleNamespace(
+            content=content,
+            tool_calls=tc_objs or None,
+            tool_calls_raw=tc_raw or None,
+        )
+
+    def _call(self, force_text=False):
+        # Always prune dangling tool_calls before sending to API.
+        self._prune_dangling_tool_calls()
+        if self.provider == "anthropic":
+            return self._call_anthropic(force_text=force_text)
+        return self._call_openai(force_text=force_text)
+
     def _summarize(self):
         self.emit("thought", {"text": "── Summarizing context ──", "type": "system"})
+        if not self.openai_client:
+            return
         try:
             # Avoid tool messages in the summary prompt to prevent invalid tool-call pairing.
             tail = [m for m in self.messages[-12:] if m.get("role") != "tool"]
             summary_model = "gpt-4o-mini"
-            r = self.client.chat.completions.create(
+            r = self.openai_client.chat.completions.create(
                 model=summary_model, **self._token_limit_kw(400, model_name=summary_model),
                 messages=[{"role": "user", "content":
                     "Summarize this CTF session: files found, tried, failed, theory, next steps.\n\n"
@@ -2267,9 +2784,11 @@ class CTFAgent:
             pass
 
     def _save_retry_summary(self):
+        if not self.openai_client:
+            return
         try:
             summary_model = "gpt-4o-mini"
-            r = self.client.chat.completions.create(
+            r = self.openai_client.chat.completions.create(
                 model=summary_model, **self._token_limit_kw(500, model_name=summary_model),
                 messages=[{"role": "user", "content":
                     "Summarize this FAILED CTF attempt for a retry: files, tried, failed, unexplored, next approach.\n\n"
@@ -2287,6 +2806,7 @@ class CTFAgent:
         self._ensure_tooling_ready()
         if self._run_forensics_fastpath(recon):
             return
+        rev_fast_ctx = self._run_rev_qna_fastpath(recon, challenge_desc)
 
         prior_ctx = f"\n\n[PRIOR ATTEMPT]\n{prior_summary}" if prior_summary else ""
         tooling_ctx = ""
@@ -2309,7 +2829,7 @@ class CTFAgent:
                 "Repeated default 404/403 or same-body responses are non-progress.\n"
             )
         initial = (
-            f"{challenge_desc}\n\nFiles in container:\n{recon}{prior_ctx}{tooling_ctx}{playbook_ctx}{web_ctx}\n\n"
+            f"{challenge_desc}\n\nFiles in container:\n{recon}{prior_ctx}{tooling_ctx}{playbook_ctx}{web_ctx}{rev_fast_ctx}\n\n"
             f"{self._evidence_summary()}\n"
             "Execution policy:\n"
             "- Use exactly one decisive tool call per turn.\n"
@@ -2461,10 +2981,14 @@ class CTFAgent:
                 self._next_hypothesis = "Choose a different hypothesis class with a different command family."
                 self._last_tool_progress = False
                 return f"[error] hypothesis budget exceeded: {hypothesis_key}"
-            family_budget = 2
+            family_budget = int(self.cfg.get("family_budget_non_web") or 4)
             if self.category == "web":
-                family_budget = 1
-            if not args.get("long_running") and self._family_no_progress.get(family, 0) >= family_budget:
+                family_budget = int(self.cfg.get("family_budget_web") or 1)
+            if (
+                not args.get("long_running")
+                and not self._is_family_block_exempt(family)
+                and self._family_no_progress.get(family, 0) >= family_budget
+            ):
                 self.emit("thought", {"text": f"Blocked low-yield command family '{family}'. Try a different strategy.", "type": "system"})
                 self._last_tool_progress = False
                 return f"[error] blocked low-yield command family: {family}"
@@ -2632,11 +3156,24 @@ class CTFAgent:
         elif fn == "submit_flag":
             flag = args["flag"]
             how  = args.get("how_found", "")
-            if not self._flag_matches_format(flag):
-                msg = f"Submitted flag does not match expected format '{self.flag_format}'. Keep searching."
-                self.emit("error", {"message": msg, "flag": flag})
-                self._last_tool_progress = False
-                return f"[error] {msg}"
+            # Manual submit guardrail: if no explicit flag_format is configured, only accept
+            # canonical flag-shaped tokens unless override is enabled.
+            if self.flag_format:
+                if not self._flag_matches_format(flag):
+                    msg = f"Submitted flag does not match expected format '{self.flag_format}'. Keep searching."
+                    self.emit("error", {"message": msg, "flag": flag})
+                    self._last_tool_progress = False
+                    return f"[error] {msg}"
+            else:
+                flag_ok = _is_plausible_flag_token(flag) and not self._is_likely_system_flag_artifact(flag, how or "")
+                if not flag_ok and not self._allows_noncanonical_submit(flag, how):
+                    msg = (
+                        "Submitted value is not a canonical flag token (e.g. word{...}). "
+                        "Set challenge flag format if this target uses a non-standard answer."
+                    )
+                    self.emit("error", {"message": msg, "flag": flag})
+                    self._last_tool_progress = False
+                    return f"[error] {msg}"
             update_challenge(self.cid, status="solved", flag=flag)
             self.emit("flag", {"flag": flag, "how": how})
             self.emit("done", {"status": "solved"})
@@ -2737,7 +3274,15 @@ def _log_event(cid: str, event: str, data: dict):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    cfg = load_config()
+    default_model = _canonical_launch_model(cfg.get("model"))
+    if default_model not in LAUNCH_MODEL_IDS:
+        default_model = LAUNCH_MODEL_CHOICES[0]["id"]
+    return render_template(
+        "index.html",
+        launch_models=LAUNCH_MODEL_CHOICES,
+        default_launch_model=default_model,
+    )
 
 # Challenges CRUD
 @app.route("/api/challenges", methods=["GET"])
@@ -2839,6 +3384,11 @@ def upload_file(cid):
 def launch_agent(cid):
     data  = request.json or {}
     retry = data.get("retry", False)
+    model = _canonical_launch_model(data.get("model"))
+    if model and model not in LAUNCH_MODEL_IDS:
+        return jsonify({
+            "error": f"Unsupported model: {model}. Choose one of: {', '.join(m['label'] for m in LAUNCH_MODEL_CHOICES)}"
+        }), 400
     chal  = get_challenge(cid)
     if not chal:
         return jsonify({"error": "Not found"}), 404
@@ -2868,12 +3418,56 @@ def launch_agent(cid):
     prior = chal.get("retry_summary") if retry else None
     update_challenge(cid, status="solving")
 
+    synced_files = []
+    chal_upload_dir = UPLOAD_DIR / cid
+    if chal_upload_dir.exists():
+        synced_files = sorted([p.name for p in chal_upload_dir.iterdir() if p.is_file()])
+    if not synced_files:
+        synced_files = list(chal.get("files") or [])
+
+    container_listing = container.run("ls -1 /ctf/ 2>/dev/null || true")
+    container_entries = [ln.strip() for ln in (container_listing or "").splitlines() if ln.strip()]
+    container_set = set(container_entries)
+
+    if synced_files:
+        present = [f for f in synced_files if f in container_set]
+        missing = [f for f in synced_files if f not in container_set]
+        present_preview = ", ".join(present[:8]) if present else "none"
+        if len(present) > 8:
+            present_preview += ", ..."
+        if missing:
+            missing_preview = ", ".join(missing[:8])
+            if len(missing) > 8:
+                missing_preview += ", ..."
+            upload_msg = (
+                f"[uploads verify] /ctf visibility FAIL ({len(present)}/{len(synced_files)} visible). "
+                f"present: {present_preview}; missing: {missing_preview}"
+            )
+        else:
+            upload_msg = (
+                f"[uploads verify] /ctf visibility OK ({len(present)}/{len(synced_files)} visible): "
+                f"{present_preview}"
+            )
+        if container_entries:
+            sample = ", ".join(container_entries[:8])
+            if len(container_entries) > 8:
+                sample += ", ..."
+            upload_msg += f" | /ctf sample: {sample}"
+    else:
+        upload_msg = "[uploads verify] no uploaded files yet."
+    upload_payload = {"cid": cid, "cmd": upload_msg, "notice": True}
+    socketio.emit("command", upload_payload, room=cid)
+    _log_event(cid, "command", upload_payload)
+
     agent = CTFAgent(
         cid,
         chal.get("category", "misc"),
         container,
         room=cid,
         flag_format=chal.get("flag_format", ""),
+        model=model or None,
+        challenge_name=chal.get("name", ""),
+        challenge_description=chal.get("description", ""),
     )
     _agents[cid] = agent
     agent.start(full_desc, prior_summary=prior)
@@ -2900,6 +3494,57 @@ def reset_container(cid):
         _containers[cid].stop()
         del _containers[cid]
     update_challenge(cid, files=[], status="unsolved", flag=None, retry_summary=None)
+    return jsonify({"ok": True})
+
+@app.route("/api/reset-all", methods=["POST"])
+def reset_all():
+    # Stop all tracked agents.
+    for cid, agent in list(_agents.items()):
+        try:
+            agent.stop()
+        except Exception:
+            pass
+        _agents.pop(cid, None)
+
+    # Stop all tracked containers.
+    for cid, container in list(_containers.items()):
+        try:
+            container.stop()
+        except Exception:
+            pass
+        _containers.pop(cid, None)
+
+    # Best-effort cleanup for any leftover containers from prior runs.
+    try:
+        client = get_docker()
+        leftovers = client.containers.list(all=True, filters={"name": CONTAINER_PREFIX})
+        for c in leftovers:
+            try:
+                c.remove(force=True)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # Clear in-memory logs and persisted challenges.
+    _logs.clear()
+    with _db_lock:
+        _save_challenges_unlocked([])
+
+    # Remove all uploaded files for all challenges.
+    try:
+        for p in UPLOAD_DIR.iterdir():
+            if p.is_dir():
+                shutil.rmtree(p, ignore_errors=True)
+            else:
+                try:
+                    p.unlink()
+                except FileNotFoundError:
+                    pass
+    except FileNotFoundError:
+        pass
+    UPLOAD_DIR.mkdir(exist_ok=True)
+
     return jsonify({"ok": True})
 
 @app.route("/api/evaluation/summary", methods=["GET"])
@@ -2953,6 +3598,17 @@ def on_join(data):
         join_room(cid)
 
 if __name__ == "__main__":
+    cfg = load_config()
+    auto_open_browser = _as_bool(cfg.get("auto_open_browser"), default=True)
+    if auto_open_browser:
+        def _open_browser():
+            time.sleep(0.8)
+            try:
+                webbrowser.open("http://127.0.0.1:7331", new=2)
+            except Exception:
+                pass
+        threading.Thread(target=_open_browser, daemon=True).start()
+
     print("\n  Big Stein (The Penetrator)")
     print("  ─────────────────────────────")
     print("  Open http://localhost:7331\n")

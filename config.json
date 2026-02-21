@@ -1,9 +1,12 @@
 {
-  "openai_api_key": "",
+  "openai_api_key": "REDACTED",
+  "anthropic_api_key": "REDACTED",
   "model": "gpt-5-mini",
+  "auto_open_browser": true,
   "prompt_profile": "compact",
   "tool_context_limit": 4000,
   "strict_auto_submit": true,
+  "allow_nonstandard_submit": false,
   "hypothesis_budget": 2,
   "allow_runtime_installs": false,
   "broad_eval_min_total_challenges": 100,
