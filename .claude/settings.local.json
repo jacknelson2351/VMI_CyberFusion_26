@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(cd /c/Users/kingn/Desktop/VMI_CyberFusion_26 && python -c \"\nimport sys\nsys.path.insert\\(0, '.'\\)\n# Test leaf modules first\nimport config; print\\('config OK'\\)\nimport utils; print\\('utils OK'\\)\nimport pricing; print\\('pricing OK'\\)\nimport extensions; print\\('extensions OK'\\)\nimport db; print\\('db OK'\\)\nimport docker_mgr; print\\('docker_mgr OK'\\)\nimport prompts; print\\('prompts OK'\\)\n\" 2>&1)",
+      "Bash(cd /c/Users/kingn/Desktop/VMI_CyberFusion_26 && python -c \"\nimport sys\nsys.path.insert\\(0, '.'\\)\nimport agent.registry; print\\('agent.registry OK'\\)\nimport agent.commands; print\\('agent.commands OK'\\)\nimport agent.hints; print\\('agent.hints OK'\\)\nimport agent.flags; print\\('agent.flags OK'\\)\nimport agent.evidence; print\\('agent.evidence OK'\\)\nimport agent.llm; print\\('agent.llm OK'\\)\nimport agent.core; print\\('agent.core OK'\\)\nimport agent; print\\('agent OK'\\)\n\" 2>&1)",
+      "Bash(cd /c/Users/kingn/Desktop/VMI_CyberFusion_26 && python -c \"\nimport sys\nsys.path.insert\\(0, '.'\\)\nimport routes; print\\('routes OK'\\)\nimport server; print\\('server OK'\\)\n\" 2>&1)"
+    ]
+  }
+}

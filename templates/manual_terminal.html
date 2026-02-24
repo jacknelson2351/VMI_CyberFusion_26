@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual CTF Terminal</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.5.0/css/xterm.min.css">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #111; color: #e8e8e8; font-family: ui-sans-serif, Segoe UI, Arial, sans-serif; }
+#app { height: 100vh; display: grid; grid-template-columns: 360px 1fr; }
+#side { border-right: 1px solid #2d2d2d; background: #171717; overflow: auto; padding: 14px; }
+#main { display: flex; flex-direction: column; }
+#topbar { height: 44px; border-bottom: 1px solid #2d2d2d; display: flex; align-items: center; padding: 0 12px; gap: 10px; background: #141414; }
+.pill { font-size: 11px; border: 1px solid #3a3a3a; padding: 3px 8px; border-radius: 999px; color: #8fd3ff; }
+.sec { margin-bottom: 14px; }
+.label { font-size: 11px; color: #8a8a8a; letter-spacing: 0.08em; margin-bottom: 6px; font-family: ui-monospace, Consolas, monospace; }
+.value { font-size: 13px; line-height: 1.6; color: #d2d2d2; white-space: pre-wrap; word-break: break-word; }
+#terminal { flex: 1; padding: 8px; }
+#status { margin-left: auto; font-size: 12px; color: #9aa0a6; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <div class="sec">
+      <div class="label">CHALLENGE</div>
+      <div class="value" id="ch-name">{{ challenge.name }} [{{ challenge.category|upper }}]</div>
+    </div>
+    <div class="sec">
+      <div class="label">DESCRIPTION</div>
+      <div class="value" id="ch-desc">{{ challenge.description or "No description." }}</div>
+    </div>
+    <div class="sec">
+      <div class="label">UPLOADED FILES</div>
+      <div class="value" id="uploaded-files">Loading...</div>
+    </div>
+    <div class="sec">
+      <div class="label">/CTF LISTING</div>
+      <div class="value" id="ctf-listing">Loading...</div>
+    </div>
+  </aside>
+  <main id="main">
+    <div id="topbar">
+      <div class="pill">Manual Mode</div>
+      <div class="pill">Agent Not Started</div>
+      <div id="status">Initializing container...</div>
+    </div>
+    <div id="terminal"></div>
+  </main>
+</div>
+
+<script>
+const CID = "{{ cid }}";
+const statusEl = document.getElementById('status');
+const socket = io();
+let term = null;
+let fitAddon = null;
+
+function setStatus(s) { statusEl.textContent = s; }
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  return r.json();
+}
+
+function initTerminal() {
+  term = new Terminal({
+    cursorBlink: true,
+    convertEol: false,
+    scrollback: 8000,
+    fontFamily: 'Consolas, "Cascadia Code", monospace',
+    fontSize: 13,
+    theme: { background: '#111111', foreground: '#e8e8e8' },
+  });
+  fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById('terminal'));
+  fitAddon.fit();
+  term.focus();
+  term.onData((d) => socket.emit('manual_terminal_input', { cid: CID, data: d }));
+}
+
+async function bootManual() {
+  const res = await api(`/api/challenges/${CID}/manual-start`, { method: 'POST', body: {} });
+  if (!res || res.error) {
+    setStatus(`Failed: ${res?.error || 'manual-start error'}`);
+    if (term) term.writeln(`\r\nerror: ${res?.error || 'manual-start failed'}`);
+    return;
+  }
+  const files = (res.challenge?.files || []);
+  document.getElementById('uploaded-files').textContent = files.length ? files.map(f => `- ${f}`).join('\n') : '(none)';
+  document.getElementById('ctf-listing').textContent = res.listing || '(empty)';
+  setStatus('Container ready');
+  socket.emit('manual_terminal_open', { cid: CID, cols: term.cols, rows: term.rows });
+}
+
+window.addEventListener('resize', () => {
+  if (!fitAddon || !term) return;
+  fitAddon.fit();
+  socket.emit('manual_terminal_resize', { cid: CID, cols: term.cols, rows: term.rows });
+});
+
+socket.on('manual_terminal_ready', ({ cid }) => {
+  if (cid !== CID) return;
+  setStatus('Interactive shell ready');
+});
+socket.on('manual_terminal_output', ({ cid, data }) => {
+  if (cid !== CID || !term) return;
+  term.write(data || '');
+});
+socket.on('manual_terminal_error', ({ cid, error }) => {
+  if (cid && cid !== CID) return;
+  setStatus(`Error: ${error || 'terminal error'}`);
+  if (term) term.writeln(`\r\nerror: ${error || 'terminal error'}`);
+});
+socket.on('manual_terminal_exit', ({ cid }) => {
+  if (cid !== CID) return;
+  setStatus('Shell exited');
+});
+
+window.addEventListener('beforeunload', () => {
+  socket.emit('manual_terminal_close', { cid: CID });
+});
+
+initTerminal();
+bootManual();
+</script>
+</body>
+</html>
+

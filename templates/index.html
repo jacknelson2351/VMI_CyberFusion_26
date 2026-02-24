@@ -5,44 +5,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Big Stein (The Penetrator)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
 <style>
-/* ── Reset & Base ──────────────────────────────────────────────── */
+/*  Reset & Base  */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:       #07080a;
-  --bg1:      #0d0f12;
-  --bg2:      #111418;
-  --bg3:      #161b20;
-  --border:   #1e2530;
-  --border2:  #253040;
-  --green:    #00e5a0;
-  --green-dim:#005a40;
-  --amber:    #f5a623;
-  --red:      #ff4d6d;
-  --blue:     #4da6ff;
-  --cyan:     #00d4ff;
-  --purple:   #b06eff;
-  --text:     #c8d6e5;
-  --text-dim: #4a5568;
-  --text-muted: #2d3748;
+  --bg:       #1a1a1a;
+  --bg1:      #212121;
+  --bg2:      #2a2a2a;
+  --bg3:      #333333;
+  --border:   #363636;
+  --border2:  #454545;
+  --accent:   #d97357;
+  --accent-dim:#7a3d2e;
+  --amber:    #e8a04c;
+  --red:      #e05c6b;
+  --blue:     #5b9cf6;
+  --cyan:     #2dd4bf;
+  --purple:   #a78bfa;
+  --text:     #e8e8e8;
+  --text-dim: #a0a0a0;
+  --text-muted: #606060;
 
-  --cat-pwn:      #ff4d6d;
-  --cat-web:      #00d4ff;
-  --cat-crypto:   #f5c842;
+  --cat-pwn:      #e05c6b;
+  --cat-web:      #2dd4bf;
+  --cat-crypto:   #e8c44c;
   --cat-forensics:#7ed56f;
-  --cat-rev:      #ff8fab;
-  --cat-misc:     #b06eff;
+  --cat-rev:      #f09cb4;
+  --cat-misc:     #a78bfa;
   --cat-osint:    #ffd700;
-  --cat-network:  #4da6ff;
+  --cat-network:  #5b9cf6;
 
-  --font-mono: 'Space Mono', monospace;
-  --font-sans: 'Syne', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --radius:   8px;
-  --radius-lg:14px;
+  --radius-lg:12px;
 }
 
 html, body {
@@ -53,15 +53,15 @@ html, body {
   overflow: hidden;
 }
 
-/* ── Scrollbar ─────────────────────────────────────────────────── */
+/*  Scrollbar  */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
 
-/* ── Layout ────────────────────────────────────────────────────── */
+/*  Layout  */
 #app { height: 100vh; display: flex; flex-direction: column; }
 
-/* ── Topbar ────────────────────────────────────────────────────── */
+/*  Topbar  */
 #topbar {
   height: 52px;
   background: var(--bg1);
@@ -77,18 +77,18 @@ html, body {
 
 #topbar-logo {
   font-family: var(--font-sans);
-  font-weight: 800;
+  font-weight: 700;
   font-size: 15px;
   letter-spacing: 0;
-  color: var(--green);
+  color: var(--accent);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 #topbar-logo .brand-name {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 14px;
-  letter-spacing: 0.03em;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
 }
@@ -105,13 +105,39 @@ html, body {
   font-size: 11px;
   border: 1px solid var(--border2);
   background: var(--bg2);
+  color: #fff;
 }
 .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
-.status-pill.ok .dot   { background: var(--green); box-shadow: 0 0 6px var(--green); }
-.status-pill.warn .dot { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
-.status-pill.err .dot  { background: var(--red); }
+.status-pill.ok .dot   { background: var(--cyan); }
+.status-pill.warn .dot { background: var(--amber); }
+.status-pill.err .dot  { background: var(--amber); }
+#docker-menu-wrap { position: relative; }
+#docker-status { cursor: pointer; }
+#docker-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 430px;
+  max-width: min(92vw, 430px);
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  box-shadow: 0 14px 28px rgba(0,0,0,0.45);
+  padding: 10px;
+  display: none;
+  z-index: 450;
+}
+#docker-menu.open { display: block; }
+.docker-menu-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
 
-/* ── Buttons ───────────────────────────────────────────────────── */
+/*  Buttons  */
 .btn {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 7px 16px;
@@ -126,14 +152,14 @@ html, body {
 }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.btn-primary   { background: var(--green); color: #000; }
-.btn-primary:hover:not(:disabled) { background: #00ffb3; box-shadow: 0 0 20px rgba(0,229,160,0.3); }
+.btn-primary   { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #e8845f; box-shadow: 0 2px 8px rgba(217,115,87,0.3); }
 
 .btn-amber     { background: var(--amber); color: #000; }
-.btn-amber:hover:not(:disabled) { background: #ffc04a; }
+.btn-amber:hover:not(:disabled) { background: #f0b060; }
 
 .btn-ghost     { background: var(--bg3); color: var(--text); border: 1px solid var(--border2); }
-.btn-ghost:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 
 .btn-danger    { background: rgba(255,77,109,0.15); color: var(--red); border: 1px solid rgba(255,77,109,0.3); }
 .btn-danger:hover:not(:disabled) { background: rgba(255,77,109,0.25); }
@@ -141,11 +167,11 @@ html, body {
 .btn-sm { padding: 5px 12px; font-size: 12px; }
 .btn-icon { padding: 7px 10px; }
 
-/* ── Views ─────────────────────────────────────────────────────── */
+/*  Views  */
 .view { display: none; flex: 1; overflow: hidden; }
 .view.active { display: flex; flex-direction: column; }
 
-/* ── Dashboard ─────────────────────────────────────────────────── */
+/*  Dashboard  */
 #view-dashboard { flex-direction: column; }
 
 #dash-header {
@@ -166,6 +192,20 @@ html, body {
   text-transform: none;
   color: #fff;
 }
+.dash-solved {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dash-solved:hover { border-color: var(--border2); color: var(--text); }
+.dash-solved:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .dash-cost {
   margin-left: auto;
@@ -175,7 +215,7 @@ html, body {
   padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: linear-gradient(90deg, rgba(0,212,255,0.12), rgba(0,0,0,0));
+  background: var(--bg2);
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-dim);
@@ -205,7 +245,23 @@ html, body {
   letter-spacing: 0.04em;
 }
 .filter-tab:hover { border-color: var(--border2); color: var(--text); }
-.filter-tab.active { border-color: var(--green); color: var(--green); background: rgba(0,229,160,0.06); }
+.filter-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(217,115,87,0.08); }
+.filter-toggle {
+  margin-left: 8px;
+  padding: 5px 13px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+.filter-toggle:hover { border-color: var(--border2); color: var(--text); }
+.filter-toggle.active { border-color: var(--cyan); color: var(--cyan); background: rgba(45,212,191,0.08); }
 
 #cards-scroll {
   flex: 1;
@@ -219,7 +275,7 @@ html, body {
   gap: 14px;
 }
 
-/* ── Challenge Card ─────────────────────────────────────────────── */
+/*  Challenge Card  */
 .card {
   background: var(--bg1);
   border: 1px solid var(--border);
@@ -229,13 +285,15 @@ html, body {
   transition: all 0.2s;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .card::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 2px;
-  background: var(--card-accent, var(--green));
+  background: var(--card-accent, var(--accent));
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -290,8 +348,8 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 14px;
-  padding-top: 12px;
+  margin-top: auto;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
 }
 .card-status {
@@ -302,8 +360,9 @@ html, body {
 .status-dot { width: 7px; height: 7px; border-radius: 50%; }
 .status-unsolved .status-dot { background: var(--text-muted); }
 .status-solving  .status-dot { background: var(--amber); animation: pulse 1.5s infinite; }
-.status-solved   .status-dot { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
-.status-running  .status-dot { background: var(--green); animation: pulse 1.2s infinite; box-shadow: 0 0 8px var(--green); }
+.status-solved   .status-dot { background: var(--cyan); }
+.status-pending  .status-dot { background: var(--amber); animation: pulse 1.5s infinite; }
+.status-running  .status-dot { background: var(--accent); animation: pulse 1.2s infinite; }
 .status-waiting  .status-dot { background: var(--text-muted); }
 .status-idle     .status-dot { background: var(--text-muted); }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -326,7 +385,7 @@ html, body {
 .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text-dim); }
 .empty-state p  { font-size: 13px; line-height: 1.6; }
 
-/* ── Modal ──────────────────────────────────────────────────────── */
+/*  Modal  */
 .modal-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.7);
@@ -371,7 +430,7 @@ html, body {
 .modal-body { padding: 20px 24px; }
 .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
 
-/* ── Forms ──────────────────────────────────────────────────────── */
+/*  Forms  */
 .field { margin-bottom: 16px; }
 .field label {
   display: block;
@@ -395,15 +454,15 @@ html, body {
   outline: none;
 }
 .field input:focus, .field select:focus, .field textarea:focus {
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(0,229,160,0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(217,115,87,0.12);
 }
 .field textarea { min-height: 120px; resize: vertical; font-size: 13px; line-height: 1.6; }
 .field select option { background: var(--bg2); }
 
 .fields-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
-/* ── Build Modal ─────────────────────────────────────────────────── */
+/*  Build Modal  */
 #build-log {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -417,10 +476,10 @@ html, body {
   color: var(--text-dim);
 }
 #build-log .log-line { word-break: break-all; }
-#build-log .log-line.done  { color: var(--green); font-weight: 700; }
+#build-log .log-line.done  { color: var(--accent); font-weight: 700; }
 #build-log .log-line.error { color: var(--red); font-weight: 700; }
 
-/* ── Challenge View ──────────────────────────────────────────────── */
+/*  Challenge View  */
 #view-challenge {
   flex-direction: row;
 }
@@ -450,7 +509,7 @@ html, body {
   background: none; border: none;
   font-family: var(--font-sans);
 }
-.back-btn:hover { color: var(--green); }
+.back-btn:hover { color: var(--accent); }
 
 .ch-name-block {}
 .ch-category-badge {
@@ -497,12 +556,12 @@ html, body {
   border: 1px solid;
 }
 .badge-unsolved { border-color: var(--border2); color: var(--text-dim); }
-.badge-solving  { border-color: var(--amber); color: var(--amber); background: rgba(245,166,35,0.08); }
-.badge-running  { border-color: var(--green); color: var(--green); background: rgba(0,229,160,0.08); }
+.badge-solving  { border-color: var(--amber); color: var(--amber); background: rgba(232,160,76,0.08); }
+.badge-running  { border-color: var(--accent); color: var(--accent); background: rgba(217,115,87,0.08); }
 .badge-waiting  { border-color: var(--text-muted); color: var(--text-muted); background: rgba(255,255,255,0.03); }
 .badge-idle     { border-color: var(--text-muted); color: var(--text-muted); background: rgba(255,255,255,0.03); }
-.badge-solved   { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,0.08); }
-.badge-solved   { border-color: var(--green); color: var(--green); background: rgba(0,229,160,0.08); }
+.badge-solved   { border-color: var(--cyan); color: var(--cyan); background: rgba(45,212,191,0.08); }
+.badge-pending  { border-color: var(--amber); color: var(--amber); background: rgba(232,160,76,0.08); }
 
 /* Description */
 .ch-description {
@@ -539,8 +598,8 @@ html, body {
   position: relative;
 }
 #upload-zone:hover, #upload-zone.drag-over {
-  border-color: var(--green);
-  background: rgba(0,229,160,0.04);
+  border-color: var(--accent);
+  background: rgba(217,115,87,0.05);
 }
 #upload-zone .upload-icon { font-size: 24px; margin-bottom: 6px; }
 #upload-zone .upload-text { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
@@ -560,7 +619,7 @@ html, body {
 }
 .upload-bar-fill {
   height: 100%;
-  background: var(--green);
+  background: var(--accent);
   border-radius: 99px;
   width: 0%;
   transition: width 0.3s;
@@ -578,6 +637,59 @@ html, body {
   font-weight: 700;
 }
 .cost-tokens { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+
+.writeup-panel { display: none; flex-direction: column; gap: 8px; }
+.writeup-panel.visible { display: flex; }
+#writeup-status { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+.writeup-actions { display: flex; align-items: center; gap: 8px; }
+.writeup-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  border: 1px solid rgba(217,115,87,0.35);
+  background: rgba(217,115,87,0.08);
+  border-radius: 6px;
+  padding: 6px 9px;
+}
+.writeup-link:hover { background: rgba(217,115,87,0.16); }
+
+#writeup-content {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  max-height: 60vh;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+#approval-candidate {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+#approval-notes {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 9px 10px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
 
 /* Sidebar actions */
 #ch-sidebar-actions {
@@ -597,198 +709,336 @@ html, body {
   overflow: hidden;
 }
 
-/* Prompt bar */
-#prompt-bar {
-  padding: 12px 16px;
-  background: var(--bg1);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-#prompt-input {
+/*  Chat feed  */
+#chat-feed {
   flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--border2);
-  border-radius: var(--radius);
-  padding: 9px 14px;
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.15s;
+  overflow-y: auto;
+  padding: 20px 28px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
-#prompt-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,229,160,0.1); }
-#prompt-input::placeholder { color: var(--text-muted); }
-
-#model-select {
-  min-width: 170px;
-  background: var(--bg);
-  border: 1px solid var(--border2);
-  border-radius: var(--radius);
-  padding: 9px 12px;
+.chat-msg { max-width: 720px; width: 100%; }
+.chat-msg.reasoning {
+  font-size: 14px;
+  line-height: 1.75;
   color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 2px 0;
+}
+.chat-msg.plan {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 10px 14px;
+  background: rgba(217,115,87,0.05);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  margin: 4px 0;
+}
+.chat-msg.replan { border-left-color: var(--amber); background: rgba(232,160,76,0.05); }
+.chat-msg.system { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 2px 0; }
+.chat-msg.error  { font-size: 13px; color: var(--red); }
+
+.chat-banner {
+  max-width: 720px;
+  border-radius: 6px;
   font-family: var(--font-mono);
   font-size: 12px;
-  outline: none;
-  transition: border-color 0.15s;
+  line-height: 1.6;
+  margin: 2px 0;
+  padding: 7px 12px;
+  word-break: break-all;
 }
-#model-select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,229,160,0.1); }
+.chat-banner.command { background: rgba(217,115,87,0.06); border: 1px solid rgba(217,115,87,0.18); color: var(--accent); }
+.chat-banner.command::before { content: '$ '; opacity: 0.5; }
+.chat-banner.gdb-command { background: rgba(167,139,250,0.06); border: 1px solid rgba(167,139,250,0.18); color: var(--purple); }
+.chat-banner.gdb-command::before { content: ' '; }
+.chat-banner.notice-command { background: rgba(232,160,76,0.06); border: 1px solid rgba(232,160,76,0.2); color: var(--amber); word-break: break-word; }
+.chat-banner.notice-command::before { content: '! '; opacity: 0.75; }
+.chat-banner.output {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/*  Chat input bar  */
+#chat-input-bar {
+  flex-shrink: 0;
+  padding: 10px 20px 14px;
+  background: var(--bg1);
+  border-top: 1px solid var(--border);
+}
+#agent-status-line {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 0 2px 5px;
+}
+#chat-input-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 10px 14px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+#chat-input-wrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(217,115,87,0.1);
+}
+#prompt-input {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 0;
+  margin-bottom: 8px;
+}
+#prompt-input::placeholder { color: var(--text-muted); }
+#chat-input-footer { display: flex; align-items: center; gap: 7px; }
+#model-select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 9px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  outline: none;
+  min-width: 150px;
+}
+.agent-activity {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
+}
+.agent-activity .activity-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: 0 0 0 0 rgba(217,115,87,0.0);
+}
+.agent-activity.running .activity-dot { background: var(--accent); animation: pulse 1.2s infinite; }
+.agent-activity .activity-label { color: var(--text-muted); font-weight: 700; }
+.agent-activity .activity-time  { color: var(--text-muted); letter-spacing: 0; font-weight: 400; }
+#btn-launch {
+  margin-left: auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff; border: none; cursor: pointer;
+  font-size: 16px; line-height: 1;
+  transition: background 0.15s; flex-shrink: 0;
+}
+#btn-launch:hover:not(:disabled) { background: #e8845f; }
+#btn-launch:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* Flag banner */
 #flag-banner {
-  background: linear-gradient(90deg, rgba(0,229,160,0.12), rgba(0,229,160,0.04));
-  border: 1px solid var(--green);
-  border-radius: var(--radius);
-  margin: 12px 16px 0;
-  padding: 12px 16px;
+  background: rgba(217,115,87,0.08);
+  border-bottom: 1px solid rgba(217,115,87,0.35);
+  padding: 10px 28px;
   display: none;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
   animation: flag-in 0.4s ease;
 }
 #flag-banner.visible { display: flex; }
 @keyframes flag-in { from { opacity:0; transform:scale(0.98); } }
-.flag-label { font-family: var(--font-mono); font-size: 11px; color: var(--green); font-weight: 700; letter-spacing: 0.1em; }
-.flag-value { font-family: var(--font-mono); font-size: 14px; color: #fff; font-weight: 700; flex: 1; word-break: break-all; }
-.flag-copy  { background: rgba(0,229,160,0.15); border: 1px solid rgba(0,229,160,0.3); color: var(--green); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: var(--font-mono); transition: all 0.15s; }
-.flag-copy:hover { background: rgba(0,229,160,0.25); }
+.flag-label { font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-weight: 700; letter-spacing: 0.08em; }
+.flag-value { font-family: var(--font-mono); font-size: 14px; color: #fff; font-weight: 600; flex: 1; word-break: break-all; }
+.flag-copy  { background: rgba(217,115,87,0.15); border: 1px solid rgba(217,115,87,0.3); color: var(--accent); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: var(--font-mono); transition: all 0.15s; }
+.flag-copy:hover { background: rgba(217,115,87,0.25); }
 
-/* Logs area */
-#logs-area {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1.4fr 1fr;
-  overflow: hidden;
-  gap: 0;
+
+/*  Manual solve  */
+#manual-flag-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
+#manual-flag-input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(45,212,191,0.1);
+}
+#manual-flag-input::placeholder { color: var(--text-muted); }
 
-.log-pane {
+/*  Settings modal key rows  */
+.key-row {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  border-right: 1px solid var(--border);
+  gap: 7px;
 }
-.log-pane:last-child { border-right: none; }
-
-.log-pane-header {
-  padding: 8px 14px;
-  background: var(--bg1);
-  border-bottom: 1px solid var(--border);
+.key-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-family: var(--font-mono);
+  font-size: 11px;
+  min-height: 18px;
+}
+.key-status .key-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 99px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+.key-badge.set   { border: 1px solid rgba(45,212,191,0.4); color: var(--cyan); background: rgba(45,212,191,0.07); }
+.key-badge.unset { border: 1px solid var(--border2); color: var(--text-muted); background: transparent; }
+.key-badge .key-dot { width: 6px; height: 6px; border-radius: 50%; }
+.key-badge.set   .key-dot { background: var(--cyan); }
+.key-badge.unset .key-dot { background: var(--text-muted); }
+.key-masked { color: var(--text-muted); font-size: 11px; font-family: var(--font-mono); }
+.key-remove-btn {
+  align-self: flex-start;
+  background: rgba(224,92,107,0.1);
+  border: 1px solid rgba(224,92,107,0.25);
+  color: var(--red);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: none;
+}
+.key-remove-btn:hover { background: rgba(224,92,107,0.2); }
+.key-remove-btn.visible { display: inline-flex; }
+.security-row {
+  margin-top: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
-.log-pane-header .pane-icon { font-size: 13px; }
-.agent-activity {
-  margin-left: auto;
+.security-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 9px;
-  letter-spacing: 0.12em;
-}
-.agent-activity .activity-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  box-shadow: 0 0 0 0 rgba(0,229,160,0.0);
-}
-.agent-activity.running .activity-dot {
-  background: var(--green);
-  animation: pulse 1.2s infinite;
-}
-.agent-activity .activity-label {
-  color: var(--text-muted);
-  font-weight: 700;
-}
-.agent-activity .activity-time {
-  color: var(--text-muted);
-  letter-spacing: 0;
-  font-weight: 400;
-}
-.agent-status-line {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  background: transparent;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--text-dim);
-  padding: 6px 14px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(90deg, rgba(0,229,160,0.08), rgba(0,0,0,0));
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
 }
-
-.log-scroll {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 14px;
+.security-pill.on {
+  border-color: rgba(45,212,191,0.45);
+  color: var(--cyan);
+  background: rgba(45,212,191,0.08);
+}
+.security-pill.off {
+  border-color: var(--border2);
+  color: var(--text-muted);
+}
+.security-action {
+  border-radius: 999px;
   font-family: var(--font-mono);
   font-size: 11px;
-  line-height: 1.7;
+  padding: 5px 12px;
 }
 
-/* Plan entries */
-.plan-entry {
-  margin-bottom: 14px;
-  padding-bottom: 14px;
+.containers-list {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-height: 220px;
+  overflow: auto;
+  background: var(--bg);
+}
+.containers-empty {
+  padding: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.container-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
   border-bottom: 1px solid var(--border);
-  color: var(--cyan);
-  white-space: pre-wrap;
-  word-break: break-word;
 }
-.plan-entry:last-child { border-bottom: none; margin-bottom: 0; }
-.plan-entry.replan { color: var(--amber); }
-.plan-timestamp { font-size: 10px; color: var(--text-muted); margin-bottom: 5px; }
-.plan-stream-body { white-space: pre-wrap; word-break: break-word; }
-
-/* Agent entries */
-.agent-entry { margin-bottom: 8px; }
-.agent-entry.reasoning { color: var(--text-dim); white-space: pre-wrap; word-break: break-word; }
-.agent-entry.command   {
-  background: rgba(0,229,160,0.06);
-  border: 1px solid rgba(0,229,160,0.15);
-  border-radius: 5px;
-  padding: 6px 10px;
-  color: var(--green);
-  word-break: break-all;
-}
-.agent-entry.command::before { content: '$ '; opacity: 0.6; }
-.agent-entry.notice-command {
-  background: rgba(245,166,35,0.08);
-  border: 1px solid rgba(245,166,35,0.32);
-  border-radius: 5px;
-  padding: 6px 10px;
-  color: var(--amber);
-  word-break: break-word;
-}
-.agent-entry.notice-command::before { content: '! '; opacity: 0.75; }
-.agent-entry.gdb-command { background: rgba(180,100,255,0.06); border-color: rgba(180,100,255,0.15); color: var(--purple); }
-.agent-entry.gdb-command::before { content: '⚙ '; }
-.agent-entry.system { color: var(--text-muted); font-style: italic; font-size: 10px; }
-.agent-entry.error  { color: var(--red); }
-
-/* Output entries */
-.output-entry {
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
+.container-row:last-child { border-bottom: none; }
+.container-meta { min-width: 0; }
+.container-name {
+  font-size: 12px;
+  font-weight: 700;
   color: var(--text);
-  white-space: pre-wrap;
-  word-break: break-all;
-  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.output-entry:last-child { border-bottom: none; margin-bottom: 0; }
-.output-timestamp { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
-.output-content { color: #a8b8cc; }
+.container-sub {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.container-open {
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.container-kill {
+  background: rgba(224,92,107,0.12);
+  color: var(--red);
+  border: 1px solid rgba(224,92,107,0.28);
+  border-radius: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 11px;
+}
 
-/* ── Toast ──────────────────────────────────────────────────────── */
+/*  Run divider  */
+.chat-run-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+.chat-run-divider::before,
+.chat-run-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/*  Toast  */
 #toast-container {
   position: fixed;
   bottom: 20px; right: 20px;
@@ -808,40 +1058,47 @@ html, body {
   pointer-events: auto;
 }
 @keyframes toast-in { from { opacity:0; transform:translateY(10px); } }
-.toast.success { border-color: rgba(0,229,160,0.4); }
-.toast.error   { border-color: rgba(255,77,109,0.4); }
+.toast.success { border-color: rgba(217,115,87,0.4); }
+.toast.error   { border-color: rgba(224,92,107,0.4); }
 
 </style>
 </head>
 <body>
 <div id="app">
 
-  <!-- ── Topbar ────────────────────────────────────────── -->
+  <!--  Topbar  -->
   <div id="topbar">
     <div id="topbar-logo">
-      <span>◈</span>
+      <span>&#128104;&#8205;&#129456;</span>
       <span class="brand-name">Big Stein (The Penetrator)</span>
       <span class="sep">|</span>
       <span id="topbar-title" style="font-weight:400;font-size:13px;color:var(--text-dim);">vibecoded by jack</span>
     </div>
     <div id="topbar-right">
-      <div id="docker-status" class="status-pill">
-        <div class="dot"></div>
-        <span>checking docker…</span>
+      <div id="docker-menu-wrap">
+        <button id="docker-status" class="status-pill" type="button" aria-haspopup="menu" aria-expanded="false">
+          <div class="dot"></div>
+          <span>checking docker...</span>
+        </button>
+        <div id="docker-menu">
+          <div class="docker-menu-title">ACTIVE CONTAINERS</div>
+          <div id="active-containers-list" class="containers-list">
+            <div class="containers-empty">Loading...</div>
+          </div>
+        </div>
       </div>
-      <button class="btn btn-ghost btn-sm" id="btn-build-open" title="Build Docker image">
-        ⚙ Build Image
-      </button>
-      <button class="btn btn-danger btn-sm" id="btn-reset-all" title="Delete all challenges and uploads">
-        ☢ Reset All
-      </button>
+      <button class="btn btn-ghost btn-sm" id="btn-settings-open" title="API keys & settings">Settings</button>
+      <button class="btn btn-ghost btn-sm" id="btn-lock-app" title="Lock workspace now" style="display:none">Lock</button>
+      <button class="btn btn-ghost btn-sm" id="btn-build-open" title="Build Docker image">Build Image</button>
+      <button class="btn btn-danger btn-sm" id="btn-reset-all" title="Delete all challenges and uploads">Reset All</button>
     </div>
   </div>
 
-  <!-- ── Dashboard View ───────────────────────────────── -->
+  <!--  Dashboard View  -->
   <div class="view active" id="view-dashboard">
     <div id="dash-header">
       <h1>Challenges</h1>
+      <button id="dash-solved-toggle" class="dash-solved" type="button" title="Toggle solved display mode">Solved: 0/0</button>
       <div class="filter-tabs">
         <button class="filter-tab active" data-cat="all">ALL</button>
         <button class="filter-tab" data-cat="pwn">PWN</button>
@@ -853,6 +1110,7 @@ html, body {
         <button class="filter-tab" data-cat="osint">OSINT</button>
         <button class="filter-tab" data-cat="network">NETWORK</button>
       </div>
+      <button id="btn-hide-solved" class="filter-toggle" type="button" aria-pressed="false">HIDE SOLVED</button>
       <div class="dash-cost" id="dash-cost">
         <span class="label">SESSION COST</span>
         <span class="value" id="dash-cost-value">$0.0000</span>
@@ -867,12 +1125,12 @@ html, body {
     </div>
   </div>
 
-  <!-- ── Challenge View ───────────────────────────────── -->
+  <!--  Challenge View  -->
   <div class="view" id="view-challenge">
     <!-- Sidebar -->
     <div id="ch-sidebar">
       <div id="ch-sidebar-header">
-        <button class="back-btn" id="btn-back">← Back to Challenges</button>
+        <button class="back-btn" id="btn-back">&lt;- Back to Challenges</button>
         <div class="ch-name-block">
           <div class="ch-category-badge" id="ch-category-badge">PWN</div>
           <div class="ch-title" id="ch-title">Challenge Name</div>
@@ -886,6 +1144,11 @@ html, body {
           <div id="ch-status-badge" class="ch-status-badge badge-unsolved">
             <span class="status-dot"></span> UNSOLVED
           </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Manual CLI</div>
+          <button class="btn btn-sm btn-primary" id="btn-cli-start" style="width:100%;margin-bottom:7px;">Run Manually</button>
         </div>
 
         <!-- Description -->
@@ -906,49 +1169,66 @@ html, body {
         <div class="sidebar-section">
           <div class="sidebar-section-title">Upload Files</div>
           <div id="upload-zone">
-            <div class="upload-icon">📁</div>
+            <div class="upload-icon">&#128193;</div>
             <div class="upload-text">Drop files here or click to browse</div>
             <div class="upload-hint">Zips/tars are auto-extracted</div>
             <input type="file" id="upload-input-hidden" multiple>
           </div>
           <div id="upload-progress">
             <div class="upload-bar"><div class="upload-bar-fill" id="upload-bar-fill"></div></div>
-            <div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-family:var(--font-mono)" id="upload-status-text">Uploading…</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-family:var(--font-mono)" id="upload-status-text">Uploading...</div>
           </div>
         </div>
 
         <!-- Cost -->
         <div class="sidebar-section">
           <div class="sidebar-section-title">API Cost</div>
-          <div class="cost-display" id="cost-display">—</div>
+          <div class="cost-display" id="cost-display">-</div>
           <div class="cost-tokens" id="cost-tokens"></div>
+        </div>
+
+        <!-- Manual Solve -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Mark as Solved</div>
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            <input type="text" id="manual-flag-input" placeholder="flag{...}  (optional)">
+            <button class="btn btn-sm" id="btn-mark-solved"
+              style="width:100%;background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.35);color:var(--cyan);">
+              Mark Solved
+            </button>
+            <button class="btn btn-sm" id="btn-mark-unsolved"
+              style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border2);color:var(--text-muted);display:none;">
+              Unmark Solved
+            </button>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Writeup</div>
+          <div id="writeup-panel" class="writeup-panel">
+            <div id="writeup-status">Writeup not generated yet.</div>
+            <div class="writeup-actions">
+              <button class="btn btn-sm btn-ghost" id="btn-open-writeup">Open Writeup</button>
+              <a class="writeup-link" id="writeup-download" href="#" download>Download .md</a>
+            </div>
+          </div>
+          <div id="writeup-empty" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);">
+            Approve a found flag to generate a markdown writeup.
+          </div>
         </div>
       </div>
 
       <div id="ch-sidebar-actions">
-        <button class="btn btn-danger btn-sm" id="btn-reset" style="width:100%">↺ Reset Container</button>
-        <button class="btn btn-danger btn-sm" id="btn-delete" style="width:100%;background:rgba(255,77,109,0.08)">✕ Delete Challenge</button>
+        <button class="btn btn-danger btn-sm" id="btn-reset" style="width:100%">Reset Container</button>
+        <button class="btn btn-danger btn-sm" id="btn-delete" style="width:100%;background:rgba(255,77,109,0.08)">Delete Challenge</button>
       </div>
     </div>
 
     <!-- Main -->
     <div id="ch-main">
-      <!-- Prompt bar -->
-      <div id="prompt-bar">
-        <input type="text" id="prompt-input" placeholder="Extra context for the agent (optional)…">
-        <select id="model-select" title="Model (cheap to expensive)">
-          {% for model in launch_models %}
-          <option value="{{ model.id }}" {% if model.id == default_launch_model %}selected{% endif %}>{{ model.label }}</option>
-          {% endfor %}
-        </select>
-        <button class="btn btn-primary" id="btn-launch">▶ Launch</button>
-        <button class="btn btn-amber" id="btn-retry">↺ Retry w/ Memory</button>
-        <button class="btn btn-danger" id="btn-stop">■ Stop</button>
-      </div>
-
       <!-- Flag banner -->
       <div id="flag-banner">
-        <span style="font-size:20px">🎉</span>
+        <span style="font-size:20px">&#127881;</span>
         <div>
           <div class="flag-label">FLAG CAPTURED</div>
           <div class="flag-value" id="flag-value">flag{...}</div>
@@ -956,48 +1236,42 @@ html, body {
         <button class="flag-copy" id="flag-copy">Copy</button>
       </div>
 
-      <!-- Logs -->
-      <div id="logs-area">
-        <!-- Plan pane -->
-        <div class="log-pane">
-          <div class="log-pane-header">
-            <span class="pane-icon">📋</span> ATTACK PLAN
-          </div>
-          <div class="log-scroll" id="plan-log"></div>
-        </div>
+      <!-- Chat feed -->
+      <div id="chat-feed"></div>
 
-        <!-- Agent pane -->
-        <div class="log-pane">
-          <div class="log-pane-header">
-            <span class="pane-icon">🤖</span> AGENT REASONING
+      <!-- Chat input bar -->
+      <div id="chat-input-bar">
+        <div id="agent-status-line">Idle.</div>
+        <div id="chat-input-wrap">
+          <input type="text" id="prompt-input" placeholder="Add context for the agent (Enter to launch)">
+          <div id="chat-input-footer">
+            <select id="model-select" title="Model (cheap to expensive)">
+              {% for model in launch_models %}
+              <option value="{{ model.id }}" {% if model.id == default_launch_model %}selected{% endif %}>{{ model.label }}</option>
+              {% endfor %}
+            </select>
             <span class="agent-activity" id="agent-activity">
               <span class="activity-dot"></span>
               <span class="activity-label" id="agent-activity-label">IDLE</span>
               <span class="activity-time" id="agent-activity-time"></span>
             </span>
+            <button class="btn btn-danger btn-sm" id="btn-stop">Stop</button>
+            <button class="btn btn-ghost btn-sm" id="btn-retry">Retry</button>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-feed" title="Clear chat feed">Clear</button>
+            <button id="btn-launch" title="Launch agent">&#8593;</button>
           </div>
-          <div class="agent-status-line" id="agent-status-line">Idle.</div>
-          <div class="log-scroll" id="agent-log"></div>
-        </div>
-
-        <!-- Output pane -->
-        <div class="log-pane">
-          <div class="log-pane-header">
-            <span class="pane-icon">🐳</span> CONTAINER OUTPUT
-          </div>
-          <div class="log-scroll" id="output-log"></div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ── New Challenge Modal ────────────────────────────── -->
+<!--  New Challenge Modal  -->
 <div class="modal-overlay" id="modal-new">
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title">New Challenge</div>
-      <button class="modal-close" data-close="modal-new">✕</button>
+      <button class="modal-close" data-close="modal-new">X</button>
     </div>
     <div class="modal-body">
       <div class="fields-row">
@@ -1020,12 +1294,12 @@ html, body {
         </div>
       </div>
       <div class="field">
-        <label>FLAG FORMAT <span style="color:var(--text-muted);font-weight:400">(optional — helps agent recognize the flag)</span></label>
+        <label>FLAG FORMAT <span style="color:var(--text-muted);font-weight:400">(optional - helps agent recognize the flag)</span></label>
         <input type="text" id="new-flagfmt" placeholder="e.g.  cyberfusion{...}   or   flag{...}">
       </div>
       <div class="field">
         <label>DESCRIPTION <span style="color:var(--text-muted);font-weight:400">(paste the full challenge text here)</span></label>
-        <textarea id="new-desc" placeholder="Paste the complete challenge description, URLs, hints, anything the agent should know…"></textarea>
+        <textarea id="new-desc" placeholder="Paste the complete challenge description, URLs, hints, anything the agent should know"></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -1035,50 +1309,187 @@ html, body {
   </div>
 </div>
 
-<!-- ── Build Image Modal ────────────────────────────────── -->
-<div class="modal-overlay" id="modal-build">
+<!--  Settings Modal  -->
+<div class="modal-overlay" id="modal-settings">
   <div class="modal" style="width:640px">
     <div class="modal-header">
-      <div class="modal-title">⚙ Build Docker Image</div>
-      <button class="modal-close" data-close="modal-build">✕</button>
+      <div class="modal-title">Settings</div>
+      <button class="modal-close" data-close="modal-settings">X</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;line-height:1.6;">
-        This builds a Kali Linux Docker image with all CTF tools pre-installed.
-        Takes <strong style="color:var(--text)">5–15 minutes</strong> and requires ~4GB of disk space.
-        Only needs to be done once.
-      </p>
-      <div id="build-log"><span style="color:var(--text-muted)">Press Build to start…</span></div>
+
+      <!-- OpenAI key -->
+      <div class="field">
+        <label>OPENAI API KEY</label>
+        <div class="key-row">
+          <div class="key-status" id="oai-status"></div>
+          <input type="password" id="oai-key-input" autocomplete="off"
+                 placeholder="sk-proj-... (leave blank to keep current)">
+          <button class="key-remove-btn" id="oai-remove" title="Remove key">Remove</button>
+        </div>
+      </div>
+
+      <!-- Anthropic key -->
+      <div class="field">
+        <label>ANTHROPIC API KEY</label>
+        <div class="key-row">
+          <div class="key-status" id="ant-status"></div>
+          <input type="password" id="ant-key-input" autocomplete="off"
+                 placeholder="sk-ant-... (leave blank to keep current)">
+          <button class="key-remove-btn" id="ant-remove" title="Remove key">Remove</button>
+        </div>
+      </div>
+
+      <!-- Default model -->
+      <div class="field">
+        <label>DEFAULT MODEL <span style="color:var(--text-muted);font-weight:400">(used when launching agent)</span></label>
+        <input type="text" id="settings-model" placeholder="e.g. gpt-5-mini">
+      </div>
+      <div class="field">
+        <label>LOCAL LOCK</label>
+        <div class="security-row">
+          <span id="settings-lock-status-pill" class="security-pill off">SECURITY DISABLED</span>
+          <button class="btn btn-ghost btn-sm security-action" id="btn-security-toggle" type="button">Enable Security</button>
+          <button class="btn btn-ghost btn-sm security-action" id="btn-security-change" type="button" style="display:none">Change Password</button>
+        </div>
+      </div>
+
+      <div id="settings-save-msg" style="font-size:12px;color:var(--cyan);display:none;margin-top:4px">
+        Saved.
+      </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" data-close="modal-build" id="btn-close-build">Close</button>
-      <button class="btn btn-primary" id="btn-start-build">⚙ Build Image</button>
+      <button class="btn btn-ghost" data-close="modal-settings">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-settings">Save</button>
     </div>
   </div>
 </div>
 
-<!-- ── Toast container ──────────────────────────────────── -->
+<div class="modal-overlay" id="modal-security">
+  <div class="modal" style="width:560px">
+    <div class="modal-header">
+      <div class="modal-title" id="security-modal-title">Security Setup</div>
+      <button class="modal-close" data-close="modal-security">X</button>
+    </div>
+    <div class="modal-body">
+      <p id="security-modal-subtitle" style="font-size:12px;color:var(--text-dim);line-height:1.5;margin-bottom:12px;">
+        Configure local password protection for this workspace.
+      </p>
+      <div class="field" id="security-current-wrap">
+        <label id="security-current-label">CURRENT PASSWORD</label>
+        <input id="security-current" type="password" autocomplete="current-password">
+      </div>
+      <div class="field" id="security-new-wrap">
+        <label id="security-new-label">NEW PASSWORD</label>
+        <input id="security-new" type="password" autocomplete="new-password">
+      </div>
+      <div class="field" id="security-confirm-wrap" style="margin-bottom:0">
+        <label>CONFIRM PASSWORD</label>
+        <input id="security-confirm" type="password" autocomplete="new-password">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="modal-security">Cancel</button>
+      <button class="btn btn-primary" id="btn-security-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!--  Build Image Modal  -->
+<div class="modal-overlay" id="modal-build">
+  <div class="modal" style="width:640px">
+    <div class="modal-header">
+      <div class="modal-title">Build Docker Image</div>
+      <button class="modal-close" data-close="modal-build">X</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;line-height:1.6;">
+        This builds a Kali Linux Docker image with all CTF tools pre-installed.
+        Takes <strong style="color:var(--text)">5-15 minutes</strong> and requires ~4GB of disk space.
+        Only needs to be done once.
+      </p>
+      <div id="build-log"><span style="color:var(--text-muted)">Press Build to start...</span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="modal-build" id="btn-close-build">Close</button>
+      <button class="btn btn-primary" id="btn-start-build">Build Image</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-flag-approval">
+  <div class="modal" style="width:600px">
+    <div class="modal-header">
+      <div class="modal-title">Flag Found: Approval Required</div>
+      <button class="modal-close" data-close="modal-flag-approval">X</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-dim);line-height:1.6;margin-bottom:12px;">
+        The agent produced a flag candidate. Test it on the challenge platform, then approve or reject it.
+      </p>
+      <div class="field">
+        <label>CANDIDATE FLAG</label>
+        <input id="approval-candidate" type="text">
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>VALIDATION NOTES (optional)</label>
+        <textarea id="approval-notes" placeholder="Example: Accepted by platform on first submit."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-reject-candidate">Reject</button>
+      <button class="btn btn-primary" id="btn-approve-candidate">Approve + Generate Writeup</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-writeup">
+  <div class="modal" style="width:760px">
+    <div class="modal-header">
+      <div class="modal-title">Challenge Writeup</div>
+      <button class="modal-close" data-close="modal-writeup">X</button>
+    </div>
+    <div class="modal-body">
+      <pre id="writeup-content">No writeup generated yet.</pre>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="modal-writeup">Close</button>
+      <a class="btn btn-primary" id="writeup-download-modal" href="#" download>Download .md</a>
+    </div>
+  </div>
+</div>
+
+<!--  Toast container  -->
 <div id="toast-container"></div>
 
 <script>
-// ── State ───────────────────────────────────────────────
+//  State 
 const state = {
   challenges: [],
   currentCid: null,
   filter: 'all',
+  hideSolved: false,
+  solvedDisplayMode: 'fraction',
   agentRunning: false,
   lastActivityAt: null,
   lastActivityLabel: '',
   logCache: {},
   cardErrors: {},
+  stepCount: 0,
+  pendingCandidateFlag: '',
+};
+
+const STEP_LIMITS = {
+  pwn: 120, rev: 100, web: 80, crypto: 80,
+  forensics: 70, misc: 60, osint: 50, network: 60,
 };
 
 const CAT_COLORS = {
-  pwn:'#ff4d6d', web:'#00d4ff', crypto:'#f5c842', forensics:'#7ed56f',
-  rev:'#ff8fab', misc:'#b06eff', osint:'#ffd700', network:'#4da6ff',
+  pwn:'#e05c6b', web:'#2dd4bf', crypto:'#e8c44c', forensics:'#7ed56f',
+  rev:'#f09cb4', misc:'#a78bfa', osint:'#f0c040', network:'#5b9cf6',
 };
 
-// ── Socket.IO ────────────────────────────────────────────
+//  Socket.IO 
 const socket = io();
 
 socket.on('connect', () => {
@@ -1123,7 +1534,7 @@ function handleLogEvent(ev, data) {
   else if (ev === 'output') appendOutput(data.text || '', t);
   else if (ev === 'flag') {
     if (data.flag) showFlag(data.flag);
-    appendAgent(`🎉 FLAG FOUND: ${data.flag || ''}`, 'system');
+    appendAgent(`FLAG CANDIDATE FOUND: ${data.flag || ''}`, 'system');
     if (data.how) appendAgent(data.how, 'system');
   } else if (ev === 'done') {
     if (data.message) appendAgent(data.message, 'system');
@@ -1150,20 +1561,30 @@ socket.on('thought_stream_start', ({ id, type, cid }) => {
     if ((type || 'reasoning') === 'reasoning') startPlanStream(id);
     else startAgentStream(id, type || 'reasoning');
   }
-  if (cid === state.currentCid) markActivity('thinking');
+  if (cid === state.currentCid) {
+    state.agentRunning = true;
+    updateRunningUI();
+    markActivity('thinking');
+  }
 });
 socket.on('thought_stream_delta', ({ id, text, cid }) => {
   if (!cid || cid === state.currentCid) {
     if (!appendPlanStream(id, text || '')) appendAgentStream(id, text || '');
   }
-  if (cid === state.currentCid) markActivity('writing');
+  if (cid === state.currentCid) {
+    state.agentRunning = true;
+    markActivity('writing');
+  }
 });
 socket.on('thought_stream_end', ({ id }) => {
   if (!endPlanStream(id)) endAgentStream(id);
 });
 socket.on('command', (data) => {
   handleLogEvent('command', data);
-  if (data && data.cid === state.currentCid) markActivity('running command');
+  if (data && data.cid === state.currentCid) {
+    state.stepCount++;
+    markActivity('running command');
+  }
 });
 socket.on('output', (data) => {
   handleLogEvent('output', data);
@@ -1175,7 +1596,13 @@ socket.on('plan', (data) => {
 });
 socket.on('flag', (data) => {
   handleLogEvent('flag', data);
-  if (data && data.cid === state.currentCid) markActivity('flag found');
+  if (data && data.cid === state.currentCid) {
+    markActivity('flag found');
+    if (data.pending_approval) {
+      const ch = state.challenges.find(c => c.id === data.cid);
+      openApprovalModal(ch, data.flag || ch?.flag_candidate || '');
+    }
+  }
 });
 socket.on('done', (data) => {
   handleLogEvent('done', data);
@@ -1191,7 +1618,27 @@ socket.on('done', (data) => {
   state.agentRunning = false;
   updateRunningUI();
   refreshCurrentChallenge();
+  if (data.status === 'pending_approval') {
+    const ch = state.challenges.find(c => c.id === data.cid);
+    openApprovalModal(ch, data.flag || ch?.flag_candidate || '');
+  }
   markActivity('idle');
+});
+socket.on('flag_approved', (data) => {
+  if (!data || !data.cid) return;
+  if (data.cid === state.currentCid) {
+    closeModal('modal-flag-approval');
+    refreshCurrentChallenge();
+  }
+  toast('Flag approved. Writeup generated.', 'success');
+});
+socket.on('flag_rejected', (data) => {
+  if (!data || !data.cid) return;
+  if (data.cid === state.currentCid) {
+    closeModal('modal-flag-approval');
+    refreshCurrentChallenge();
+  }
+  toast('Flag candidate rejected.', 'info');
 });
 socket.on('error', (data) => {
   handleLogEvent('error', data);
@@ -1224,7 +1671,7 @@ socket.on('cost', ({ cost, cost_usd, tokens_in, tokens_out, known, model, cid })
   }
 });
 socket.on('file_uploaded', ({ name, listing }) => {
-  toast(`✓ Uploaded: ${name}`, 'success');
+  toast(` Uploaded: ${name}`, 'success');
   refreshCurrentChallenge();
   appendOutput(`Uploaded: ${name}\n\n/ctf/ contents:\n${listing}`);
   hideUploadProgress();
@@ -1238,14 +1685,15 @@ socket.on('build_log', ({ line, done, error }) => {
   log.scrollTop = log.scrollHeight;
   if (done) {
     document.getElementById('btn-start-build').disabled = false;
-    document.getElementById('btn-start-build').textContent = '⚙ Build Image';
+    document.getElementById('btn-start-build').textContent = ' Build Image';
     checkDockerStatus();
   }
 });
 
-// ── API helpers ──────────────────────────────────────────
+//  API helpers 
 async function api(path, opts = {}) {
   const r = await fetch(path, {
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -1253,32 +1701,32 @@ async function api(path, opts = {}) {
   return r.json();
 }
 
-// ── Docker status ────────────────────────────────────────
+//  Docker status 
 async function checkDockerStatus() {
   try {
-    const s = await api('/api/docker/status');
+    const s = await api(`/api/docker/status?t=${Date.now()}`);
     const el = document.getElementById('docker-status');
     if (!s.running) {
-      el.className = 'status-pill err';
+      el.className = 'status-pill warn';
       el.innerHTML = '<div class="dot"></div><span>Docker not running</span>';
     } else if (!s.image) {
       el.className = 'status-pill warn';
       el.innerHTML = '<div class="dot"></div><span>Image not built</span>';
     } else {
       el.className = 'status-pill ok';
-      const n = s.active_agents || 0;
-      el.innerHTML = `<div class="dot"></div><span>Docker ready • ${n} running</span>`;
+      const n = (typeof s.active_containers === 'number') ? s.active_containers : (s.active_agents || 0);
+      el.innerHTML = `<div class="dot"></div><span>Docker ready - ${n} containers running</span>`;
     }
   } catch {
     const el = document.getElementById('docker-status');
-    el.className = 'status-pill err';
+    el.className = 'status-pill warn';
     el.innerHTML = '<div class="dot"></div><span>Docker offline</span>';
   }
 }
 checkDockerStatus();
 setInterval(checkDockerStatus, 15000);
 
-// ── Challenges ────────────────────────────────────────────
+//  Challenges 
 async function loadChallenges() {
   state.challenges = await api('/api/challenges');
   renderCards();
@@ -1291,14 +1739,18 @@ async function loadChallenges() {
 
 function renderCards() {
   const grid = document.getElementById('cards-grid');
-  const filtered = state.filter === 'all'
+  const categoryFiltered = state.filter === 'all'
     ? state.challenges
     : state.challenges.filter(c => c.category === state.filter);
+  const filtered = state.hideSolved
+    ? categoryFiltered.filter(c => c.status !== 'solved')
+    : categoryFiltered;
+  updateSolvedProgress();
 
   if (filtered.length === 0) {
     grid.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">🏴</div>
+        <div class="empty-icon">&#127988;</div>
         <h3>No challenges yet</h3>
         <p>Click <strong>+ New Challenge</strong> to add your first CTF challenge.</p>
       </div>`;
@@ -1312,8 +1764,9 @@ function renderCards() {
     const statusText = info.label;
     const cardErr = state.cardErrors[c.id];
     const nFiles = (c.files || []).length;
-    const cost = c.cost_usd > 0 ? `$${c.cost_usd.toFixed(3)}` : '—';
-    const desc = (c.description || 'No description').slice(0, 90) + (c.description?.length > 90 ? '…' : '');
+    const cost = c.cost_usd > 0 ? `$${c.cost_usd.toFixed(3)}` : '-';
+    const safeDesc = sanitizeText(c.description || 'No description');
+    const desc = safeDesc.slice(0, 90) + (safeDesc.length > 90 ? '...' : '');
 
     return `
       <div class="card" onclick="openChallenge('${c.id}')" style="--card-accent:${color}">
@@ -1327,8 +1780,8 @@ function renderCards() {
             <span style="color:${info.color}">${statusText}</span>
           </div>
           <div class="card-meta">
-            <span title="Files">📎 ${nFiles}</span>
-            <span title="Cost">💰 ${cost}</span>
+            <span title="Files">Files: ${nFiles}</span>
+            <span title="Cost">Cost: ${cost}</span>
           </div>
         </div>
       </div>`;
@@ -1348,9 +1801,23 @@ function updateDashboardMetrics() {
   const tokEl = document.getElementById('dash-cost-tokens');
   if (costEl) costEl.textContent = `$${totalCost.toFixed(4)}`;
   if (tokEl) tokEl.textContent = `${totalIn.toLocaleString()} in / ${totalOut.toLocaleString()} out`;
+  updateSolvedProgress();
 }
 
-// ── Challenge view ────────────────────────────────────────
+function updateSolvedProgress() {
+  const solvedEl = document.getElementById('dash-solved-toggle');
+  if (!solvedEl) return;
+  const total = state.challenges.length;
+  const solved = state.challenges.filter(c => c.status === 'solved').length;
+  if (state.solvedDisplayMode === 'percent') {
+    const pct = total === 0 ? 0 : Math.round((solved / total) * 100);
+    solvedEl.textContent = `Solved: ${pct}%`;
+  } else {
+    solvedEl.textContent = `Solved: ${solved}/${total}`;
+  }
+}
+
+//  Challenge view 
 function openChallenge(cid) {
   const c = state.challenges.find(ch => ch.id === cid);
   if (!c) return;
@@ -1359,19 +1826,18 @@ function openChallenge(cid) {
   renderCards();
 
   state.currentCid = cid;
-  state.agentRunning = false;
+  state.agentRunning = !!(c.running);  // preserve running state; don't flash IDLE
+  state.stepCount = 0;
 
   // Join socket room
   socket.emit('join', { cid });
 
   // Clear logs
-  document.getElementById('plan-log').innerHTML = '';
-  document.getElementById('agent-log').innerHTML = '';
-  document.getElementById('output-log').innerHTML = '';
+  document.getElementById('chat-feed').innerHTML = '';
   planStreams.clear();
   agentStreams.clear();
   document.getElementById('flag-banner').classList.remove('visible');
-  document.getElementById('cost-display').textContent = '—';
+  document.getElementById('cost-display').textContent = '-';
   document.getElementById('cost-tokens').textContent = '';
 
   // Populate sidebar
@@ -1379,22 +1845,26 @@ function openChallenge(cid) {
   const badge = document.getElementById('ch-category-badge');
   badge.textContent = c.category.toUpperCase();
   badge.style.color = color;
-  document.getElementById('ch-title').textContent = c.name;
-  document.getElementById('ch-description').textContent = c.description || 'No description provided.';
+  document.getElementById('ch-title').textContent = sanitizeText(c.name);
+  document.getElementById('ch-description').textContent = sanitizeText(c.description || 'No description provided.');
 
   renderFileList(c.files || []);
   renderStatusBadge(c.status, c.running);
+  renderWriteupSection(c);
 
-  if (c.status === 'solved' && c.flag) showFlag(c.flag);
+  if (c.flag) showFlag(c.flag);
+  else if (c.flag_candidate) showFlag(c.flag_candidate);
+
+  // Pre-fill manual flag input and set button state
+  document.getElementById('manual-flag-input').value = c.flag || c.flag_candidate || '';
+  updateSolveButtons(c.status);
 
   switchView('view-challenge');
   updateRunningUI();
 
   // Load persisted logs for this challenge
   api(`/api/challenges/${state.currentCid}/logs`).then(logs => {
-    document.getElementById('plan-log').innerHTML = '';
-    document.getElementById('agent-log').innerHTML = '';
-    document.getElementById('output-log').innerHTML = '';
+    document.getElementById('chat-feed').innerHTML = '';
     planStreams.clear();
     agentStreams.clear();
     if (Array.isArray(logs)) {
@@ -1416,7 +1886,7 @@ function openChallenge(cid) {
           appendOutput(data.text || '', t);
         } else if (ev === 'flag') {
           if (data.flag) showFlag(data.flag);
-          appendAgent(`🎉 FLAG FOUND: ${data.flag || ''}`, 'system');
+          appendAgent(`FLAG CANDIDATE FOUND: ${data.flag || ''}`, 'system');
           if (data.how) appendAgent(data.how, 'system');
         } else if (ev === 'done') {
           if (data.message) appendAgent(data.message, 'system');
@@ -1424,6 +1894,9 @@ function openChallenge(cid) {
       }
     }
   });
+  if (c.status === 'pending_approval' && c.flag_candidate) {
+    openApprovalModal(c, c.flag_candidate);
+  }
 }
 
 function renderFileList(files) {
@@ -1434,14 +1907,17 @@ function renderFileList(files) {
   }
   list.innerHTML = files.map(f => `
     <div class="file-item">
-      <span class="file-icon">📄</span>
+      <span class="file-icon">&#128196;</span>
       <span style="word-break:break-all;min-width:0">${escHtml(f)}</span>
     </div>`).join('');
 }
 
 function statusInfo(c) {
-  if (c.running) return { key: 'running', label: 'RUNNING', color: 'var(--green)' };
+  if (c.running) return { key: 'running', label: 'RUNNING', color: 'var(--accent)' };
+  if (c.status === 'pending_approval') return { key: 'pending', label: 'PENDING APPROVAL', color: 'var(--amber)' };
+  if (c.status === 'solving') return { key: 'solving', label: 'SOLVING', color: 'var(--amber)' };
   if (c.status === 'solved') return { key: 'solved', label: 'SOLVED', color: 'var(--cyan)' };
+  if (c.status === 'unsolved') return { key: 'unsolved', label: 'UNSOLVED', color: 'var(--text-muted)' };
   return { key: 'idle', label: 'IDLE', color: 'var(--text-muted)' };
 }
 
@@ -1460,12 +1936,16 @@ async function refreshCurrentChallenge() {
   if (idx >= 0) state.challenges[idx] = c;
   renderFileList(c.files || []);
   renderStatusBadge(c.status, c.running);
+  renderWriteupSection(c);
   state.agentRunning = !!c.running;
   updateRunningUI();
-  if (c.status === 'solved' && c.flag) showFlag(c.flag);
+  updateSolveButtons(c.status);
+  if (c.flag || c.flag_candidate) document.getElementById('manual-flag-input').value = c.flag || c.flag_candidate;
+  if (c.flag) showFlag(c.flag);
+  else if (c.flag_candidate) showFlag(c.flag_candidate);
 }
 
-// ── Logs ──────────────────────────────────────────────────
+//  Logs 
 function formatTs(t) {
   if (!t) return ts();
   const d = new Date(t * 1000);
@@ -1476,45 +1956,47 @@ function formatTs(t) {
 }
 
 function appendPlan(text, replan = false, t = null) {
-  const log = document.getElementById('plan-log');
+  const feed = document.getElementById('chat-feed');
   const el = document.createElement('div');
-  el.className = `plan-entry${replan ? ' replan' : ''}`;
-  el.innerHTML = `<div class="plan-timestamp">${formatTs(t)}</div>${escHtml(text)}`;
-  log.appendChild(el);
-  log.scrollTop = log.scrollHeight;
+  el.className = `chat-msg plan${replan ? ' replan' : ''}`;
+  el.textContent = sanitizeText(text);
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
 }
 
 function appendAgent(text, type = 'reasoning') {
-  const log = document.getElementById('agent-log');
+  const feed = document.getElementById('chat-feed');
   const el = document.createElement('div');
-  el.className = `agent-entry ${type}`;
-  el.textContent = text;
-  log.appendChild(el);
-  log.scrollTop = log.scrollHeight;
+  if (type === 'command' || type === 'gdb-command' || type === 'notice-command') {
+    el.className = `chat-banner ${type}`;
+  } else if (type === 'system' || type === 'error') {
+    el.className = `chat-msg ${type}`;
+  } else {
+    el.className = 'chat-msg reasoning';
+  }
+  el.textContent = sanitizeText(text);
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
 }
 
 const agentStreams = new Map();
 const planStreams = new Map();
 function startPlanStream(id) {
-  const log = document.getElementById('plan-log');
+  const feed = document.getElementById('chat-feed');
   const el = document.createElement('div');
-  el.className = 'plan-entry';
+  el.className = 'chat-msg plan';
   el.dataset.streamId = id;
-  el.innerHTML = `<div class="plan-timestamp">${ts()}</div>`;
-  const body = document.createElement('div');
-  body.className = 'plan-stream-body';
-  body.textContent = '';
-  el.appendChild(body);
-  log.appendChild(el);
-  planStreams.set(id, body);
-  log.scrollTop = log.scrollHeight;
+  el.textContent = '';
+  feed.appendChild(el);
+  planStreams.set(id, el);
+  feed.scrollTop = feed.scrollHeight;
 }
 function appendPlanStream(id, text) {
-  const body = planStreams.get(id);
-  if (!body) return false;
-  body.textContent += text;
-  const log = document.getElementById('plan-log');
-  log.scrollTop = log.scrollHeight;
+  const el = planStreams.get(id);
+  if (!el) return false;
+  el.textContent += sanitizeText(text);
+  const feed = document.getElementById('chat-feed');
+  feed.scrollTop = feed.scrollHeight;
   return true;
 }
 function endPlanStream(id) {
@@ -1523,21 +2005,25 @@ function endPlanStream(id) {
   return true;
 }
 function startAgentStream(id, type = 'reasoning') {
-  const log = document.getElementById('agent-log');
+  const feed = document.getElementById('chat-feed');
   const el = document.createElement('div');
-  el.className = `agent-entry ${type}`;
+  if (type === 'command' || type === 'gdb-command' || type === 'notice-command') {
+    el.className = `chat-banner ${type}`;
+  } else {
+    el.className = 'chat-msg reasoning';
+  }
   el.dataset.streamId = id;
   el.textContent = '';
-  log.appendChild(el);
+  feed.appendChild(el);
   agentStreams.set(id, el);
-  log.scrollTop = log.scrollHeight;
+  feed.scrollTop = feed.scrollHeight;
 }
 function appendAgentStream(id, text) {
   const el = agentStreams.get(id);
   if (!el) return false;
-  el.textContent += text;
-  const log = document.getElementById('agent-log');
-  log.scrollTop = log.scrollHeight;
+  el.textContent += sanitizeText(text);
+  const feed = document.getElementById('chat-feed');
+  feed.scrollTop = feed.scrollHeight;
   return true;
 }
 function endAgentStream(id) {
@@ -1547,12 +2033,34 @@ function endAgentStream(id) {
 }
 
 function appendOutput(text, t = null) {
-  const log = document.getElementById('output-log');
+  const feed = document.getElementById('chat-feed');
   const el = document.createElement('div');
-  el.className = 'output-entry';
-  el.innerHTML = `<div class="output-timestamp">${formatTs(t)}</div><div class="output-content">${escHtml(text)}</div>`;
-  log.appendChild(el);
-  log.scrollTop = log.scrollHeight;
+  el.className = 'chat-banner output';
+  el.textContent = sanitizeText(text);
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function updateSolveButtons(status) {
+  const solveBtn   = document.getElementById('btn-mark-solved');
+  const unsolveBtn = document.getElementById('btn-mark-unsolved');
+  if (!solveBtn || !unsolveBtn) return;
+  if (status === 'solved') {
+    solveBtn.style.display   = 'none';
+    unsolveBtn.style.display = '';
+  } else {
+    solveBtn.style.display   = '';
+    unsolveBtn.style.display = 'none';
+  }
+}
+
+function appendRunDivider(label = 'Retry') {
+  const feed = document.getElementById('chat-feed');
+  const el = document.createElement('div');
+  el.className = 'chat-run-divider';
+  el.textContent = `${label} - ${ts()}`;
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
 }
 
 function markActivity(label) {
@@ -1589,7 +2097,7 @@ function updateAgentActivity() {
   el.classList.add('running');
   const baseLabel = state.lastActivityLabel || 'RUNNING';
   labelEl.textContent = baseLabel.toUpperCase();
-  let agoText = '…';
+  let agoText = '...';
   let ageMs = null;
   if (state.lastActivityAt) {
     ageMs = Date.now() - state.lastActivityAt;
@@ -1598,12 +2106,15 @@ function updateAgentActivity() {
   timeEl.textContent = agoText;
 
   if (statusLine) {
+    const ch = state.challenges.find(c => c.id === state.currentCid);
+    const limit = ch ? (STEP_LIMITS[ch.category] || 80) : null;
+    const stepStr = limit ? `step ${state.stepCount}/${limit}` : `step ${state.stepCount}`;
     if (ageMs !== null && ageMs > 5000) {
-      statusLine.textContent = `Running (no new output for ${agoText}). Waiting on model response…`;
+      statusLine.textContent = `Waiting on model response (${stepStr}, no output for ${agoText})`;
     } else if (state.lastActivityLabel) {
-      statusLine.textContent = `Running: ${state.lastActivityLabel}.`;
+      statusLine.textContent = `Running: ${state.lastActivityLabel} - ${stepStr}`;
     } else {
-      statusLine.textContent = 'Running.';
+      statusLine.textContent = `Running - ${stepStr}`;
     }
   }
 }
@@ -1620,11 +2131,60 @@ function stopActivityTimer() {
 
 function showFlag(flag) {
   const banner = document.getElementById('flag-banner');
-  document.getElementById('flag-value').textContent = flag;
+  document.getElementById('flag-value').textContent = sanitizeText(flag);
   banner.classList.add('visible');
 }
 
-// ── Upload ────────────────────────────────────────────────
+function renderWriteupSection(challenge) {
+  const panel = document.getElementById('writeup-panel');
+  const empty = document.getElementById('writeup-empty');
+  const status = document.getElementById('writeup-status');
+  const dl = document.getElementById('writeup-download');
+  const dlModal = document.getElementById('writeup-download-modal');
+  if (!panel || !empty || !status || !dl || !dlModal) return;
+  if (!challenge || !challenge.id) {
+    panel.classList.remove('visible');
+    empty.style.display = '';
+    return;
+  }
+  const hasWriteup = !!(challenge.writeup_md && String(challenge.writeup_md).trim());
+  const href = `/api/challenges/${challenge.id}/writeup.md`;
+  dl.href = href;
+  dlModal.href = href;
+  if (hasWriteup) {
+    panel.classList.add('visible');
+    empty.style.display = 'none';
+    status.textContent = `Writeup ready${challenge.writeup_ready_at ? ` (${challenge.writeup_ready_at})` : ''}.`;
+  } else {
+    panel.classList.remove('visible');
+    empty.style.display = '';
+  }
+}
+
+function openApprovalModal(challenge, candidateFlag = '') {
+  if (!challenge || !challenge.id) return;
+  const candidate = (candidateFlag || challenge.flag_candidate || challenge.flag || '').trim();
+  if (!candidate) return;
+  state.pendingCandidateFlag = candidate;
+  document.getElementById('approval-candidate').value = candidate;
+  if (!document.getElementById('approval-notes').value.trim()) {
+    document.getElementById('approval-notes').value = '';
+  }
+  openModal('modal-flag-approval');
+}
+
+async function openWriteupModal() {
+  if (!state.currentCid) return;
+  const res = await api(`/api/challenges/${state.currentCid}/writeup`);
+  if (!res || res.error || !res.ready) {
+    toast('Writeup not generated yet.', 'info');
+    return;
+  }
+  document.getElementById('writeup-content').textContent = res.markdown || '';
+  openModal('modal-writeup');
+}
+
+//  Upload 
 function setupUpload() {
   const zone  = document.getElementById('upload-zone');
   const input = document.getElementById('upload-input-hidden');
@@ -1646,7 +2206,7 @@ function setupUpload() {
 
 function showUploadProgress(name) {
   document.getElementById('upload-progress').classList.add('visible');
-  document.getElementById('upload-status-text').textContent = `Uploading ${name}…`;
+  document.getElementById('upload-status-text').textContent = `Uploading ${name}...`;
   document.getElementById('upload-bar-fill').style.width = '60%';
 }
 function hideUploadProgress() {
@@ -1683,7 +2243,7 @@ async function uploadFiles(files) {
   document.getElementById('upload-input-hidden').value = '';
 }
 
-// ── Agent ─────────────────────────────────────────────────
+//  Agent 
 function updateRunningUI() {
   document.getElementById('btn-launch').disabled  = state.agentRunning;
   document.getElementById('btn-retry').disabled   = state.agentRunning;
@@ -1704,16 +2264,18 @@ async function launch(retry = false) {
   markActivity('starting');
   updateRunningUI();
 
-  // Clear logs on fresh launch
+  // Clear logs on fresh launch; separator on retry
   if (!retry) {
-    document.getElementById('plan-log').innerHTML = '';
-    document.getElementById('agent-log').innerHTML = '';
-    document.getElementById('output-log').innerHTML = '';
+    document.getElementById('chat-feed').innerHTML = '';
     planStreams.clear();
     agentStreams.clear();
     document.getElementById('flag-banner').classList.remove('visible');
-    document.getElementById('cost-display').textContent = '—';
+    document.getElementById('cost-display').textContent = '-';
     document.getElementById('cost-tokens').textContent = '';
+    state.stepCount = 0;
+  } else {
+    appendRunDivider('Retry');
+    state.stepCount = 0;
   }
 
   const res = await api(`/api/challenges/${state.currentCid}/launch`, {
@@ -1734,13 +2296,15 @@ async function launch(retry = false) {
     renderStatusBadge('solving', true);
     updateDashboardMetrics();
     renderCards();
+    checkDockerStatus();
   }
 }
 
-// ── Event Listeners ───────────────────────────────────────
+//  Event Listeners 
 document.addEventListener('DOMContentLoaded', () => {
   setupUpload();
   loadChallenges();
+  refreshLockUI();
 
   // Back button
   document.getElementById('btn-back').addEventListener('click', () => {
@@ -1757,6 +2321,19 @@ document.addEventListener('DOMContentLoaded', () => {
       state.filter = tab.dataset.cat;
       renderCards();
     });
+  });
+  const hideSolvedBtn = document.getElementById('btn-hide-solved');
+  hideSolvedBtn.addEventListener('click', () => {
+    state.hideSolved = !state.hideSolved;
+    hideSolvedBtn.classList.toggle('active', state.hideSolved);
+    hideSolvedBtn.setAttribute('aria-pressed', state.hideSolved ? 'true' : 'false');
+    hideSolvedBtn.textContent = state.hideSolved ? 'SHOW SOLVED' : 'HIDE SOLVED';
+    renderCards();
+  });
+  const solvedToggle = document.getElementById('dash-solved-toggle');
+  solvedToggle.addEventListener('click', () => {
+    state.solvedDisplayMode = state.solvedDisplayMode === 'fraction' ? 'percent' : 'fraction';
+    updateSolvedProgress();
   });
 
   // New challenge
@@ -1790,6 +2367,30 @@ document.addEventListener('DOMContentLoaded', () => {
   // Agent controls
   document.getElementById('btn-launch').addEventListener('click', () => launch(false));
   document.getElementById('btn-retry').addEventListener('click', () => launch(true));
+  document.getElementById('btn-cli-start').addEventListener('click', async () => {
+    if (!state.currentCid) return;
+    const res = await api(`/api/challenges/${state.currentCid}/manual-start`, {
+      method: 'POST',
+      body: { open_terminal: true },
+    });
+    if (!res || res.error) {
+      toast(res?.error || 'Failed to initialize manual container.', 'error');
+      return;
+    }
+    if (res.terminal_opened) {
+      toast('Manual terminal opened. Agent was not started.', 'success');
+    } else if (res.terminal_error) {
+      toast(`Container started, but terminal popup failed: ${res.terminal_error}`, 'error');
+    } else {
+      toast('Container started for manual mode.', 'success');
+    }
+    checkDockerStatus();
+  });
+  document.getElementById('btn-clear-feed').addEventListener('click', () => {
+    document.getElementById('chat-feed').innerHTML = '';
+    planStreams.clear();
+    agentStreams.clear();
+  });
   document.getElementById('btn-stop').addEventListener('click', async () => {
     let res = null;
     try {
@@ -1809,7 +2410,8 @@ document.addEventListener('DOMContentLoaded', () => {
     renderStatusBadge('unsolved', false);
     updateDashboardMetrics();
     renderCards();
-    appendAgent('■ Agent stopped.', 'system');
+    appendAgent('Agent stopped.', 'system');
+    checkDockerStatus();
   });
 
   // Enter to launch
@@ -1817,21 +2419,141 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter' && !state.agentRunning) launch(false);
   });
 
+  // Manual solve / unsolve
+  document.getElementById('btn-mark-solved').addEventListener('click', async () => {
+    if (!state.currentCid) return;
+    const flagVal = document.getElementById('manual-flag-input').value.trim();
+    const body = {
+      status: 'solved',
+      flag_candidate: flagVal || null,
+      approved_at: new Date().toISOString(),
+    };
+    if (flagVal) body.flag = flagVal;
+    const res = await api(`/api/challenges/${state.currentCid}`, { method: 'PUT', body });
+    if (res && res.id) {
+      const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
+      if (idx >= 0) {
+        state.challenges[idx].status = 'solved';
+        if (flagVal) {
+          state.challenges[idx].flag = flagVal;
+          state.challenges[idx].flag_candidate = flagVal;
+        }
+      }
+      renderStatusBadge('solved', false);
+      renderWriteupSection(res);
+      renderCards();
+      updateSolveButtons('solved');
+      if (flagVal) showFlag(flagVal);
+      else { document.getElementById('flag-banner').classList.remove('visible'); }
+      toast('Challenge marked as solved!', 'success');
+    } else {
+      toast('Failed to update challenge', 'error');
+    }
+  });
+
+  document.getElementById('btn-mark-unsolved').addEventListener('click', async () => {
+    if (!state.currentCid) return;
+    const res = await api(`/api/challenges/${state.currentCid}`, {
+      method: 'PUT',
+      body: {
+        status: 'unsolved',
+        flag: null,
+        flag_candidate: null,
+        flag_how: null,
+        approved_at: null,
+        writeup_md: null,
+        writeup_path: null,
+        writeup_ready_at: null,
+      },
+    });
+    if (res && res.id) {
+      const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
+      if (idx >= 0) {
+        state.challenges[idx].status = 'unsolved';
+        state.challenges[idx].flag = null;
+        state.challenges[idx].flag_candidate = null;
+        state.challenges[idx].writeup_md = null;
+      }
+      renderStatusBadge('unsolved', false);
+      renderWriteupSection(res);
+      renderCards();
+      updateSolveButtons('unsolved');
+      document.getElementById('flag-banner').classList.remove('visible');
+      document.getElementById('manual-flag-input').value = '';
+      toast('Challenge unmarked.', 'success');
+    } else {
+      toast('Failed to update challenge', 'error');
+    }
+  });
+
+  document.getElementById('btn-open-writeup').addEventListener('click', async () => {
+    await openWriteupModal();
+  });
+
+  document.getElementById('btn-approve-candidate').addEventListener('click', async () => {
+    if (!state.currentCid) return;
+    const candidate = document.getElementById('approval-candidate').value.trim();
+    if (!candidate) {
+      toast('Candidate flag is empty.', 'error');
+      return;
+    }
+    const notes = document.getElementById('approval-notes').value.trim();
+    const res = await api(`/api/challenges/${state.currentCid}/approve-flag`, {
+      method: 'POST',
+      body: { approved: true, flag: candidate, notes },
+    });
+    if (res && res.id) {
+      const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
+      if (idx >= 0) state.challenges[idx] = res;
+      renderStatusBadge(res.status, !!res.running);
+      renderWriteupSection(res);
+      renderCards();
+      updateSolveButtons(res.status);
+      if (res.flag) showFlag(res.flag);
+      closeModal('modal-flag-approval');
+      toast('Flag approved and writeup generated.', 'success');
+    } else {
+      toast(res?.error || 'Failed to approve flag candidate.', 'error');
+    }
+  });
+
+  document.getElementById('btn-reject-candidate').addEventListener('click', async () => {
+    if (!state.currentCid) return;
+    const candidate = document.getElementById('approval-candidate').value.trim();
+    const notes = document.getElementById('approval-notes').value.trim();
+    const res = await api(`/api/challenges/${state.currentCid}/approve-flag`, {
+      method: 'POST',
+      body: { approved: false, flag: candidate, notes },
+    });
+    if (res && res.id) {
+      const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
+      if (idx >= 0) state.challenges[idx] = res;
+      renderStatusBadge(res.status, !!res.running);
+      renderWriteupSection(res);
+      renderCards();
+      updateSolveButtons(res.status);
+      document.getElementById('flag-banner').classList.remove('visible');
+      closeModal('modal-flag-approval');
+      toast('Flag candidate rejected.', 'info');
+    } else {
+      toast(res?.error || 'Failed to reject flag candidate.', 'error');
+    }
+  });
+
   // Reset & Delete
   document.getElementById('btn-reset').addEventListener('click', async () => {
-    if (!confirm('Reset container? This clears all files and agent state.')) return;
+    if (!confirm('Reset container? This kills the Docker container and agent state but keeps challenge files.')) return;
     await api(`/api/challenges/${state.currentCid}/reset`, { method: 'POST' });
     state.agentRunning = false;
     updateRunningUI();
-    document.getElementById('plan-log').innerHTML = '';
-    document.getElementById('agent-log').innerHTML = '';
-    document.getElementById('output-log').innerHTML = '';
+    document.getElementById('chat-feed').innerHTML = '';
     planStreams.clear();
     agentStreams.clear();
     document.getElementById('flag-banner').classList.remove('visible');
-    renderFileList([]);
     renderStatusBadge('unsolved');
-    toast('Container reset.', 'success');
+    await refreshCurrentChallenge();
+    checkDockerStatus();
+    toast('Container reset. Files preserved.', 'success');
   });
 
   document.getElementById('btn-delete').addEventListener('click', async () => {
@@ -1841,6 +2563,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.currentCid = null;
     switchView('view-dashboard');
     loadChallenges();
+    checkDockerStatus();
     toast('Challenge deleted.', 'success');
   });
 
@@ -1851,12 +2574,106 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { document.getElementById('flag-copy').textContent = 'Copy'; }, 2000);
   });
 
+  // Settings
+  document.getElementById('btn-settings-open').addEventListener('click', () => {
+    setDockerMenuOpen(false);
+    loadSettings();
+    openModal('modal-settings');
+  });
+  document.getElementById('btn-lock-app').addEventListener('click', async () => {
+    const res = await api('/api/auth/lock', { method: 'POST' });
+    if (!res || res.error) {
+      toast(res?.error || 'Failed to lock workspace.', 'error');
+      return;
+    }
+    window.location.reload();
+  });
+  document.getElementById('docker-status').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await toggleDockerMenu();
+  });
+  document.getElementById('docker-menu').addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+  document.addEventListener('click', () => setDockerMenuOpen(false));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') setDockerMenuOpen(false);
+  });
+  document.getElementById('oai-remove').addEventListener('click', () => {
+    _settingsClearOai = true;
+    const oaiStatus = document.getElementById('oai-status');
+    oaiStatus.innerHTML = `<span class="key-badge unset"><span class="key-dot"></span>WILL BE REMOVED</span>`;
+    document.getElementById('oai-remove').classList.remove('visible');
+    document.getElementById('oai-key-input').value = '';
+  });
+  document.getElementById('ant-remove').addEventListener('click', () => {
+    _settingsClearAnt = true;
+    const antStatus = document.getElementById('ant-status');
+    antStatus.innerHTML = `<span class="key-badge unset"><span class="key-dot"></span>WILL BE REMOVED</span>`;
+    document.getElementById('ant-remove').classList.remove('visible');
+    document.getElementById('ant-key-input').value = '';
+  });
+  document.getElementById('btn-save-settings').addEventListener('click', async () => {
+    const body = {
+      openai_api_key:    document.getElementById('oai-key-input').value.trim(),
+      anthropic_api_key: document.getElementById('ant-key-input').value.trim(),
+      model:             document.getElementById('settings-model').value.trim(),
+      clear_openai:      _settingsClearOai,
+      clear_anthropic:   _settingsClearAnt,
+    };
+    const res = await api('/api/config', { method: 'POST', body });
+    if (res.ok) {
+      document.getElementById('settings-save-msg').style.display = 'block';
+      await loadSettings();  // refresh status badges
+      await refreshLockUI();
+      closeModal('modal-settings');
+    } else {
+      toast(res?.error || 'Save failed', 'error');
+    }
+  });
+  document.getElementById('btn-security-toggle').addEventListener('click', async () => {
+    if (!_securityEnabled) {
+      if (_securityPasswordSet) {
+        const res = await api('/api/config', { method: 'POST', body: { local_lock_enabled: true } });
+        if (!res || res.error) {
+          toast(res?.error || 'Failed to enable security.', 'error');
+          return;
+        }
+        toast('Security enabled.', 'success');
+        await loadSettings();
+        await refreshLockUI();
+        return;
+      }
+      openSecurityModal('enable');
+      return;
+    }
+    openSecurityModal('disable');
+  });
+  document.getElementById('btn-security-change').addEventListener('click', () => openSecurityModal('change'));
+  document.getElementById('btn-security-save').addEventListener('click', async () => {
+    await submitSecurityAction();
+  });
+  document.getElementById('active-containers-list').addEventListener('click', async (e) => {
+    const openBtn = e.target.closest('[data-open-cid]');
+    if (openBtn) {
+      const cid = openBtn.getAttribute('data-open-cid');
+      const isManual = openBtn.getAttribute('data-open-manual') === '1';
+      if (cid) await openChallengeFromContainerList(cid, isManual);
+      return;
+    }
+    const killBtn = e.target.closest('[data-kill-cid]');
+    if (killBtn) {
+      const cid = killBtn.getAttribute('data-kill-cid');
+      if (cid) await killContainerFromContainerList(cid);
+    }
+  });
+
   // Build image
   document.getElementById('btn-build-open').addEventListener('click', () => openModal('modal-build'));
   document.getElementById('btn-start-build').addEventListener('click', async () => {
     document.getElementById('build-log').innerHTML = '';
     document.getElementById('btn-start-build').disabled = true;
-    document.getElementById('btn-start-build').textContent = '⏳ Building…';
+    document.getElementById('btn-start-build').textContent = 'Building...';
     await api('/api/docker/build', { method: 'POST' });
   });
 
@@ -1881,9 +2698,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.cardErrors = {};
     updateRunningUI();
     switchView('view-dashboard');
-    document.getElementById('plan-log').innerHTML = '';
-    document.getElementById('agent-log').innerHTML = '';
-    document.getElementById('output-log').innerHTML = '';
+    document.getElementById('chat-feed').innerHTML = '';
     planStreams.clear();
     agentStreams.clear();
     document.getElementById('flag-banner').classList.remove('visible');
@@ -1904,7 +2719,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// ── Helpers ──────────────────────────────────────────────
+//  Helpers 
 function switchView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -1917,21 +2732,276 @@ function ts() {
   return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+function setDockerMenuOpen(open) {
+  const menu = document.getElementById('docker-menu');
+  const btn = document.getElementById('docker-status');
+  if (!menu || !btn) return;
+  menu.classList.toggle('open', !!open);
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+async function toggleDockerMenu() {
+  const menu = document.getElementById('docker-menu');
+  if (!menu) return;
+  const opening = !menu.classList.contains('open');
+  if (opening) await loadActiveContainers();
+  setDockerMenuOpen(opening);
+}
+
+async function refreshLockUI() {
+  const btn = document.getElementById('btn-lock-app');
+  if (!btn) return;
+  try {
+    const s = await api('/api/auth/status');
+    btn.style.display = (s && s.enabled && s.unlocked) ? '' : 'none';
+  } catch {
+    btn.style.display = 'none';
+  }
+}
+
+function renderSecurityControls() {
+  const pill = document.getElementById('settings-lock-status-pill');
+  const toggle = document.getElementById('btn-security-toggle');
+  const change = document.getElementById('btn-security-change');
+  if (!pill || !toggle || !change) return;
+  if (_securityEnabled) {
+    pill.textContent = 'SECURITY ENABLED';
+    pill.classList.add('on');
+    pill.classList.remove('off');
+    toggle.textContent = 'Disable Security';
+    change.style.display = '';
+  } else {
+    pill.textContent = _securityPasswordSet ? 'SECURITY READY (OFF)' : 'SECURITY DISABLED';
+    pill.classList.remove('on');
+    pill.classList.add('off');
+    toggle.textContent = 'Enable Security';
+    change.style.display = _securityPasswordSet ? '' : 'none';
+  }
+}
+
+function openSecurityModal(mode) {
+  _securityAction = mode;
+  const title = document.getElementById('security-modal-title');
+  const subtitle = document.getElementById('security-modal-subtitle');
+  const currentWrap = document.getElementById('security-current-wrap');
+  const newWrap = document.getElementById('security-new-wrap');
+  const confirmWrap = document.getElementById('security-confirm-wrap');
+  const saveBtn = document.getElementById('btn-security-save');
+  document.getElementById('security-current').value = '';
+  document.getElementById('security-new').value = '';
+  document.getElementById('security-confirm').value = '';
+
+  if (mode === 'enable') {
+    title.textContent = 'Enable Security';
+    subtitle.textContent = 'Set a local password to lock and unlock the workspace.';
+    currentWrap.style.display = 'none';
+    newWrap.style.display = '';
+    confirmWrap.style.display = '';
+    saveBtn.textContent = 'Enable';
+  } else if (mode === 'disable') {
+    title.textContent = 'Disable Security';
+    subtitle.textContent = 'Enter your current password to disable local security.';
+    currentWrap.style.display = '';
+    newWrap.style.display = 'none';
+    confirmWrap.style.display = 'none';
+    saveBtn.textContent = 'Disable';
+  } else {
+    title.textContent = 'Change Password';
+    subtitle.textContent = 'Enter your current password and set a new one.';
+    currentWrap.style.display = '';
+    newWrap.style.display = '';
+    confirmWrap.style.display = '';
+    saveBtn.textContent = 'Change';
+  }
+  openModal('modal-security');
+}
+
+async function submitSecurityAction() {
+  const current = document.getElementById('security-current').value;
+  const next = document.getElementById('security-new').value;
+  const confirm = document.getElementById('security-confirm').value;
+  let body = {};
+  let okMsg = 'Security updated.';
+
+  if (_securityAction === 'enable') {
+    body = { local_lock_enabled: true, new_password: next, confirm_password: confirm };
+    okMsg = 'Security enabled.';
+  } else if (_securityAction === 'disable') {
+    body = { local_lock_enabled: false, current_password: current };
+    okMsg = 'Security disabled.';
+  } else if (_securityAction === 'change') {
+    body = { local_lock_enabled: _securityEnabled, current_password: current, new_password: next, confirm_password: confirm };
+    okMsg = 'Password changed.';
+  } else {
+    return;
+  }
+
+  const res = await api('/api/config', { method: 'POST', body });
+  if (!res || res.error) {
+    toast(res?.error || 'Security update failed.', 'error');
+    return;
+  }
+  closeModal('modal-security');
+  toast(okMsg, 'success');
+  await loadSettings();
+  await refreshLockUI();
+}
+
 function escHtml(str) {
-  return String(str)
+  return sanitizeText(str)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function sanitizeText(value) {
+  let s = value == null ? '' : String(value);
+  if (!s) return '';
+  if (/[\\u00C3\\u00C2\\u00E2\\u00F0\\u00C5]/.test(s)) {
+    try { s = decodeURIComponent(escape(s)); } catch {}
+  }
+  s = s
+    .replace(/\u00E2\u20AC\u00A6|\u2026/g, '...')
+    .replace(/\u00E2\u20AC\u201C|\u00E2\u20AC\u201D|\u2013|\u2014/g, '-')
+    .replace(/\u00E2\u20AC\u00A2|\u2022/g, '*')
+    .replace(/\u00C2/g, '');
+  return s.replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '');
+}
+
+//  Settings 
+let _settingsClearOai = false;
+let _settingsClearAnt = false;
+let _securityEnabled = false;
+let _securityPasswordSet = false;
+let _securityAction = '';
+
+async function loadSettings() {
+  _settingsClearOai = false;
+  _settingsClearAnt = false;
+  const cfg = await api('/api/config');
+
+  // OpenAI
+  const oaiStatus = document.getElementById('oai-status');
+  const oaiRemove = document.getElementById('oai-remove');
+  const oaiInput  = document.getElementById('oai-key-input');
+  oaiInput.value = '';
+  if (cfg.openai_api_key_set) {
+    oaiStatus.innerHTML = `
+      <span class="key-badge set"><span class="key-dot"></span>SET</span>
+      <span class="key-masked">${escHtml(cfg.openai_api_key_masked)}</span>`;
+    oaiRemove.classList.add('visible');
+  } else {
+    oaiStatus.innerHTML = `<span class="key-badge unset"><span class="key-dot"></span>NOT SET</span>`;
+    oaiRemove.classList.remove('visible');
+  }
+
+  // Anthropic
+  const antStatus = document.getElementById('ant-status');
+  const antRemove = document.getElementById('ant-remove');
+  const antInput  = document.getElementById('ant-key-input');
+  antInput.value = '';
+  if (cfg.anthropic_api_key_set) {
+    antStatus.innerHTML = `
+      <span class="key-badge set"><span class="key-dot"></span>SET</span>
+      <span class="key-masked">${escHtml(cfg.anthropic_api_key_masked)}</span>`;
+    antRemove.classList.add('visible');
+  } else {
+    antStatus.innerHTML = `<span class="key-badge unset"><span class="key-dot"></span>NOT SET</span>`;
+    antRemove.classList.remove('visible');
+  }
+
+  // Model
+  document.getElementById('settings-model').value = cfg.model || '';
+  _securityEnabled = !!cfg.local_lock_enabled;
+  _securityPasswordSet = !!cfg.local_lock_password_set;
+  renderSecurityControls();
+  document.getElementById('settings-save-msg').style.display = 'none';
+}
+
+async function loadActiveContainers() {
+  const list = document.getElementById('active-containers-list');
+  if (!list) return;
+  list.innerHTML = `<div class="containers-empty">Loading...</div>`;
+  const res = await api('/api/docker/containers');
+  if (!res || res.error) {
+    list.innerHTML = `<div class="containers-empty">Failed to load containers.</div>`;
+    return;
+  }
+  const rows = Array.isArray(res.containers) ? res.containers : [];
+  if (!rows.length) {
+    list.innerHTML = `<div class="containers-empty">No active challenge containers.</div>`;
+    return;
+  }
+  list.innerHTML = rows.map(c => `
+    <div class="container-row">
+      <div class="container-meta">
+        <div class="container-name">${escHtml(c.challenge_name || '(unknown)')}</div>
+        <div class="container-sub">${escHtml(c.cid)}  ${escHtml(c.container_name)}  ${escHtml((c.status || '').toUpperCase())}</div>
+      </div>
+      <button class="container-open" data-open-cid="${escHtml(c.cid)}" data-open-manual="${c.manual_session ? '1' : '0'}">Open</button>
+      <button class="container-kill" data-kill-cid="${escHtml(c.cid)}">Kill</button>
+    </div>
+  `).join('');
+}
+
+async function openChallengeFromContainerList(cid, isManual = false) {
+  if (isManual) {
+    const res = await api(`/api/challenges/${cid}/manual-start`, {
+      method: 'POST',
+      body: { open_terminal: true },
+    });
+    if (!res || res.error) {
+      toast(res?.error || 'Failed to reopen manual terminal.', 'error');
+      return;
+    }
+    setDockerMenuOpen(false);
+    if (res.terminal_opened) {
+      toast('Manual terminal reopened.', 'success');
+    } else if (res.terminal_error) {
+      toast(`Container is running, but terminal popup failed: ${res.terminal_error}`, 'error');
+    } else {
+      toast('Manual session container is ready.', 'success');
+    }
+    await checkDockerStatus();
+    return;
+  }
+  setDockerMenuOpen(false);
+  openChallenge(cid);
+}
+
+async function killContainerFromContainerList(cid) {
+  if (!cid) return;
+  const chal = state.challenges.find(c => c.id === cid);
+  const label = chal?.name ? `"${chal.name}"` : cid;
+  if (!confirm(`Kill container for ${label}?`)) return;
+  const res = await api(`/api/challenges/${cid}/kill-container`, { method: 'POST', body: {} });
+  if (!res || res.error) {
+    toast(res?.error || 'Failed to kill container', 'error');
+    return;
+  }
+  setDockerMenuOpen(false);
+  toast('Container killed.', 'success');
+  await loadActiveContainers();
+  await checkDockerStatus();
+  await loadChallenges();
+  if (state.currentCid === cid) {
+    await refreshCurrentChallenge();
+  }
 }
 
 function toast(msg, type = 'info') {
   const container = document.getElementById('toast-container');
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
-  el.innerHTML = `<span>${icon}</span><span>${escHtml(msg)}</span>`;
+  const icon = type === 'success' ? 'OK' : type === 'error' ? 'ERR' : 'INFO';
+  el.innerHTML = `<span>${icon}</span><span>${escHtml(sanitizeText(msg))}</span>`;
   container.appendChild(el);
   setTimeout(() => el.remove(), 4000);
 }
 </script>
 </body>
 </html>
+
+
+
+
+

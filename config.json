@@ -1,6 +1,4 @@
 {
-  "openai_api_key": "REDACTED",
-  "anthropic_api_key": "REDACTED",
   "model": "gpt-5-mini",
   "auto_open_browser": true,
   "prompt_profile": "compact",
@@ -12,5 +10,6 @@
   "broad_eval_min_total_challenges": 100,
   "broad_eval_min_categories": 5,
   "broad_eval_min_challenges_per_category": 10,
-  "broad_eval_min_solve_rate": 0.6
+  "broad_eval_min_solve_rate": 0.6,
+  "local_lock_enabled": false
 }
