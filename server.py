@@ -1,5 +1,5 @@
 """
-Big Stein (The Penetrator) — Flask + Socket.IO backend
+CTF Copilot — Flask + Socket.IO backend
 Open http://localhost:7331 in your browser
 """
 import threading
@@ -22,7 +22,8 @@ if __name__ == "__main__":
                 pass
         threading.Thread(target=_open_browser, daemon=True).start()
 
-    print("\n  Big Stein (The Penetrator)")
+    print("\n  CTF Copilot")
     print("  ─────────────────────────────")
     print("  Open http://localhost:7331\n")
     socketio.run(app, host="0.0.0.0", port=7331, debug=False, allow_unsafe_werkzeug=True)
+

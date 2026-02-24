@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Big Stein (The Penetrator)</title>
+<title>CTF Copilot</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -1070,7 +1070,7 @@ html, body {
   <div id="topbar">
     <div id="topbar-logo">
       <span>&#128104;&#8205;&#129456;</span>
-      <span class="brand-name">Big Stein (The Penetrator)</span>
+      <span class="brand-name">CTF Copilot</span>
       <span class="sep">|</span>
       <span id="topbar-title" style="font-weight:400;font-size:13px;color:var(--text-dim);">vibecoded by jack</span>
     </div>
@@ -2309,6 +2309,12 @@ document.addEventListener('DOMContentLoaded', () => {
   setupUpload();
   loadChallenges();
   refreshLockUI();
+  const topbarLogo = document.getElementById('topbar-logo');
+  if (topbarLogo) {
+    topbarLogo.addEventListener('click', () => {
+      window.open('https://www.linkedin.com/in/jmucs/', '_blank', 'noopener,noreferrer');
+    });
+  }
 
   // Back button
   document.getElementById('btn-back').addEventListener('click', () => {
@@ -3004,6 +3010,7 @@ function toast(msg, type = 'info') {
 </script>
 </body>
 </html>
+
 
 
 
