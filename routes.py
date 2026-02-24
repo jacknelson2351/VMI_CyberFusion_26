@@ -221,7 +221,8 @@ def _close_manual_terminal_for_sid(sid: str):
 
 def _lock_enabled(cfg: dict | None = None) -> bool:
     cfg = cfg or load_config()
-    return _as_bool(cfg.get("local_lock_enabled"), default=False)
+    # Treat "enabled with no password hash" as disabled to avoid lock/setup dead states.
+    return _as_bool(cfg.get("local_lock_enabled"), default=False) and bool(_lock_hash(cfg))
 
 
 def _lock_hash(cfg: dict | None = None) -> str:
