@@ -221,12 +221,14 @@ def _close_manual_terminal_for_sid(sid: str):
 
 def _lock_enabled(cfg: dict | None = None) -> bool:
     cfg = cfg or load_config()
-    # Treat "enabled with no password hash" as disabled to avoid lock/setup dead states.
-    return _as_bool(cfg.get("local_lock_enabled"), default=False) and bool(_lock_hash(cfg))
+    return _as_bool(cfg.get("local_lock_enabled"), default=False)
 
 
 def _lock_hash(cfg: dict | None = None) -> str:
     cfg = cfg or load_config()
+    # If security is disabled, treat password as absent even if a stale hash exists.
+    if not _lock_enabled(cfg):
+        return ""
     return str(cfg.get("local_lock_password_hash") or "")
 
 
@@ -957,8 +959,9 @@ def save_config_api():
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
         os.replace(tmp, CONFIG_PATH)
-    if not _lock_enabled(cfg):
-        _set_unlocked(True)
+    # Keep this session usable after a successful settings/security update.
+    # Otherwise enabling security can immediately lock subsequent UI API calls.
+    _set_unlocked(True)
     return jsonify({"ok": True})
 
 

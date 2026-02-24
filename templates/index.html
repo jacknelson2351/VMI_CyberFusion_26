@@ -1698,7 +1698,11 @@ async function api(path, opts = {}) {
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
-  return r.json();
+  const data = await r.json();
+  if (r.status === 401 && data && data.error === 'locked') {
+    window.location.href = '/';
+  }
+  return data;
 }
 
 //  Docker status 
