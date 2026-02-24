@@ -37,6 +37,9 @@ WRITEUPS_DIR.mkdir(exist_ok=True)
 _manual_terminal_lock = RLock()
 _manual_terminal_sessions: dict[str, "_ManualTerminalSession"] = {}
 _manual_mode_cids: set[str] = set()
+_docker_build_state_lock = RLock()
+_docker_build_ready = False
+_docker_build_in_progress = False
 _LOCK_SESSION_KEY = "local_lock_unlocked"
 _LOCK_BOOT_KEY = secrets.token_hex(16)
 
@@ -48,30 +51,110 @@ def _trim_text(value: str, limit: int = 260) -> str:
     return v[:limit] + "..."
 
 
+def _docker_build_gate() -> tuple[bool, str]:
+    global _docker_build_ready
+    with _docker_build_state_lock:
+        if _docker_build_in_progress:
+            return False, "Docker image build in progress. Wait for completion."
+    # Source of truth is the actual Docker image presence, not process-local memory.
+    has_image = image_exists()
+    with _docker_build_state_lock:
+        _docker_build_ready = bool(has_image)
+    if has_image:
+        return True, ""
+    return False, "Build the Docker image first before launching the agent."
+
+
 def _build_writeup_markdown(chal: dict, logs: list[dict], approved_flag: str, validator_notes: str = "") -> str:
     now_iso = datetime.utcnow().isoformat() + "Z"
     name = chal.get("name") or "Untitled Challenge"
     category = (chal.get("category") or "misc").upper()
     description = (chal.get("description") or "").strip()
     cid = chal.get("id") or ""
+    note_block = validator_notes.strip() or "No additional validation notes provided."
 
-    commands = []
-    key_outputs = []
+    def _is_noisy_command(cmd: str) -> bool:
+        c = (cmd or "").strip().lower()
+        if not c:
+            return True
+        noisy_prefixes = (
+            "[uploads verify]",
+            "ls -1 /ctf/",
+            "ls -la /ctf/",
+            "search_flag:",
+        )
+        return c.startswith(noisy_prefixes)
+
+    def _step_title_for_command(cmd: str) -> str:
+        c = (cmd or "").lower()
+        if any(k in c for k in ("file ", "strings ", "xxd ", "hexdump ", "binwalk ", "exiftool ")):
+            return "Inspect the challenge artifact"
+        if any(k in c for k in ("gunzip", "unzip", "tar ", "7z ", "foremost")):
+            return "Extract/decompress the provided files"
+        if any(k in c for k in ("grep", "find", "search_flag", "awk", "sed")):
+            return "Search for high-signal indicators"
+        if any(k in c for k in ("python", "ruby", "perl", "./", "bash ")):
+            return "Run the solving script or target binary"
+        if any(k in c for k in ("curl", "wget", "ffuf", "sqlmap", "nikto", "gobuster")):
+            return "Probe the service/application behavior"
+        if any(k in c for k in ("gdb", "rizin", "radare", "objdump", "readelf", "ltrace", "strace")):
+            return "Reverse engineer or debug the target"
+        return "Execute the next verification step"
+
+    step_pairs: list[tuple[str, str]] = []
+    current_cmd = ""
+    current_out_parts: list[str] = []
+    seen_cmd = set()
+
     for entry in logs or []:
         ev = entry.get("event")
         data = entry.get("data") or {}
         if ev == "command":
-            cmd = (data.get("cmd") or "").strip()
-            if cmd and cmd not in commands:
-                commands.append(cmd)
-        elif ev == "output":
+            if current_cmd:
+                joined = "\n".join(p for p in current_out_parts if p).strip()
+                step_pairs.append((current_cmd, joined))
+            current_cmd = (data.get("cmd") or "").strip()
+            current_out_parts = []
+        elif ev == "output" and current_cmd:
             txt = (data.get("text") or "").strip()
-            if txt and any(s in txt.lower() for s in ("flag{", "ctf{", "picoctf{", "cyber", "token", "pass", "upload", "200", "302")):
-                key_outputs.append(_trim_text(txt, 320))
+            if txt:
+                current_out_parts.append(txt)
+    if current_cmd:
+        joined = "\n".join(p for p in current_out_parts if p).strip()
+        step_pairs.append((current_cmd, joined))
 
-    command_lines = "\n".join(f"- `{_trim_text(c, 180)}`" for c in commands[:12]) or "- (no commands captured)"
-    output_lines = "\n".join(f"- {_trim_text(o, 320)}" for o in key_outputs[:8]) or "- (no high-signal output snippets captured)"
-    note_block = validator_notes.strip() or "No additional validation notes provided."
+    steps_md = []
+    for cmd, out in step_pairs:
+        cmd_n = cmd.strip()
+        if not cmd_n or _is_noisy_command(cmd_n):
+            continue
+        cmd_key = cmd_n.lower()
+        if cmd_key in seen_cmd:
+            continue
+        seen_cmd.add(cmd_key)
+        title = _step_title_for_command(cmd_n)
+        out_preview = _trim_text(out, 380) if out else "No notable output was captured for this step."
+        step_num = len(steps_md) + 1
+        steps_md.append(
+            f"### Step {step_num}: {title}\n"
+            f"- Run:\n"
+            f"```bash\n{_trim_text(cmd_n, 240)}\n```\n"
+            f"- What to look for:\n"
+            f"  {_trim_text(out_preview, 360)}\n"
+        )
+        if len(steps_md) >= 8:
+            break
+
+    if not steps_md:
+        steps_md = [
+            "### Step 1: Start with basic artifact inspection\n"
+            "- Run:\n"
+            "```bash\nls -lah /ctf/\nfile /ctf/*\n```\n"
+            "- What to look for:\n"
+            "  Identify the main challenge file(s), then extract/decode/analyze based on file type until the flag appears.\n"
+        ]
+
+    steps_block = "\n".join(steps_md)
 
     return (
         f"# Writeup: {name}\n\n"
@@ -82,14 +165,14 @@ def _build_writeup_markdown(chal: dict, logs: list[dict], approved_flag: str, va
         f"- Final flag: `{approved_flag}`\n\n"
         f"## Challenge Description\n"
         f"{description if description else '_No description was provided._'}\n\n"
+        f"## Simple Solve Path\n"
+        f"Follow these steps in order. Each step tells you what to run and what signal to confirm before moving on.\n\n"
+        f"{steps_block}\n"
         f"## Validation Notes\n"
         f"{note_block}\n\n"
-        f"## Agent Command Timeline\n"
-        f"{command_lines}\n\n"
-        f"## Key Outputs\n"
-        f"{output_lines}\n\n"
         f"## Outcome\n"
-        f"The flag candidate was manually validated and approved by the user, then finalized as solved.\n"
+        f"Final approved flag: `{approved_flag}`\n"
+        f"The flag candidate was manually validated and approved by the user.\n"
     )
 
 
@@ -360,8 +443,9 @@ def manual_start_container(cid):
     chal = get_challenge(cid)
     if not chal:
         return jsonify({"error": "Not found"}), 404
-    if not image_exists():
-        return jsonify({"error": "Docker image not built"}), 400
+    ok, err = _docker_build_gate()
+    if not ok:
+        return jsonify({"error": err}), 400
     data = request.get_json(silent=True) or {}
     open_terminal = bool(data.get("open_terminal", True))
     try:
@@ -403,8 +487,9 @@ def manual_cli_run(cid):
     chal = get_challenge(cid)
     if not chal:
         return jsonify({"error": "Not found"}), 404
-    if not image_exists():
-        return jsonify({"error": "Docker image not built"}), 400
+    ok, err = _docker_build_gate()
+    if not ok:
+        return jsonify({"error": err}), 400
     data = request.get_json(force=True) or {}
     command = str(data.get("command") or "").strip()
     timeout = int(data.get("timeout") or 90)
@@ -496,6 +581,25 @@ def approve_flag_route(cid):
         "writeup_path": rel_path,
         "message": "Flag approved. Markdown writeup generated.",
     }
+
+    # Challenge is complete; stop any live agent/container to free resources.
+    try:
+        if cid in _agents:
+            try:
+                _agents[cid].stop()
+            except Exception:
+                pass
+            _agents.pop(cid, None)
+        if cid in _containers:
+            try:
+                _containers[cid].stop()
+            except Exception:
+                pass
+            _containers.pop(cid, None)
+        _manual_mode_cids.discard(cid)
+    except Exception:
+        pass
+
     socketio.emit("flag_approved", payload, room=cid)
     socketio.emit("done", payload, room=cid)
     _log_event(cid, "flag_approved", payload)
@@ -577,16 +681,20 @@ def upload_file(cid):
     local = chal_upload_dir / fname
     f.save(str(local))
 
+    files = chal.get("files", [])
+    if fname not in files:
+        files.append(fname)
+    update_challenge(cid, files=files)
+
+    # Do not auto-start containers on upload. Only sync if a challenge container is already running.
     try:
-        container = get_container(cid)
-        remote    = container.upload_file(str(local))
-        listing   = container.run("ls -lh /ctf/")
-        files     = chal.get("files", [])
-        if fname not in files:
-            files.append(fname)
-        update_challenge(cid, files=files)
-        socketio.emit("file_uploaded", {"name": fname, "listing": listing}, room=cid)
-        return jsonify({"ok": True, "name": fname, "remote": remote, "listing": listing})
+        if cid in _containers and _containers[cid].running:
+            container = _containers[cid]
+            remote = container.upload_file(str(local))
+            listing = container.run("ls -lh /ctf/")
+            socketio.emit("file_uploaded", {"name": fname, "listing": listing}, room=cid)
+            return jsonify({"ok": True, "name": fname, "remote": remote, "listing": listing})
+        return jsonify({"ok": True, "name": fname, "stored": True, "synced": False})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -605,8 +713,9 @@ def launch_agent(cid):
     chal  = get_challenge(cid)
     if not chal:
         return jsonify({"error": "Not found"}), 404
-    if not image_exists():
-        return jsonify({"error": "Docker image not built"}), 400
+    ok, err = _docker_build_gate()
+    if not ok:
+        return jsonify({"error": err}), 400
 
     if cid in _agents and _agents[cid].running:
         return jsonify({"error": "Agent already running"}), 400
@@ -691,6 +800,9 @@ def launch_agent(cid):
         model=model or None,
         challenge_name=chal.get("name", ""),
         challenge_description=chal.get("description", ""),
+        base_tokens_in=chal.get("tokens_in", 0),
+        base_tokens_out=chal.get("tokens_out", 0),
+        base_cost_usd=chal.get("cost_usd", 0.0),
     )
     _agents[cid] = agent
     agent.start(full_desc, prior_summary=prior)
@@ -972,6 +1084,9 @@ def docker_status():
     try:
         get_docker().ping()
         has_image = image_exists()
+        with _docker_build_state_lock:
+            build_ready = bool(_docker_build_ready)
+            build_in_progress = bool(_docker_build_in_progress)
         running_agents = sum(1 for a in _agents.values() if getattr(a, "running", False))
         docker_cids: set[str] = set()
         try:
@@ -986,11 +1101,20 @@ def docker_status():
         return jsonify({
             "running": True,
             "image": has_image,
+            "build_ready": build_ready,
+            "build_in_progress": build_in_progress,
             "active_agents": running_agents,
             "active_containers": running_containers,
         })
     except Exception as e:
-        return jsonify({"running": False, "error": str(e), "active_agents": 0, "active_containers": 0})
+        return jsonify({
+            "running": False,
+            "error": str(e),
+            "build_ready": False,
+            "build_in_progress": False,
+            "active_agents": 0,
+            "active_containers": 0,
+        })
 
 
 @app.route("/api/docker/containers", methods=["GET"])
@@ -1067,6 +1191,7 @@ def kill_challenge_container(cid):
 def build_image():
     from docker_mgr import IMAGE_NAME
     def _build():
+        global _docker_build_ready, _docker_build_in_progress
         try:
             socketio.emit("build_log", {"line": "Starting build...", "done": False})
             client = get_docker()
@@ -1082,15 +1207,27 @@ def build_image():
                     if line:
                         socketio.emit("build_log", {"line": line, "done": False})
                 elif "error" in log:
+                    with _docker_build_state_lock:
+                        _docker_build_ready = False
+                        _docker_build_in_progress = False
                     socketio.emit("build_log", {"line": f"ERROR: {log['error']}", "done": True, "error": True})
                     return
-            socketio.emit("build_log", {"line": "✓ Image built successfully!", "done": True, "error": False})
+            with _docker_build_state_lock:
+                _docker_build_ready = True
+                _docker_build_in_progress = False
+            socketio.emit("build_log", {"line": "Image built successfully.", "done": True, "error": False})
         except Exception as e:
+            with _docker_build_state_lock:
+                _docker_build_ready = False
+                _docker_build_in_progress = False
             socketio.emit("build_log", {"line": f"Build failed: {e}", "done": True, "error": True})
 
+    global _docker_build_ready, _docker_build_in_progress
+    with _docker_build_state_lock:
+        _docker_build_ready = False
+        _docker_build_in_progress = True
     threading.Thread(target=_build, daemon=True).start()
     return jsonify({"ok": True})
-
 
 # ── Socket.IO — join challenge room for real-time updates ──────────────────────
 

@@ -7,7 +7,7 @@ No local imports — safe for everything else to import.
 
 BASE_RULES = """You are an elite CTF security researcher in a Kali Linux Docker container.
 Working directory: /ctf/ (all challenge files are here)
-Tools available: pwntools, gdb+pwndbg, checksec, ROPgadget, one_gadget, sqlmap, gobuster, ffuf, RsaCtfTool, binwalk, steghide, zsteg, stegseek, fcrackzip, hashcat, john, tshark, scapy, volatility3, angr, z3-solver, and more.
+Tools available: pwntools, gdb, checksec, ROPgadget, rizin, sqlmap, gobuster, ffuf, binwalk, steghide, fcrackzip, scapy, z3-solver, ripgrep (rg), jq, yq, ripmime, rlwrap, tcpflow, whatweb, wfuzz, enum4linux-ng, hashid, cewl, and more.
 You may install missing tools/libs when needed. For Python, use /ctf/.venv and pip.
 For system tools, use apt-get (non-interactive) if required.
 
@@ -42,12 +42,31 @@ INTERACTIVE CHALLENGES (netcat/remote services):
   Use pwntools: write_file exploit.py with "from pwn import *; p = remote('HOST', PORT); ..."
   Then run_command: /ctf/.venv/bin/python /ctf/exploit.py
 
-FLAG RECOGNITION:
-  Pattern: WORD{content} — e.g. picoCTF{...}, flag{...}, cyberfusion{...}, CTF{...}
-  Always run search_flag after any extraction, decryption, or decompilation step
-  Check all extracted files, decoded bytes, memory dumps, and command output
+FLAG DECISION POLICY:
+  General shape: PREFIX{content}
+    - PREFIX: 2-24 chars [A-Za-z0-9_]
+    - content: 1-220 visible chars excluding braces/newlines
+    - Common examples: picoCTF{...}, flag{...}, CTF{...}, HTB{...}, cyberfusion{...}
+  Treat candidates as evidence-weighted, not hardcoded:
+    - High confidence: candidate appears in real runtime output/artifacts and is repeated/confirmed
+    - Medium confidence: candidate appears once in plausible output; run one confirmation step
+    - Low confidence: candidate appears only in source defaults/examples/comments/placeholders
+  Never submit placeholders/defaults such as:
+    - picoCTF{flag}, flag{test}, example/demo/sample values, env fallbacks
+  Always run search_flag after extraction/decryption/decompilation and check extracted files, decoded bytes, memory dumps, and command output.
 
-ENCODED STRINGS — ALWAYS DECODE IMMEDIATELY:
+FEW-SHOT FLAG EXAMPLES:
+  Case A (submit):
+    observed output: "Congrats, flag is picoCTF{a1b2c3_real}"
+    action: submit_flag("picoCTF{a1b2c3_real}")
+  Case B (do not submit):
+    observed source: os.environ.get("FLAG", "picoCTF{flag}")
+    action: do NOT submit; continue searching runtime evidence
+  Case C (confirm then decide):
+    observed once in noisy output: "maybe CTF{x_y_z}"
+    action: mark as candidate, run one targeted confirmation command, then decide
+
+ENCODED STRINGS - ALWAYS DECODE IMMEDIATELY:
   When ANY command output or metadata contains a base64/hex/encoded token:
   → Decode it immediately before your next action
   → If decoded result points to a tool or contains a credential, act on it right away
@@ -796,3 +815,4 @@ ANTHROPIC_TOOLS = [
     }
     for t in CTF_TOOLS
 ]
+

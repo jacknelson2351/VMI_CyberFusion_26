@@ -5,7 +5,7 @@ import base64
 import re
 
 from utils import (
-    _is_plausible_flag_token, _prefix_looks_ctf_like, _decode_backslash_escapes,
+    _is_plausible_flag_token, _prefix_looks_ctf_like, _decode_backslash_escapes, _is_picoctf_flag,
 )
 from db import update_challenge
 
@@ -91,6 +91,8 @@ class FlagsMixin:
         return False
 
     def _flag_matches_format(self, flag: str) -> bool:
+        if _is_picoctf_flag(flag):
+            return True
         fmt = self.flag_format
         if not fmt:
             return True

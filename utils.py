@@ -55,6 +55,10 @@ def _prefix_looks_ctf_like(prefix: str) -> bool:
     return any(h in p for h in hints)
 
 
+def _is_picoctf_flag(token: str) -> bool:
+    return re.fullmatch(r"picoCTF\{[^{}\n]{1,220}\}", (token or "").strip(), re.IGNORECASE) is not None
+
+
 def _is_approval_seeking_text(text: str) -> bool:
     t = (text or "").lower()
     pats = (

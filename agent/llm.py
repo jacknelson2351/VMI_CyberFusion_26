@@ -19,12 +19,14 @@ class LLMMixin:
         if not rates:
             return
         ir, or_ = rates
-        est = (self.total_in * ir + (self.total_out + extra_out) * or_) / 1_000_000
+        cum_in = self._base_tokens_in + self.total_in
+        cum_out = self._base_tokens_out + self.total_out + extra_out
+        est = (cum_in * ir + cum_out * or_) / 1_000_000
         self.emit("cost", {
             "cost": f"~${est:.4f}",
             "cost_usd": est,
-            "tokens_in": self.total_in,
-            "tokens_out": self.total_out + extra_out,
+            "tokens_in": cum_in,
+            "tokens_out": cum_out,
             "model": self.model,
             "known": True,
         })
@@ -32,26 +34,30 @@ class LLMMixin:
     def _emit_cost(self, in_tokens: int, out_tokens: int):
         self.total_in += max(0, int(in_tokens or 0))
         self.total_out += max(0, int(out_tokens or 0))
+        cum_in = self._base_tokens_in + self.total_in
+        cum_out = self._base_tokens_out + self.total_out
         _, rates = resolve_model_rates(self.model, load_config())
         if rates:
             ir, or_ = rates
-            cost = (self.total_in * ir + self.total_out * or_) / 1_000_000
-            update_challenge(self.cid, cost_usd=cost, tokens_in=self.total_in, tokens_out=self.total_out)
+            run_cost = (self.total_in * ir + self.total_out * or_) / 1_000_000
+            base_cost = 0.0 if self._base_cost_usd is None else float(self._base_cost_usd)
+            cost = base_cost + run_cost
+            update_challenge(self.cid, cost_usd=cost, tokens_in=cum_in, tokens_out=cum_out)
             payload = {
                 "cost": f"${cost:.4f}",
                 "cost_usd": cost,
-                "tokens_in": self.total_in,
-                "tokens_out": self.total_out,
+                "tokens_in": cum_in,
+                "tokens_out": cum_out,
                 "model": self.model,
                 "known": True,
             }
         else:
-            update_challenge(self.cid, tokens_in=self.total_in, tokens_out=self.total_out)
+            update_challenge(self.cid, tokens_in=cum_in, tokens_out=cum_out)
             payload = {
                 "cost": "—",
-                "cost_usd": None,
-                "tokens_in": self.total_in,
-                "tokens_out": self.total_out,
+                "cost_usd": self._base_cost_usd,
+                "tokens_in": cum_in,
+                "tokens_out": cum_out,
                 "model": self.model,
                 "known": False,
             }

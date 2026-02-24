@@ -1219,6 +1219,7 @@ html, body {
       </div>
 
       <div id="ch-sidebar-actions">
+        <button class="btn btn-ghost btn-sm" id="btn-edit-challenge" style="width:100%">Edit Challenge</button>
         <button class="btn btn-danger btn-sm" id="btn-reset" style="width:100%">Reset Container</button>
         <button class="btn btn-danger btn-sm" id="btn-delete" style="width:100%;background:rgba(255,77,109,0.08)">Delete Challenge</button>
       </div>
@@ -1309,6 +1310,49 @@ html, body {
   </div>
 </div>
 
+<!--  Edit Challenge Modal  -->
+<div class="modal-overlay" id="modal-edit-challenge">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Edit Challenge</div>
+      <button class="modal-close" data-close="modal-edit-challenge">X</button>
+    </div>
+    <div class="modal-body">
+      <div class="fields-row">
+        <div class="field">
+          <label>CHALLENGE NAME</label>
+          <input type="text" id="edit-name" placeholder="e.g. Baby Stack, SQL Injection 101">
+        </div>
+        <div class="field">
+          <label>CATEGORY</label>
+          <select id="edit-cat">
+            <option value="pwn">PWN</option>
+            <option value="web">WEB</option>
+            <option value="crypto">CRYPTO</option>
+            <option value="forensics">FORENSICS</option>
+            <option value="rev">REV</option>
+            <option value="misc">MISC</option>
+            <option value="osint">OSINT</option>
+            <option value="network">NETWORK</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>FLAG FORMAT <span style="color:var(--text-muted);font-weight:400">(optional - helps agent recognize the flag)</span></label>
+        <input type="text" id="edit-flagfmt" placeholder="e.g.  picoCTF{...}   or   flag{...}">
+      </div>
+      <div class="field">
+        <label>DESCRIPTION <span style="color:var(--text-muted);font-weight:400">(paste the full challenge text here)</span></label>
+        <textarea id="edit-desc" placeholder="Paste the complete challenge description, URLs, hints, anything the agent should know"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="modal-edit-challenge">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-challenge-edit">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!--  Settings Modal  -->
 <div class="modal-overlay" id="modal-settings">
   <div class="modal" style="width:640px">
@@ -1359,8 +1403,36 @@ html, body {
       </div>
     </div>
     <div class="modal-footer">
+      <button class="btn btn-ghost" id="btn-settings-about" type="button" style="margin-right:auto;">About</button>
       <button class="btn btn-ghost" data-close="modal-settings">Cancel</button>
       <button class="btn btn-primary" id="btn-save-settings">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-about">
+  <div class="modal" style="width:640px">
+    <div class="modal-header">
+      <div class="modal-title">About CTF Copilot</div>
+      <button class="modal-close" data-close="modal-about">X</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:12px;">
+        CTF Copilot began as a one-night build sprint by Jack Nelson, designed to turn chaotic challenge workflows into one clean, repeatable solving interface. The idea was simple: keep all challenge context, tools, uploads, and solve state in one place so execution stays focused from first recon to final flag.
+      </p>
+      <p style="font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:12px;">
+        The first working version was built in a hotel room marathon, with development running deep into the session until 3:30 PM. Jack orchestrated Claude Code and Codex in parallel while he stepped back to meditate and direct the architecture, turning rapid iterations into a polished CTF workflow engine in a single push.
+      </p>
+      <p style="font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:0;">
+        That same momentum carried into competition, where Jack Nelson took first place at the Microsoft Observer CTF during VMI Cyber Fusion 2026, the morning after he built it. Jack also credits his work with Enzo Hins during the CTF, whose awesome collaboration and support helped inspire key parts of the build. CTF Copilot is the product of that mindset: precise tooling, disciplined execution, and relentless focus on winning.
+      </p>
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-top:12px;margin-bottom:0;">
+        Note: I recommend meditating, and this app helps. Students can get a free scholarship here:
+        <a href="https://app.wakingup.com/scholarship" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;">https://app.wakingup.com/scholarship</a>
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" data-close="modal-about">Close</button>
     </div>
   </div>
 </div>
@@ -1429,7 +1501,10 @@ html, body {
       </p>
       <div class="field">
         <label>CANDIDATE FLAG</label>
-        <input id="approval-candidate" type="text">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="approval-candidate" type="text">
+          <button class="flag-copy" id="approval-copy" type="button">Copy</button>
+        </div>
       </div>
       <div class="field" style="margin-bottom:0;">
         <label>VALIDATION NOTES (optional)</label>
@@ -1477,6 +1552,8 @@ const state = {
   cardErrors: {},
   stepCount: 0,
   pendingCandidateFlag: '',
+  dockerBuildReady: false,
+  dockerBuildInProgress: false,
 };
 
 const STEP_LIMITS = {
@@ -1710,21 +1787,35 @@ async function checkDockerStatus() {
   try {
     const s = await api(`/api/docker/status?t=${Date.now()}`);
     const el = document.getElementById('docker-status');
+    state.dockerBuildReady = !!s.build_ready;
+    state.dockerBuildInProgress = !!s.build_in_progress;
     if (!s.running) {
       el.className = 'status-pill warn';
       el.innerHTML = '<div class="dot"></div><span>Docker not running</span>';
+      state.dockerBuildReady = false;
+      state.dockerBuildInProgress = false;
     } else if (!s.image) {
       el.className = 'status-pill warn';
       el.innerHTML = '<div class="dot"></div><span>Image not built</span>';
+    } else if (s.build_in_progress) {
+      el.className = 'status-pill warn';
+      el.innerHTML = '<div class="dot"></div><span>Building image...</span>';
+    } else if (!s.build_ready) {
+      el.className = 'status-pill warn';
+      el.innerHTML = '<div class="dot"></div><span>Build required before launch</span>';
     } else {
       el.className = 'status-pill ok';
       const n = (typeof s.active_containers === 'number') ? s.active_containers : (s.active_agents || 0);
       el.innerHTML = `<div class="dot"></div><span>Docker ready - ${n} containers running</span>`;
     }
+    updateRunningUI();
   } catch {
     const el = document.getElementById('docker-status');
     el.className = 'status-pill warn';
     el.innerHTML = '<div class="dot"></div><span>Docker offline</span>';
+    state.dockerBuildReady = false;
+    state.dockerBuildInProgress = false;
+    updateRunningUI();
   }
 }
 checkDockerStatus();
@@ -1938,6 +2029,12 @@ async function refreshCurrentChallenge() {
   // Update in state
   const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
   if (idx >= 0) state.challenges[idx] = c;
+  const color = CAT_COLORS[c.category] || '#888';
+  const badge = document.getElementById('ch-category-badge');
+  badge.textContent = (c.category || 'misc').toUpperCase();
+  badge.style.color = color;
+  document.getElementById('ch-title').textContent = sanitizeText(c.name || 'Untitled');
+  document.getElementById('ch-description').textContent = sanitizeText(c.description || 'No description provided.');
   renderFileList(c.files || []);
   renderStatusBadge(c.status, c.running);
   renderWriteupSection(c);
@@ -2188,6 +2285,17 @@ async function openWriteupModal() {
   openModal('modal-writeup');
 }
 
+function openEditChallengeModal() {
+  if (!state.currentCid) return;
+  const c = state.challenges.find(ch => ch.id === state.currentCid);
+  if (!c) return;
+  document.getElementById('edit-name').value = c.name || '';
+  document.getElementById('edit-cat').value = c.category || 'misc';
+  document.getElementById('edit-flagfmt').value = c.flag_format || '';
+  document.getElementById('edit-desc').value = c.description || '';
+  openModal('modal-edit-challenge');
+}
+
 //  Upload 
 function setupUpload() {
   const zone  = document.getElementById('upload-zone');
@@ -2249,8 +2357,9 @@ async function uploadFiles(files) {
 
 //  Agent 
 function updateRunningUI() {
-  document.getElementById('btn-launch').disabled  = state.agentRunning;
-  document.getElementById('btn-retry').disabled   = state.agentRunning;
+  const launchBlocked = state.agentRunning || !state.dockerBuildReady || state.dockerBuildInProgress;
+  document.getElementById('btn-launch').disabled  = launchBlocked;
+  document.getElementById('btn-retry').disabled   = launchBlocked;
   document.getElementById('btn-stop').disabled    = !state.agentRunning;
   document.getElementById('model-select').disabled = state.agentRunning;
   updateAgentActivity();
@@ -2260,6 +2369,14 @@ function updateRunningUI() {
 
 async function launch(retry = false) {
   if (!state.currentCid) return;
+  if (state.dockerBuildInProgress) {
+    toast('Docker image build is still running.', 'error');
+    return;
+  }
+  if (!state.dockerBuildReady) {
+    toast('Build the Docker image before launching the agent.', 'error');
+    return;
+  }
   const extra = document.getElementById('prompt-input').value.trim();
   const model = document.getElementById('model-select').value;
   document.getElementById('prompt-input').value = '';
@@ -2372,6 +2489,32 @@ document.addEventListener('DOMContentLoaded', () => {
   // Enter to create challenge
   document.getElementById('new-name').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('btn-create-challenge').click();
+  });
+  document.getElementById('btn-edit-challenge').addEventListener('click', () => openEditChallengeModal());
+  document.getElementById('btn-save-challenge-edit').addEventListener('click', async () => {
+    if (!state.currentCid) return;
+    const name = document.getElementById('edit-name').value.trim();
+    if (!name) {
+      document.getElementById('edit-name').focus();
+      return;
+    }
+    const body = {
+      name,
+      category: document.getElementById('edit-cat').value,
+      flag_format: document.getElementById('edit-flagfmt').value.trim(),
+      description: document.getElementById('edit-desc').value.trim(),
+    };
+    const res = await api(`/api/challenges/${state.currentCid}`, { method: 'PUT', body });
+    if (res && res.id) {
+      const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
+      if (idx >= 0) state.challenges[idx] = res;
+      closeModal('modal-edit-challenge');
+      await refreshCurrentChallenge();
+      renderCards();
+      toast('Challenge updated.', 'success');
+    } else {
+      toast(res?.error || 'Failed to update challenge', 'error');
+    }
   });
 
   // Agent controls
@@ -2583,12 +2726,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('flag-copy').textContent = 'Copied!';
     setTimeout(() => { document.getElementById('flag-copy').textContent = 'Copy'; }, 2000);
   });
+  document.getElementById('approval-copy').addEventListener('click', () => {
+    const val = document.getElementById('approval-candidate').value || '';
+    navigator.clipboard.writeText(val);
+    document.getElementById('approval-copy').textContent = 'Copied!';
+    setTimeout(() => { document.getElementById('approval-copy').textContent = 'Copy'; }, 2000);
+  });
 
   // Settings
   document.getElementById('btn-settings-open').addEventListener('click', () => {
     setDockerMenuOpen(false);
     loadSettings();
     openModal('modal-settings');
+  });
+  document.getElementById('btn-settings-about').addEventListener('click', () => {
+    openModal('modal-about');
   });
   document.getElementById('btn-lock-app').addEventListener('click', async () => {
     const res = await api('/api/auth/lock', { method: 'POST' });

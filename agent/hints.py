@@ -44,67 +44,13 @@ class HintsMixin:
                 key = m.group(1)
                 val = m.group(2)
                 self._store_hint(key, val)
-                # If it looks like a tool directive, inject an urgent message into the conversation.
-                if key.lower() in self._DIRECTIVE_TOOLS:
-                    self._inject_directive(key, val, source="metadata/output")
             # Password-like mentions.
             for m in re.finditer(r"(?i)\b(?:password|pass|pwd|key|passphrase)\b\s*[=:]\s*([^\s]{2,120})", blob):
                 self._store_hint("password", m.group(1))
-                self._inject_directive("password", m.group(1), source="metadata/output")
 
     def _inject_directive(self, tool: str, raw_value: str, source: str = ""):
-        """Queue an urgent user message when a tool:value directive is decoded from output.
-
-        IMPORTANT: messages are placed on _pending_directive_messages, NOT directly into
-        self.messages.  They are flushed by _run() AFTER the complete tool-response loop
-        finishes, so the OpenAI message ordering constraint (assistant tool_calls → tool
-        responses) is never violated.
-        """
-        if not self.running:
-            return
-
-        # Reject short / common English word values — these are almost always false positives
-        # from error messages like "steghide: could not extract any data with that passphrase!"
-        stripped = (raw_value or "").strip()
-        if len(stripped) < 5 or stripped.lower() in self._DIRECTIVE_BLOCKLIST:
-            return
-        # Also reject values that look like natural-language sentences (contain spaces).
-        if " " in stripped:
-            return
-
-        # Fully decode the credential by following base64 / hex chains.
-        decoded_chain = self._recursive_decode_strings(stripped, max_rounds=4)
-        # Pick the last fully-decoded, printable value that is not another tool:value pair.
-        resolved = stripped
-        for d in decoded_chain:
-            d = (d or "").strip()
-            if (d and 4 <= len(d) <= 200 and "\n" not in d
-                    and ":" not in d          # avoid accepting "steghide:base64" as the password
-                    and d.lower() not in self._DIRECTIVE_BLOCKLIST):
-                resolved = d
-
-        # Deduplicate — don't inject the same directive twice.
-        inject_key = f"{tool.lower()}:{resolved}"
-        if inject_key in self._hint_injected:
-            return
-        self._hint_injected.add(inject_key)
-
-        decode_note = f" (base64-decoded from '{stripped[:60]}')" if resolved != stripped else ""
-        msg = (
-            f"[URGENT DIRECTIVE from {source}] "
-            f"Decoded directive: tool='{tool}', credential='{resolved}'{decode_note}. "
-            f"STOP current exploration. Use '{tool}' with credential '{resolved}' on the relevant "
-            f"file in /ctf/ RIGHT NOW. Do not run binwalk, zsteg, strings, or other exploratory "
-            f"commands first. This directive was encoded in the artifact's metadata and is the "
-            f"highest-probability path to the flag."
-        )
-        # ── Deferred injection ──────────────────────────────────────────────────
-        # Appending directly to self.messages here would insert a 'user' message
-        # between an 'assistant tool_calls' entry and its 'tool' response, which
-        # OpenAI rejects with a 400 error.  Instead we queue it; _run() flushes
-        # the queue after ALL tool responses for the current step are appended.
-        self._pending_directive_messages.append({"role": "user", "content": msg})
-        self.emit("thought", {"text": msg, "type": "system"})
+        # Disabled: metadata/output-derived urgent directives caused false pivots.
+        return
 
     def _try_hint_actions(self) -> bool:
         if self._running_hint_action or not self.running:

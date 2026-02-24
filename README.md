@@ -1,100 +1,137 @@
-# VMI CyberFusion 26
+# CTF Copilot (VMI CyberFusion 26)
 
-Small Flask + Socket.IO app for running CTF challenge workflows with Docker.
+CTF Copilot is a local web app for running CTF workflows with Docker-backed challenge containers and an optional AI agent.
 
-## What this is
+## What You Get
 
-- Web UI + API for challenge tracking
-- Docker-backed challenge runtime
-- Optional OpenAI-powered solving agent
+- Challenge dashboard (create, edit, track solve state)
+- Per-challenge Docker runtime
+- File uploads into `/ctf/`
+- Optional AI solve assistant (OpenAI or Anthropic key)
+- Writeup generation after flag approval
 
-## Quick start
+## Prerequisites
 
-1. Install Python deps:
+- Python 3.10+
+- Docker Desktop (or Docker Engine) running
+- Internet access for first Docker image build
+
+## Quick Start (Recommended)
+
+1. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Make sure Docker is running.
-
-3. Put your OpenAI key in `config.json`:
-
-```json
-{
-  "openai_api_key": "your-key-here"
-}
-```
-
-4. Start the server:
+2. Start the app:
 
 ```bash
-python3 server.py
+python server.py
 ```
 
-5. Open:
+3. Open:
 
 `http://localhost:7331`
 
-## Notes
+4. In the UI, open **Settings** and add your API key.
 
-- Max upload size is `256MB`.
-- The app uses `Dockerfile` to build the challenge image (`ctf-kali:latest`).
-- Main app entrypoint is `server.py`.
+5. Click **Build Image** once.
 
-## Debugging Agent Loop (Detailed)
+Important: the agent cannot launch until image build finishes successfully.
 
-The agent now emits structured `loop_trace` events for each run/step/tool phase.
+## How to Get an API Key
 
-To summarize a challenge timeline from a running server:
+### OpenAI Key
 
-```bash
-python scripts/explain_loop_trace.py --cid <challenge_id> --base-url http://127.0.0.1:7331
+1. Go to: `https://platform.openai.com/`
+2. Sign in and open API keys.
+3. Create a new secret key.
+4. Copy it and paste into CTF Copilot Settings under **OPENAI API KEY**.
+
+### Anthropic Key
+
+1. Go to: `https://console.anthropic.com/`
+2. Sign in and open API keys.
+3. Create a new key.
+4. Copy it and paste into CTF Copilot Settings under **ANTHROPIC API KEY**.
+
+## API Key Setup Options
+
+### Option A: In App (best)
+
+- Open **Settings** in the top bar.
+- Paste key(s).
+- Save.
+
+### Option B: `config.json`
+
+You can also set keys directly:
+
+```json
+{
+  "openai_api_key": "sk-...",
+  "anthropic_api_key": "sk-ant-..."
+}
 ```
 
-Or from a saved logs JSON file:
+Then restart the server.
 
-```bash
-python scripts/explain_loop_trace.py --file logs.json
-```
+## First Challenge Flow
 
-## Manual Docker CLI Control
+1. Click **+ New Challenge**
+2. Fill in name, category, optional flag format, and description
+3. Open the challenge card
+4. Upload files
+5. Launch agent or run manually
+6. When a flag is found, review and approve/reject
+7. On approval, container is cleaned up and writeup is generated
 
-If the agent is underperforming, you can attach to the same challenge container and intervene manually.
+## Manual Mode
 
-Open shell + live watcher together:
+Use **Run Manually** in challenge view to start container without launching the agent.
 
-```bash
-python scripts/container_cli.py <challenge_id> --both
-```
-
-If the container is not running yet, start it without launching the agent:
-
-```bash
-python scripts/container_cli.py <challenge_id> --both --start
-```
-
-In the web UI, use **Run Manually** to start the challenge container without launching the agent and open a native OS terminal attached to it.
-This supports Windows, macOS, and Linux (with terminal-emulator fallbacks).
+Useful direct attach command:
 
 ```bash
 docker exec -it ctf-agent-<challenge_id> bash
 ```
 
-Only shell:
-
-```bash
-python scripts/container_cli.py <challenge_id> --shell
-```
-
-Only live watch:
-
-```bash
-python scripts/container_cli.py <challenge_id> --watch
-```
-
-The agent now writes a live stream to `/ctf/.agent_live.log`, so while attached you can watch:
+Live log inside container:
 
 ```bash
 tail -n 120 -f /ctf/.agent_live.log
 ```
+
+## Useful Scripts
+
+Loop trace summary:
+
+```bash
+python scripts/explain_loop_trace.py --cid <challenge_id> --base-url http://127.0.0.1:7331
+```
+
+Or from file:
+
+```bash
+python scripts/explain_loop_trace.py --file logs.json
+```
+
+Container helper:
+
+```bash
+python scripts/container_cli.py <challenge_id> --both
+```
+
+## Troubleshooting
+
+- `Docker not running`: start Docker Desktop/Engine.
+- `Build required before launch`: run **Build Image** in UI.
+- Agent errors about missing key: set API key in Settings and save.
+- Upload worked but not in container yet: launch/run manual first; files sync to active container.
+
+## Notes
+
+- Max upload size: `256MB`
+- Docker image tag: `ctf-kali:latest`
+- Main app entrypoint: `server.py`

@@ -2,6 +2,7 @@
 CTFAgentCore — base class with __init__, run loop, dispatch, and helpers.
 """
 import ast
+import hashlib
 import json
 import os
 import re
@@ -41,6 +42,9 @@ class CTFAgentCore:
         model: str | None = None,
         challenge_name: str = "",
         challenge_description: str = "",
+        base_tokens_in: int = 0,
+        base_tokens_out: int = 0,
+        base_cost_usd: float | None = 0.0,
     ):
         cfg          = load_config()
         self.cfg     = cfg
@@ -71,8 +75,12 @@ class CTFAgentCore:
         self.messages= []
         self.running = False
         self.step    = 0
+        # Per-run token counters; cumulative challenge totals are base + run counters.
         self.total_in= 0
         self.total_out=0
+        self._base_tokens_in = max(0, int(base_tokens_in or 0))
+        self._base_tokens_out = max(0, int(base_tokens_out or 0))
+        self._base_cost_usd = None if base_cost_usd is None else float(base_cost_usd or 0.0)
         self._recent_cmds = deque(maxlen=30)
         self._tool_preflight_done = False
         self._install_attempted_tools = set()
@@ -84,6 +92,8 @@ class CTFAgentCore:
         self._hint_attempted = set()
         self._hint_injected = set()          # which tool:value directives have already been injected
         self._pending_directive_messages = [] # flushed AFTER the tool loop, never mid-dispatch
+        self._guidance_keys_sent = set()
+        self._tool_output_first_seen_step = {}
         self._running_hint_action = False
         self._last_cmd_status = {}   # cmd -> {"error": bool}
         self._preflight_missing_tools = []
@@ -286,6 +296,55 @@ class CTFAgentCore:
         if cmd:
             self._recent_cmds.append(cmd)
 
+    def _append_user_guidance_once(self, content: str, key: str) -> bool:
+        k = (key or "").strip()
+        if not k:
+            self.messages.append({"role": "user", "content": content})
+            return True
+        if k in self._guidance_keys_sent:
+            return False
+        self._guidance_keys_sent.add(k)
+        self.messages.append({"role": "user", "content": content})
+        return True
+
+    def _queue_user_guidance_once(self, content: str, key: str) -> bool:
+        k = (key or "").strip()
+        if not k:
+            self._pending_directive_messages.append({"role": "user", "content": content})
+            return True
+        if k in self._guidance_keys_sent:
+            return False
+        self._guidance_keys_sent.add(k)
+        self._pending_directive_messages.append({"role": "user", "content": content})
+        return True
+
+    def _compact_tool_result_for_context(self, result: str) -> str:
+        text = "" if result is None else str(result)
+        if not text:
+            return text
+        h = hashlib.sha1(text.encode("utf-8", errors="ignore")).hexdigest()
+        if h in self._tool_output_first_seen_step:
+            first_step = self._tool_output_first_seen_step[h]
+            return f"[same tool output as step {first_step}; sha1:{h[:10]}]"
+        self._tool_output_first_seen_step[h] = int(self.step or 0)
+        return text
+
+    def _pre_llm_short_circuit(self) -> bool:
+        # Deterministic guards that avoid unnecessary model-call attempts.
+        if self.provider == "openai" and not self.openai_client:
+            msg = "OpenAI model selected but no OpenAI key configured."
+            self.emit("error", {"message": msg})
+            self.emit("done", {"status": "unsolved", "message": msg})
+            self.running = False
+            return True
+        if self.provider == "anthropic" and not self.anthropic_client:
+            msg = "Anthropic model selected but no Anthropic key configured."
+            self.emit("error", {"message": msg})
+            self.emit("done", {"status": "unsolved", "message": msg})
+            self.running = False
+            return True
+        return False
+
     def _summarize(self):
         self.emit("thought", {"text": "── Summarizing context ──", "type": "system"})
         if not self.openai_client:
@@ -386,6 +445,9 @@ class CTFAgentCore:
                 no_progress_steps=int(self._no_progress_steps),
                 consecutive_errors=int(consecutive_errors),
             )
+            if self._pre_llm_short_circuit():
+                self._trace_loop("step_short_circuit_pre_llm", provider=self.provider)
+                break
             try:
                 msg = self._call()
             except Exception as e:
@@ -404,16 +466,18 @@ class CTFAgentCore:
                 self.emit("thought", {"text": msg.content, "type": "reasoning"})
                 if _is_approval_seeking_text(msg.content):
                     self.messages.append({"role": "assistant", "content": msg.content or ""})
-                    self.messages.append({"role": "user", "content":
-                        "Do not ask for approval. Choose the best next decisive action and execute it now with one tool call."
-                    })
+                    self._append_user_guidance_once(
+                        "Do not ask for approval. Choose the best next decisive action and execute it now with one tool call.",
+                        key="guidance:no_approval_requests",
+                    )
                     continue
 
             if not msg.tool_calls:
                 self.messages.append({"role": "assistant", "content": msg.content or ""})
-                self.messages.append({"role": "user", "content":
-                    "Use exactly one decisive tool call now. No additional planning text."
-                })
+                self._append_user_guidance_once(
+                    "Use exactly one decisive tool call now. No additional planning text.",
+                    key="guidance:force_single_tool_call",
+                )
                 self._trace_loop("step_no_tool_calls")
                 continue
 
@@ -445,10 +509,11 @@ class CTFAgentCore:
                         "content": f"[tool error] invalid arguments for {fn}: {arg_err}",
                     })
                     # Defer user correction until AFTER all tool responses in this batch.
-                    self._pending_directive_messages.append({"role": "user", "content":
+                    self._queue_user_guidance_once(
                         f"Your tool call for '{fn}' had invalid/missing JSON arguments. "
-                        f"Re-issue the tool call with valid JSON that matches the schema."
-                    })
+                        f"Re-issue the tool call with valid JSON that matches the schema.",
+                        key=f"guidance:invalid_args:{fn}",
+                    )
                     step_had_error = True
                     continue
                 try:
@@ -467,7 +532,11 @@ class CTFAgentCore:
                     error=bool(self._is_error_result(result)),
                     progress=bool(self._last_tool_progress),
                 )
-                self.messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+                self.messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": self._compact_tool_result_for_context(result),
+                })
                 if fn == "submit_flag":
                     self._trace_loop("run_exit_submit_flag")
                     return
