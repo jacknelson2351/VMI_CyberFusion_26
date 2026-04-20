@@ -10,6 +10,7 @@ import threading
 import time
 import uuid
 from collections import deque
+from copy import deepcopy
 from types import SimpleNamespace
 
 from openai import OpenAI
@@ -26,8 +27,10 @@ from prompts import (
 )
 from utils import _is_approval_seeking_text, _shell_quote
 from pricing import _infer_pip_package
-from db import update_challenge
+from db import get_challenge, update_challenge
 from agent.registry import _log_event
+from .state import ChallengeMemoryStore
+from storage import utc_now_iso
 
 
 class CTFAgentCore:
@@ -104,8 +107,15 @@ class CTFAgentCore:
         self._evidence_version = 0
         self._hypothesis_no_progress = {}
         self._flag_evidence = {}
-        self._answer_candidates = set()
-        self._answer_mode = self._is_answer_style_challenge()
+        self.memory = ChallengeMemoryStore(self.cid)
+        self.run_state = {}
+        self.hypotheses = []
+        self.facts_doc = {}
+        self.artifacts_doc = []
+        self.dead_ends_doc = []
+        self.candidates_doc = {}
+        self._needs_replan = True
+        self._active_hypothesis = None
 
     def emit(self, event, data):
         if not self.running and event in {"plan", "thought", "command", "output", "flag", "cost"}:
@@ -152,6 +162,19 @@ class CTFAgentCore:
             writeup_ready_at=None,
             approved_at=None,
         )
+        self._append_memory_entry(
+            self.candidates_doc.setdefault("flags", []),
+            "value",
+            candidate,
+            status="pending_approval",
+            source=source or "agent",
+            step=int(self.step or 0),
+        )
+        self.run_state.update({
+            "status": "pending_approval",
+            "phase": "done",
+        })
+        self._save_memory_documents()
         self.running = False
         self.emit("thought", {
             "text": f"Flag candidate found: {candidate}. Awaiting user approval.",
@@ -372,229 +395,498 @@ class CTFAgentCore:
             pass
 
     def _save_retry_summary(self):
-        if not self.openai_client:
-            return
         try:
-            summary_model = "gpt-4o-mini"
-            r = self.openai_client.chat.completions.create(
-                model=summary_model, **self._token_limit_kw(500, model_name=summary_model),
-                messages=[{"role": "user", "content":
-                    "Summarize this FAILED CTF attempt for a retry: files, tried, failed, unexplored, next approach.\n\n"
-                    + json.dumps(self.messages[-20:], indent=2)}]
-            )
-            update_challenge(self.cid, retry_summary=r.choices[0].message.content)
+            overview = self.memory.load_all().get("overview", "").strip()
+            if overview:
+                update_challenge(self.cid, retry_summary=overview)
         except Exception:
             pass
 
+    def _extract_json_payload(self, text: str, fallback):
+        blob = (text or "").strip()
+        if not blob:
+            return deepcopy(fallback)
+        candidates = [blob]
+        for opener, closer in (("{", "}"), ("[", "]")):
+            start = blob.find(opener)
+            end = blob.rfind(closer)
+            if start != -1 and end != -1 and end > start:
+                candidates.append(blob[start:end + 1])
+        for candidate in candidates:
+            try:
+                return json.loads(candidate)
+            except Exception:
+                continue
+        return deepcopy(fallback)
+
+    def _append_memory_entry(self, items: list, value_key: str, value: str, **extra) -> bool:
+        text = str(value or "").strip()
+        if not text:
+            return False
+        for item in items:
+            if isinstance(item, dict) and str(item.get(value_key) or "").strip() == text:
+                item.update({k: v for k, v in extra.items() if v not in (None, "", [])})
+                item["updated_at"] = utc_now_iso()
+                return False
+            if not isinstance(item, dict) and str(item).strip() == text:
+                return False
+        payload = {value_key: text, "updated_at": utc_now_iso()}
+        for key, val in extra.items():
+            if val not in (None, "", []):
+                payload[key] = val
+        items.append(payload)
+        return True
+
+    def _load_memory_documents(self):
+        loaded = self.memory.load_all()
+        self.run_state = dict(loaded.get("state") or {})
+        self.hypotheses = list(loaded.get("hypotheses") or [])
+        self.facts_doc = dict(loaded.get("facts") or {})
+        self.artifacts_doc = list(loaded.get("artifacts") or [])
+        self.dead_ends_doc = list(loaded.get("dead_ends") or [])
+        self.candidates_doc = dict(loaded.get("candidates") or {})
+        self._evidence_confirmed = [
+            item.get("text") if isinstance(item, dict) else str(item)
+            for item in (self.facts_doc.get("confirmed") or [])
+        ][-20:]
+        self._evidence_ruled_out = [
+            item.get("text") if isinstance(item, dict) else str(item)
+            for item in (self.facts_doc.get("ruled_out") or [])
+        ][-20:]
+        self._evidence_version = len(self._evidence_confirmed) + len(self._evidence_ruled_out)
+        self._needs_replan = not bool(self.hypotheses)
+
+    def _save_memory_documents(self):
+        self.run_state["last_updated_at"] = utc_now_iso()
+        self.memory.save_state(self.run_state)
+        self.memory.save_hypotheses(self.hypotheses)
+        self.memory.save_facts(self.facts_doc)
+        self.memory.save_artifacts(self.artifacts_doc)
+        self.memory.save_dead_ends(self.dead_ends_doc)
+        self.memory.save_candidates(self.candidates_doc)
+        self.memory.save_overview(
+            challenge_name=self.challenge_name,
+            category=self.category,
+            state=self.run_state,
+            hypotheses=self.hypotheses,
+            facts=self.facts_doc,
+            artifacts=self.artifacts_doc,
+            dead_ends=self.dead_ends_doc,
+            candidates=self.candidates_doc,
+        )
+
+    def _sync_memory_from_evidence(self, source: str = "parser"):
+        confirmed = self.facts_doc.setdefault("confirmed", [])
+        ruled_out = self.facts_doc.setdefault("ruled_out", [])
+        for text in self._evidence_confirmed[-20:]:
+            self._append_memory_entry(confirmed, "text", text, source=source, step=int(self.step or 0))
+        for text in self._evidence_ruled_out[-20:]:
+            self._append_memory_entry(ruled_out, "text", text, source=source, step=int(self.step or 0))
+        self.facts_doc["updated_at"] = utc_now_iso()
+
+    def _fallback_hypotheses(self):
+        cue = CATEGORY_EXECUTION_BRIEFS.get(self.category, "Classify the challenge and test the highest-signal path.")
+        return [
+            {
+                "id": "h1",
+                "title": "Classify the primary attack surface",
+                "goal": cue,
+                "next_action": "Use structured tools first and gather one high-signal fact.",
+                "expected_signals": ["new artifact", "concrete error", "flag path"],
+                "confidence": 0.6,
+                "attempts": 0,
+                "progress_events": 0,
+                "failures": 0,
+                "status": "open",
+            },
+            {
+                "id": "h2",
+                "title": "Exploit the most promising artifact or endpoint",
+                "goal": "Take the strongest discovered lead and try one decisive action.",
+                "next_action": "Use at most one short chain of tool calls to validate exploitation.",
+                "expected_signals": ["state change", "decoded content", "credential or token"],
+                "confidence": 0.45,
+                "attempts": 0,
+                "progress_events": 0,
+                "failures": 0,
+                "status": "open",
+            },
+        ]
+
+    def _run_planner_phase(self, challenge_desc: str, recon: str, prior_summary: str | None = None, reason: str = ""):
+        planner_system = (
+            "You are the planning phase of a CTF harness. Produce only valid JSON with keys "
+            "`summary`, `active_hypothesis_id`, and `hypotheses`. "
+            "Each hypothesis must contain: id, title, goal, next_action, expected_signals, confidence. "
+            "Prefer 2-4 hypotheses. Do not include answers. Do not guess flags."
+        )
+        overview = self.memory.load_all().get("overview", "")
+        user_prompt = (
+            f"Challenge:\n{challenge_desc}\n\n"
+            f"Auto recon:\n{self._truncate_for_context(recon)}\n\n"
+            f"Current evidence:\n{self._evidence_summary()}\n"
+            f"Current overview:\n{overview[-2500:] if overview else '(none)'}\n"
+            f"{('[PRIOR SUMMARY]\\n' + prior_summary + '\\n') if prior_summary else ''}"
+            f"{('[REPLAN REASON]\\n' + reason + '\\n') if reason else ''}"
+            "Return JSON only."
+        )
+        fallback = {
+            "summary": "Using fallback planner because structured planning output was unavailable.",
+            "active_hypothesis_id": "h1",
+            "hypotheses": self._fallback_hypotheses(),
+        }
+        try:
+            raw = self._complete_text([{"role": "user", "content": user_prompt}], system_prompt=planner_system, max_tokens=1600)
+            payload = self._extract_json_payload(raw, fallback)
+        except Exception as e:
+            payload = deepcopy(fallback)
+            payload["summary"] = f"Planner fallback used after error: {e}"
+        hypotheses = []
+        for idx, item in enumerate(payload.get("hypotheses") or []):
+            if not isinstance(item, dict):
+                continue
+            hypotheses.append({
+                "id": str(item.get("id") or f"h{idx + 1}"),
+                "title": str(item.get("title") or f"Hypothesis {idx + 1}").strip(),
+                "goal": str(item.get("goal") or "").strip(),
+                "next_action": str(item.get("next_action") or "").strip(),
+                "expected_signals": [str(x).strip() for x in (item.get("expected_signals") or []) if str(x).strip()],
+                "confidence": float(item.get("confidence") or 0.0),
+                "attempts": int(item.get("attempts") or 0),
+                "progress_events": int(item.get("progress_events") or 0),
+                "failures": int(item.get("failures") or 0),
+                "status": str(item.get("status") or "open").strip() or "open",
+            })
+        if not hypotheses:
+            hypotheses = self._fallback_hypotheses()
+        active_id = str(payload.get("active_hypothesis_id") or hypotheses[0]["id"])
+        if active_id not in {h["id"] for h in hypotheses}:
+            active_id = hypotheses[0]["id"]
+        self.hypotheses = hypotheses
+        self.run_state.update({
+            "phase": "planner",
+            "active_hypothesis_id": active_id,
+            "planner_summary": str(payload.get("summary") or "").strip(),
+        })
+        self._needs_replan = False
+        self.emit("plan", {"text": self.run_state["planner_summary"] or "Planner updated hypotheses.", "replan": bool(reason)})
+        self._trace_loop("planner_complete", hypothesis_count=len(self.hypotheses), active_hypothesis_id=active_id)
+        self._save_memory_documents()
+
+    def _hypothesis_score(self, hypothesis: dict) -> float:
+        return (
+            float(hypothesis.get("confidence") or 0.0)
+            + (0.15 * float(hypothesis.get("progress_events") or 0))
+            - (0.2 * float(hypothesis.get("failures") or 0))
+            - (0.05 * float(hypothesis.get("attempts") or 0))
+        )
+
+    def _select_active_hypothesis(self) -> dict | None:
+        open_items = [h for h in self.hypotheses if str(h.get("status") or "open") in {"open", "active"}]
+        if not open_items:
+            return None
+        best = sorted(open_items, key=self._hypothesis_score, reverse=True)[0]
+        for item in self.hypotheses:
+            item["status"] = "active" if item.get("id") == best.get("id") else ("open" if item.get("status") != "exhausted" else "exhausted")
+        self.run_state["active_hypothesis_id"] = best.get("id")
+        self._active_hypothesis = best
+        self._next_hypothesis = best.get("title") or ""
+        return best
+
+    def _build_execution_prompt(self, challenge_desc: str, recon: str, hypothesis: dict) -> str:
+        confirmed = [item.get("text") if isinstance(item, dict) else str(item) for item in (self.facts_doc.get("confirmed") or [])][-8:]
+        ruled_out = [item.get("text") if isinstance(item, dict) else str(item) for item in (self.facts_doc.get("ruled_out") or [])][-6:]
+        artifacts = [item.get("label") or item.get("path") or item.get("text") for item in self.artifacts_doc[-6:]]
+        tooling_ctx = ""
+        if self._preflight_missing_tools:
+            tooling_ctx = (
+                "\nUnavailable tools: " + ", ".join(self._preflight_missing_tools)
+                + ". Do not plan around them."
+            )
+        return (
+            f"Challenge:\n{challenge_desc}\n\n"
+            f"Auto recon:\n{self._truncate_for_context(recon)}\n\n"
+            f"Active hypothesis:\n"
+            f"- title: {hypothesis.get('title')}\n"
+            f"- goal: {hypothesis.get('goal')}\n"
+            f"- next_action: {hypothesis.get('next_action')}\n"
+            f"- expected_signals: {', '.join(hypothesis.get('expected_signals') or []) or 'none'}\n\n"
+            f"Confirmed facts:\n- " + ("\n- ".join(confirmed) if confirmed else "none yet") + "\n\n"
+            f"Ruled out:\n- " + ("\n- ".join(ruled_out) if ruled_out else "none yet") + "\n\n"
+            f"Recent artifacts:\n- " + ("\n- ".join([a for a in artifacts if a]) if artifacts else "none yet") + "\n"
+            f"{tooling_ctx}\n\n"
+            "Execution policy:\n"
+            f"- Use between 1 and {self.max_tool_calls_per_turn} decisive tool calls.\n"
+            "- Do not ask for approval.\n"
+            "- Prefer structured tools before raw shell.\n"
+            "- Only act on the current hypothesis unless a tool result forces a pivot.\n"
+            "- Do not guess answers or flags.\n"
+            "Execute now."
+        )
+
+    def _execute_tool_batch(self, msg) -> dict:
+        self.messages.append({
+            "role": "assistant",
+            "content": msg.content or "",
+            "tool_calls": msg.tool_calls_raw or [],
+        })
+        step_had_error = False
+        step_had_progress = False
+        submitted = False
+        tool_results = []
+        for idx, tc in enumerate(msg.tool_calls or []):
+            fn = tc.function.name
+            self._trace_loop("tool_dispatch_start", tool=fn, index=int(idx))
+            if idx >= self.max_tool_calls_per_turn:
+                step_had_error = True
+                tool_results.append({"tool": fn, "result": f"[tool error] too many tool calls (limit {self.max_tool_calls_per_turn})", "error": True, "progress": False})
+                continue
+            args, arg_err = self._parse_tool_args(tc.function.arguments)
+            if arg_err:
+                result = f"[tool error] invalid arguments for {fn}: {arg_err}"
+                self.emit("error", {"message": f"Tool args error ({fn}): {arg_err}"})
+                self.messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+                tool_results.append({"tool": fn, "result": result, "error": True, "progress": False})
+                step_had_error = True
+                continue
+            try:
+                result = self._dispatch(fn, args)
+            except Exception as e:
+                result = f"[tool error] {e}"
+                self.emit("error", {"message": f"Tool error ({fn}): {e}"})
+                step_had_error = True
+            error = bool(self._is_error_result(result))
+            progress = bool(self._last_tool_progress)
+            if error:
+                step_had_error = True
+            if progress:
+                step_had_progress = True
+            self._trace_loop("tool_dispatch_end", tool=fn, error=error, progress=progress)
+            compact = self._compact_tool_result_for_context(result)
+            self.messages.append({"role": "tool", "tool_call_id": tc.id, "content": compact})
+            tool_results.append({"tool": fn, "result": str(result or ""), "error": error, "progress": progress})
+            chal = get_challenge(self.cid) or {}
+            if fn == "submit_flag" or chal.get("status") == "pending_approval":
+                submitted = True
+            if submitted or not self.running:
+                break
+        return {
+            "tool_results": tool_results,
+            "had_error": step_had_error,
+            "had_progress": step_had_progress,
+            "submitted": submitted,
+        }
+
+    def _run_executor_phase(self, challenge_desc: str, recon: str, hypothesis: dict) -> dict:
+        self.run_state["phase"] = "executor"
+        self.messages = [{"role": "user", "content": self._build_execution_prompt(challenge_desc, recon, hypothesis)}]
+        msg = None
+        last_error = ""
+        for attempt in range(2):
+            try:
+                msg = self._call()
+            except Exception as e:
+                last_error = str(e)
+                break
+            self._trace_loop("step_model_response", has_content=bool(msg.content), tool_call_count=len(msg.tool_calls or []))
+            if msg.content:
+                self.emit("thought", {"text": msg.content, "type": "reasoning"})
+            if msg.tool_calls:
+                break
+            self.messages.append({"role": "assistant", "content": msg.content or ""})
+            self.messages.append({
+                "role": "user",
+                "content": f"Use between 1 and {self.max_tool_calls_per_turn} tool calls now. No prose-only response.",
+            })
+        if last_error:
+            return {
+                "assistant_text": "",
+                "tool_results": [],
+                "had_error": True,
+                "had_progress": False,
+                "combined_output": f"[api error] {last_error}",
+                "candidate_flags": [],
+            }
+        if not msg or not msg.tool_calls:
+            text = msg.content if msg else "No model response."
+            return {
+                "assistant_text": text or "",
+                "tool_results": [],
+                "had_error": True,
+                "had_progress": False,
+                "combined_output": text or "[error] no tool calls produced",
+                "candidate_flags": self._extract_flag_candidates(text or ""),
+            }
+        batch = self._execute_tool_batch(msg)
+        combined_output = "\n\n".join(result["result"] for result in batch["tool_results"] if result.get("result"))
+        return {
+            "assistant_text": msg.content or "",
+            "tool_results": batch["tool_results"],
+            "had_error": batch["had_error"],
+            "had_progress": batch["had_progress"],
+            "combined_output": combined_output,
+            "candidate_flags": self._extract_flag_candidates(combined_output),
+            "submitted": batch["submitted"],
+        }
+
+    def _run_verifier_phase(self, hypothesis: dict, step_result: dict) -> dict:
+        fallback = {
+            "verdict": "progress" if step_result.get("had_progress") else ("error" if step_result.get("had_error") else "no_progress"),
+            "summary": "Execution produced useful signal." if step_result.get("had_progress") else "Execution did not produce enough new signal.",
+            "new_facts": [],
+            "ruled_out": [],
+            "artifacts": [],
+            "candidate_flags": step_result.get("candidate_flags") or [],
+            "should_replan": False,
+            "switch_hypothesis": bool(step_result.get("had_error")),
+            "next_action": hypothesis.get("next_action") or "",
+            "confidence": 0.7 if step_result.get("had_progress") else 0.25,
+        }
+        verifier_system = (
+            "You are the verifier phase of a CTF harness. Return only JSON with keys "
+            "`verdict`, `summary`, `new_facts`, `ruled_out`, `artifacts`, `candidate_flags`, "
+            "`should_replan`, `switch_hypothesis`, `next_action`, `confidence`. "
+            "Verdict must be one of progress, no_progress, dead_end, candidate, error."
+        )
+        tool_summary = "\n".join(
+            f"- {item.get('tool')}: {'error' if item.get('error') else 'ok'} | {self._truncate_for_context(item.get('result') or '')}"
+            for item in (step_result.get("tool_results") or [])
+        )
+        verifier_prompt = (
+            f"Active hypothesis:\n{json.dumps(hypothesis, indent=2)}\n\n"
+            f"Evidence summary:\n{self._evidence_summary()}\n\n"
+            f"Tool results:\n{tool_summary or '(none)'}\n\n"
+            "Return JSON only."
+        )
+        try:
+            raw = self._complete_text([{"role": "user", "content": verifier_prompt}], system_prompt=verifier_system, max_tokens=1200)
+            verdict = self._extract_json_payload(raw, fallback)
+        except Exception as e:
+            verdict = deepcopy(fallback)
+            verdict["summary"] = f"Verifier fallback used after error: {e}"
+        self.emit("thought", {"text": f"Verifier: {verdict.get('summary') or 'No summary.'}", "type": "system"})
+        self.run_state["phase"] = "verifier"
+        self.run_state["verifier_summary"] = str(verdict.get("summary") or "").strip()
+        return verdict
+
+    def _commit_step_verdict(self, hypothesis: dict, step_result: dict, verdict: dict):
+        self.run_state["phase"] = "memory_commit"
+        self.run_state["last_tool_summary"] = self._truncate_for_context(step_result.get("combined_output") or "")
+        self._sync_memory_from_evidence(source="tool_output")
+
+        for text in verdict.get("new_facts") or []:
+            self._append_memory_entry(self.facts_doc.setdefault("confirmed", []), "text", text, source="verifier", step=int(self.step or 0))
+        for text in verdict.get("ruled_out") or []:
+            self._append_memory_entry(self.facts_doc.setdefault("ruled_out", []), "text", text, source="verifier", step=int(self.step or 0))
+        for item in verdict.get("artifacts") or []:
+            if isinstance(item, dict):
+                label = item.get("label") or item.get("path") or item.get("text")
+                self._append_memory_entry(self.artifacts_doc, "label", label, path=item.get("path"), note=item.get("note"), step=int(self.step or 0))
+            else:
+                self._append_memory_entry(self.artifacts_doc, "label", str(item), step=int(self.step or 0))
+        for flag in (verdict.get("candidate_flags") or []) + (step_result.get("candidate_flags") or []):
+            if self._append_memory_entry(self.candidates_doc.setdefault("flags", []), "value", flag, status="candidate", source="verifier", step=int(self.step or 0)):
+                self._append_memory_entry(self.facts_doc.setdefault("flag_candidates", []), "value", flag, source="verifier", step=int(self.step or 0))
+
+        hypothesis["attempts"] = int(hypothesis.get("attempts") or 0) + 1
+        if verdict.get("verdict") in {"progress", "candidate"}:
+            hypothesis["progress_events"] = int(hypothesis.get("progress_events") or 0) + 1
+            hypothesis["failures"] = 0
+        else:
+            hypothesis["failures"] = int(hypothesis.get("failures") or 0) + 1
+        if verdict.get("next_action"):
+            hypothesis["next_action"] = str(verdict.get("next_action") or "").strip()
+        hypothesis["confidence"] = float(verdict.get("confidence") or hypothesis.get("confidence") or 0.0)
+
+        should_exhaust = verdict.get("verdict") == "dead_end" or int(hypothesis.get("failures") or 0) >= 2
+        if should_exhaust:
+            hypothesis["status"] = "exhausted"
+            self._append_memory_entry(
+                self.dead_ends_doc,
+                "title",
+                hypothesis.get("title") or "Hypothesis exhausted",
+                text=str(verdict.get("summary") or "").strip(),
+                step=int(self.step or 0),
+            )
+        else:
+            hypothesis["status"] = "active"
+        self._needs_replan = bool(verdict.get("should_replan")) or not any(
+            str(item.get("status") or "open") in {"open", "active"} for item in self.hypotheses
+        )
+        self.run_state["status"] = "running" if self.running else "stopped"
+        self._save_memory_documents()
+
+    def _checkpoint_state(self, status: str, phase: str, summary: str = ""):
+        self.run_state.update({
+            "status": status,
+            "phase": phase,
+            "step": int(self.step or 0),
+        })
+        if summary:
+            self.run_state["verifier_summary"] = summary
+        self._save_memory_documents()
+        self._save_retry_summary()
+
     def _run(self, challenge_desc, prior_summary):
-        # Auto recon
         self._trace_loop("run_start", category=self.category, model=self.model)
+        if self._pre_llm_short_circuit():
+            self._trace_loop("run_exit_short_circuit", provider=self.provider)
+            return
+        self._load_memory_documents()
+        self.run_state.update({
+            "status": "running",
+            "phase": "session_start",
+            "run_id": uuid.uuid4().hex[:12],
+        })
         recon = self.container.run("ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null")
         self.emit("output", {"text": f"[auto-recon]\n{recon}"})
         self._update_evidence_from_output("auto-recon", recon)
         self._ensure_tooling_ready()
-        if self._run_forensics_fastpath(recon):
-            self._trace_loop("run_exit_fastpath", reason="forensics_fastpath")
-            return
-        rev_fast_ctx = self._run_rev_qna_fastpath(recon, challenge_desc)
-
-        prior_ctx = f"\n\n[PRIOR ATTEMPT]\n{prior_summary}" if prior_summary else ""
-        tooling_ctx = ""
-        if self._preflight_missing_tools:
-            tooling_ctx = (
-                "\n\n[TOOLING CONSTRAINT]\nRuntime installs are disabled. "
-                "The following tools are currently unavailable and must not be used in the plan: "
-                + ", ".join(self._preflight_missing_tools)
-                + ". Use alternatives that are already installed."
-            )
-        playbook_ctx = self._forensics_playbook_hint(recon)
-        web_ctx = ""
-        if self.category == "web":
-            web_ctx = (
-                "\n[MANDATORY WEB DECISION TREE]\n"
-                "1) Upload primitive validation.\n"
-                "2) Execution path check.\n"
-                "3) Include/LFI checks on high-probability params.\n"
-                "4) Bounded endpoint fuzzing only after 1-3 fail.\n"
-                "Repeated default 404/403 or same-body responses are non-progress.\n"
-            )
-        initial = (
-            f"{challenge_desc}\n\nFiles in container:\n{recon}{prior_ctx}{tooling_ctx}{playbook_ctx}{web_ctx}{rev_fast_ctx}\n\n"
-            f"{self._evidence_summary()}\n"
-            "Execution policy:\n"
-            f"- Use between 1 and {self.max_tool_calls_per_turn} decisive tool calls per turn when a short chain is needed.\n"
-            "- Do not ask for approval; execute autonomously.\n"
-            "- Prefer proving or falsifying a hypothesis in one action.\n"
-            "- If a hypothesis fails twice, pivot to a different hypothesis class.\n"
-            "- For WEB category, strictly follow: upload validation -> execution path -> include/LFI -> bounded fuzzing.\n"
-            f"Now execute the best next action with up to {self.max_tool_calls_per_turn} tool calls."
-        )
-        self.messages.append({"role": "user", "content": initial})
+        self._sync_memory_from_evidence(source="auto-recon")
+        self._save_memory_documents()
 
         max_steps = STEP_LIMITS.get(self.category, 40)
-        consecutive_errors = 0
-        last_evidence_version = self._evidence_version
-        for self.step in range(max_steps):
+        for idx in range(max_steps):
+            self.step = idx + 1
+            self.run_state["step"] = self.step
             if not self.running:
                 self._trace_loop("run_stopped", reason="running_false")
-                break
-
-            if self.step > 0 and self.step % 15 == 0:
-                self._summarize()
-
-            self._trace_loop(
-                "step_start",
-                evidence_version=int(self._evidence_version),
-                no_progress_steps=int(self._no_progress_steps),
-                consecutive_errors=int(consecutive_errors),
-            )
-            if self._pre_llm_short_circuit():
-                self._trace_loop("step_short_circuit_pre_llm", provider=self.provider)
-                break
-            try:
-                msg = self._call()
-            except Exception as e:
-                self.emit("thought", {"text": f"API error: {e}", "type": "error"})
-                self.emit("error", {"message": f"API error: {e}"})
-                self._prune_dangling_tool_calls()
-                self._trace_loop("step_api_error", error=str(e))
-                break
-
-            self._trace_loop(
-                "step_model_response",
-                has_content=bool(msg.content),
-                tool_call_count=len(msg.tool_calls or []),
-            )
-            if msg.content:
-                self.emit("thought", {"text": msg.content, "type": "reasoning"})
-                if _is_approval_seeking_text(msg.content):
-                    self.messages.append({"role": "assistant", "content": msg.content or ""})
-                    self._append_user_guidance_once(
-                        f"Do not ask for approval. Choose the best next decisive action and execute it now with up to {self.max_tool_calls_per_turn} tool calls.",
-                        key="guidance:no_approval_requests",
-                    )
-                    continue
-
-            if not msg.tool_calls:
-                self.messages.append({"role": "assistant", "content": msg.content or ""})
-                self._append_user_guidance_once(
-                    f"Use decisive tool calls now. You may use up to {self.max_tool_calls_per_turn} tool calls. No additional planning text.",
-                    key="guidance:force_single_tool_call",
-                )
-                self._trace_loop("step_no_tool_calls")
+                self._checkpoint_state("stopped", "stop", "Run stopped by user.")
+                return
+            if self._needs_replan or not self.hypotheses:
+                self._run_planner_phase(challenge_desc, recon, prior_summary=prior_summary, reason="Need fresh hypotheses." if idx else "")
+            hypothesis = self._select_active_hypothesis()
+            if not hypothesis:
+                self._needs_replan = True
                 continue
-
-            self.messages.append({
-                "role": "assistant",
-                "content": msg.content or "",
-                "tool_calls": msg.tool_calls_raw or [],
-            })
-
-            step_had_error = False
-            step_had_progress = False
-            for idx, tc in enumerate(msg.tool_calls):
-                fn   = tc.function.name
-                self._trace_loop("tool_dispatch_start", tool=fn, index=int(idx))
-                if idx >= self.max_tool_calls_per_turn:
-                    step_had_error = True
-                    self.messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc.id,
-                        "content": f"[tool error] Too many tool calls in one turn. Limit is {self.max_tool_calls_per_turn}.",
-                    })
-                    continue
-                args, arg_err = self._parse_tool_args(tc.function.arguments)
-                if arg_err:
-                    self.emit("error", {"message": f"Tool args error ({fn}): {arg_err}"})
-                    self.messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc.id,
-                        "content": f"[tool error] invalid arguments for {fn}: {arg_err}",
-                    })
-                    # Defer user correction until AFTER all tool responses in this batch.
-                    self._queue_user_guidance_once(
-                        f"Your tool call for '{fn}' had invalid/missing JSON arguments. "
-                        f"Re-issue the tool call with valid JSON that matches the schema.",
-                        key=f"guidance:invalid_args:{fn}",
-                    )
-                    step_had_error = True
-                    continue
-                try:
-                    result = self._dispatch(fn, args)
-                except Exception as e:
-                    result = f"[tool error] {e}"
-                    self.emit("error", {"message": f"Tool error ({fn}): {e}"})
-                    step_had_error = True
-                if self._is_error_result(result):
-                    step_had_error = True
-                if self._last_tool_progress:
-                    step_had_progress = True
-                self._trace_loop(
-                    "tool_dispatch_end",
-                    tool=fn,
-                    error=bool(self._is_error_result(result)),
-                    progress=bool(self._last_tool_progress),
-                )
-                self.messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": self._compact_tool_result_for_context(result),
-                })
-                if fn == "submit_flag":
-                    self._trace_loop("run_exit_submit_flag")
-                    return
-                if not self.running:
-                    self._trace_loop("run_exit_not_running")
-                    return
-            # ── Flush deferred directive messages ─────────────────────────────────
-            # _inject_directive() queues messages here instead of writing directly to
-            # self.messages during dispatch, to preserve the required message ordering:
-            #   assistant {tool_calls} → tool {response} → [user directives here]
-            if self._pending_directive_messages:
-                for dm in self._pending_directive_messages:
-                    self.messages.append(dm)
-                self._pending_directive_messages.clear()
-
-            consecutive_errors = consecutive_errors + 1 if step_had_error else 0
-            self._no_progress_steps = 0 if step_had_progress else (self._no_progress_steps + 1)
-            evidence_changed = self._evidence_version != last_evidence_version
-            if evidence_changed:
-                last_evidence_version = self._evidence_version
-            if self._no_progress_steps >= 2 or consecutive_errors >= 2:
-                self.emit("thought", {"text": "Low information gain across recent steps. Forcing strategy shift.", "type": "system"})
-                self.messages.append({"role": "user", "content":
-                    self._evidence_summary()
-                    + f"You are stuck. Pick a NEW hypothesis class and run up to {self.max_tool_calls_per_turn} decisive tool calls to falsify/confirm it. "
-                      "Do not repeat previous command families."
-                })
-                self._trace_loop(
-                    "step_forced_shift",
-                    no_progress_steps=int(self._no_progress_steps),
-                    consecutive_errors=int(consecutive_errors),
-                )
-                self._no_progress_steps = 0
-                consecutive_errors = 0
-            elif evidence_changed:
-                self.messages.append({"role": "user", "content":
-                    self._evidence_summary()
-                    + "Evidence changed. Choose the single best next action."
-                })
-                self._trace_loop("step_evidence_changed", evidence_version=int(self._evidence_version))
-            else:
-                self._trace_loop(
-                    "step_end",
-                    progress=bool(step_had_progress),
-                    error=bool(step_had_error),
-                    no_progress_steps=int(self._no_progress_steps),
-                )
+            self._trace_loop("step_start", step=int(self.step), active_hypothesis_id=hypothesis.get("id"))
+            step_result = self._run_executor_phase(challenge_desc, recon, hypothesis)
+            if step_result.get("assistant_text") and _is_approval_seeking_text(step_result.get("assistant_text")):
+                self.emit("thought", {"text": "Harness ignored approval-seeking text and continued autonomous execution.", "type": "system"})
+            if step_result.get("submitted") and not self.running:
+                self._checkpoint_state("pending_approval", "done", "Flag candidate queued for approval.")
+                return
+            if not self.running:
+                self._checkpoint_state("stopped", "stop", "Run stopped by user.")
+                return
+            verdict = self._run_verifier_phase(hypothesis, step_result)
+            self._commit_step_verdict(hypothesis, step_result, verdict)
+            self._trace_loop(
+                "step_end",
+                progress=bool(step_result.get("had_progress")),
+                error=bool(step_result.get("had_error")),
+                verdict=str(verdict.get("verdict") or ""),
+            )
+            if not self.running:
+                self._checkpoint_state("pending_approval", "done", "Flag candidate queued for approval.")
+                return
 
         if self.running:
             self.running = False
-            self._save_retry_summary()
+            self._checkpoint_state("unsolved", "max_steps", "Max steps reached without solving the challenge.")
             update_challenge(self.cid, status="unsolved")
             self.emit("done", {"status": "unsolved", "message": "Max steps reached without finding the flag."})
             self._trace_loop("run_exit_max_steps", max_steps=int(max_steps))
-        self.running = False
 
     def _dispatch(self, fn, args):
         if fn == "run_command":

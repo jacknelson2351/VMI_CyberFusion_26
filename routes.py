@@ -35,13 +35,22 @@ from agent import _agents, _logs, _log_event, _load_log_events, CTFAgent
 from storage import (
     apply_challenge_defaults,
     append_note,
+    clear_memory_files,
+    challenge_events_path,
+    challenge_memory_dir,
+    challenge_memory_file_path,
     challenge_notes_path,
     challenge_workspace_dir,
+    delete_memory_file,
+    ensure_memory_files,
+    list_memory_files,
     normalize_import_payload,
+    read_memory_file,
     read_notes,
     remove_challenge_artifacts,
     utc_now_iso,
     workspace_listing,
+    write_memory_file,
     write_workspace_manifest,
 )
 
@@ -78,6 +87,8 @@ def _challenge_payload(chal: dict | None) -> dict | None:
     out = _with_runtime(apply_challenge_defaults(chal))
     out["workspace_path"] = str(challenge_workspace_dir(out["id"]))
     out["notes_path"] = str(challenge_notes_path(out["id"]))
+    out["memory_path"] = str(challenge_memory_dir(out["id"]))
+    out["memory_files"] = list_memory_files(out["id"])
     out["workspace_files"] = workspace_listing(out["id"], max_depth=3)
     return out
 
@@ -541,6 +552,89 @@ def challenge_notes_append(cid):
     return jsonify({"ok": True, "path": path, "notes": read_notes(cid)})
 
 
+@app.route("/api/challenges/<cid>/memory", methods=["GET"])
+def challenge_memory_index(cid):
+    chal = get_challenge(cid)
+    if not chal:
+        return jsonify({"error": "Not found"}), 404
+    ensure_memory_files(cid)
+    return jsonify({
+        "cid": cid,
+        "path": str(challenge_memory_dir(cid)),
+        "files": list_memory_files(cid),
+    })
+
+
+@app.route("/api/challenges/<cid>/memory/clear", methods=["POST"])
+def challenge_memory_clear(cid):
+    chal = get_challenge(cid)
+    if not chal:
+        return jsonify({"error": "Not found"}), 404
+    clear_memory_files(cid)
+    ensure_memory_files(cid)
+    update_challenge(cid, last_activity_at=utc_now_iso())
+    _broadcast_challenge(get_challenge(cid))
+    return jsonify({
+        "ok": True,
+        "files": list_memory_files(cid),
+        "path": str(challenge_memory_dir(cid)),
+    })
+
+
+@app.route("/api/challenges/<cid>/memory/<name>", methods=["GET"])
+def challenge_memory_read(cid, name):
+    chal = get_challenge(cid)
+    if not chal:
+        return jsonify({"error": "Not found"}), 404
+    try:
+        ensure_memory_files(cid)
+        path = challenge_memory_file_path(cid, name)
+        content = read_memory_file(cid, name)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({
+        "cid": cid,
+        "name": name,
+        "path": str(path),
+        "content": content,
+    })
+
+
+@app.route("/api/challenges/<cid>/memory/<name>", methods=["PUT"])
+def challenge_memory_write(cid, name):
+    chal = get_challenge(cid)
+    if not chal:
+        return jsonify({"error": "Not found"}), 404
+    data = request.get_json(force=True) or {}
+    try:
+        path = write_memory_file(cid, name, data.get("content") or "")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    update_challenge(cid, last_activity_at=utc_now_iso())
+    _broadcast_challenge(get_challenge(cid))
+    return jsonify({
+        "ok": True,
+        "name": name,
+        "path": path,
+        "content": read_memory_file(cid, name),
+        "files": list_memory_files(cid),
+    })
+
+
+@app.route("/api/challenges/<cid>/memory/<name>", methods=["DELETE"])
+def challenge_memory_delete(cid, name):
+    chal = get_challenge(cid)
+    if not chal:
+        return jsonify({"error": "Not found"}), 404
+    try:
+        delete_memory_file(cid, name)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    update_challenge(cid, last_activity_at=utc_now_iso())
+    _broadcast_challenge(get_challenge(cid))
+    return jsonify({"ok": True, "files": list_memory_files(cid)})
+
+
 @app.route("/api/challenges/<cid>/manual-start", methods=["POST"])
 def manual_start_container(cid):
     chal = get_challenge(cid)
@@ -847,6 +941,7 @@ def launch_agent(cid):
         container = get_container(cid)
         sync_challenge_uploads(cid, container)
         _manual_mode_cids.discard(cid)
+        ensure_memory_files(cid)
     except Exception as e:
         return jsonify({"error": f"Container failed: {e}"}), 500
 
@@ -883,9 +978,11 @@ def launch_agent(cid):
     )
 
     prior = chal.get("retry_summary") if retry else None
+    resolved_model = model or load_config().get("model") or "gpt-5-mini"
     update_challenge(
         cid,
         status="solving",
+        last_model=resolved_model,
         flag_candidate=None,
         flag_how=None,
         approved_at=None,
@@ -955,6 +1052,10 @@ def launch_agent(cid):
 @app.route("/api/challenges/<cid>/stop", methods=["POST"])
 def stop_agent(cid):
     if cid in _agents:
+        try:
+            _agents[cid]._checkpoint_state("stopped", "stop", "Run stopped by user.")
+        except Exception:
+            pass
         _agents[cid].stop()
         del _agents[cid]
     if cid in _containers:
@@ -979,6 +1080,18 @@ def reset_container(cid):
         _containers[cid].stop()
         del _containers[cid]
     _manual_mode_cids.discard(cid)
+    _logs.pop(cid, None)
+    try:
+        events_path = challenge_events_path(cid)
+        if events_path.exists():
+            events_path.unlink()
+    except Exception:
+        pass
+    try:
+        clear_memory_files(cid)
+        ensure_memory_files(cid)
+    except Exception:
+        pass
     update_challenge(
         cid,
         status="unsolved",

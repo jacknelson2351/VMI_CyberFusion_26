@@ -85,6 +85,12 @@ html, body {
   align-items: center;
   gap: 8px;
 }
+#topbar-logo .brand-mark {
+  height: 38px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+}
 #topbar-logo .brand-name {
   font-family: var(--font-sans);
   font-size: 14px;
@@ -106,6 +112,13 @@ html, body {
   border: 1px solid var(--border2);
   background: var(--bg2);
   color: #fff;
+}
+.status-pill .mark {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
 }
 .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
 .status-pill.ok .dot   { background: var(--cyan); }
@@ -179,16 +192,11 @@ html, body {
   flex-shrink: 0;
 }
 #dash-header-row1 {
-  padding: 14px 24px 10px;
+  padding: 14px 24px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
-}
-#dash-header-row2 {
-  padding: 0 24px 10px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 #dash-header h1 {
@@ -200,20 +208,6 @@ html, body {
   text-transform: none;
   color: #fff;
 }
-.dash-solved {
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg2);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.dash-solved:hover { border-color: var(--border2); color: var(--text); }
-.dash-solved:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .dash-cost {
   margin-left: auto;
@@ -267,16 +261,224 @@ html, body {
 .filter-toggle:hover { border-color: var(--border2); color: var(--text); }
 .filter-toggle.active { border-color: var(--cyan); color: var(--cyan); background: rgba(45,212,191,0.08); }
 
-#cards-scroll {
+/* Dashboard two-panel body */
+#dash-body {
   flex: 1;
-  overflow-y: auto;
-  padding: 20px 24px;
+  display: flex;
+  overflow: hidden;
 }
 
-#cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+/* Stats left panel */
+#dash-stats {
+  width: 252px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
+}
+
+.stat-panel {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+.stat-panel-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+/* Solve donut */
+.donut-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.donut-track {
+  fill: none;
+  stroke: var(--bg3);
+  stroke-width: 8;
+}
+.donut-segment {
+  fill: none;
+  stroke-width: 8;
+  transform: rotate(-90deg);
+  transform-origin: 60px 60px;
+  transition: stroke-dasharray 0.7s cubic-bezier(0.4,0,0.2,1), stroke-dashoffset 0.7s cubic-bezier(0.4,0,0.2,1), stroke 0.25s ease;
+}
+.donut-center {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+.donut-fraction {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+.donut-sublabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  letter-spacing: 0.06em;
+}
+
+/* Cost bars */
+.cost-bar-row {
+  margin-bottom: 16px;
+}
+.cost-bar-row:last-child { margin-bottom: 0; }
+.cost-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.cost-bar-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+.cost-bar-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.cost-bar-track {
+  height: 3px;
+  background: var(--bg3);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.cost-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--purple);
+  transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+}
+.cost-bars-empty {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px 0;
+}
+
+/* Challenge list panel */
+#dash-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+#chal-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.chal-row {
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  height: 38px;
+  gap: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+  position: relative;
+}
+.chal-row::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--row-accent, var(--border2));
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.chal-row:hover { background: var(--bg2); }
+.chal-row:hover::before { opacity: 1; }
+.chal-row.solved { opacity: 0.55; }
+
+.chal-row-cat {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  width: 68px;
+  flex-shrink: 0;
+}
+.chal-row-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.chal-row-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+.chal-row-files {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 28px;
+  text-align: right;
+}
+
+.chal-rows-header {
+  padding: 8px 20px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.chal-rows-header-count {
+  color: var(--border2);
+  font-weight: 400;
+}
+
+.chal-rows-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
 /*  Challenge Card  */
@@ -679,6 +881,148 @@ html, body {
 .file-item .file-icon { font-size: 13px; }
 .file-empty { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
 
+.memory-modal {
+  width: min(1100px, 96vw);
+}
+.memory-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 14px;
+  min-height: 62vh;
+}
+.memory-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+  padding-right: 12px;
+}
+.memory-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-bottom: 10px;
+  word-break: break-all;
+  line-height: 1.5;
+}
+.memory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  overflow-y: auto;
+  padding-right: 4px;
+  max-height: 58vh;
+}
+.memory-file-btn {
+  width: 100%;
+  text-align: left;
+  padding: 10px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.memory-file-btn:hover {
+  border-color: var(--border2);
+  color: var(--text);
+}
+.memory-file-btn.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(217,115,87,0.09);
+}
+.memory-file-btn-name {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.memory-file-btn-meta {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.memory-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.memory-file-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.memory-file-title {
+  min-width: 0;
+}
+.memory-file-title strong {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.memory-file-status {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  word-break: break-all;
+  line-height: 1.45;
+}
+#memory-editor {
+  flex: 1 1 auto;
+  min-height: 54vh;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 14px;
+}
+.memory-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.memory-actions-left,
+.memory-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.memory-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+@media (max-width: 860px) {
+  .memory-shell {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+  .memory-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding-right: 0;
+    padding-bottom: 12px;
+    margin-bottom: 2px;
+  }
+  .memory-list {
+    max-height: 220px;
+  }
+  #memory-editor {
+    min-height: 42vh;
+  }
+}
+
 /* Upload zone */
 #upload-zone {
   border: 1px dashed var(--border2);
@@ -734,6 +1078,50 @@ html, body {
 .writeup-panel.visible { display: flex; }
 #writeup-status { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
 .writeup-actions { display: flex; align-items: center; gap: 8px; }
+.writeup-inline {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(217,115,87,0.08), rgba(217,115,87,0.03)),
+    var(--bg2);
+}
+.writeup-inline.visible { display: flex; }
+.writeup-inline-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.writeup-inline-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+.writeup-inline-title {
+  margin-top: 3px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.writeup-inline-meta {
+  margin-top: 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.writeup-inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .writeup-link {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -758,6 +1146,21 @@ html, body {
   color: var(--text);
   line-height: 1.6;
   white-space: pre-wrap;
+}
+#writeup-inline-content {
+  margin: 0;
+  background: rgba(7,10,18,0.62);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 14px;
+  max-height: 34vh;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 #approval-candidate {
@@ -1188,14 +1591,15 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   <!--  Topbar  -->
   <div id="topbar">
     <div id="topbar-logo">
-      <span>&#128104;&#8205;&#129456;</span>
+      <img class="brand-mark" src="/static/jmu-whale-logo.svg" alt="JMU whale logo">
       <span class="brand-name">CTF Copilot</span>
     </div>
     <div id="topbar-right">
       <div id="docker-menu-wrap">
         <button id="docker-status" class="status-pill" type="button" aria-haspopup="menu" aria-expanded="false">
+          <img class="mark" src="/static/docker-logo.png" alt="" aria-hidden="true">
           <div class="dot"></div>
-          <span>checking docker...</span>
+          <span>Checking</span>
         </button>
         <div id="docker-menu">
           <div class="docker-menu-title">ACTIVE CONTAINERS</div>
@@ -1214,10 +1618,6 @@ details:not([open]) .accordion-icon::before { content: '+'; }
     <div id="dash-header">
       <div id="dash-header-row1">
         <h1>Challenges</h1>
-        <button id="dash-solved-toggle" class="dash-solved" type="button" title="Toggle solved display mode">Solved: 0/0</button>
-        <button class="btn btn-primary" id="btn-new-challenge" style="margin-left:auto;">+ New Challenge</button>
-      </div>
-      <div id="dash-header-row2">
         <div id="filter-wrap">
           <button class="btn btn-ghost btn-sm" id="btn-filter-toggle">Filter: ALL</button>
           <div id="filter-menu">
@@ -1244,10 +1644,32 @@ details:not([open]) .accordion-icon::before { content: '+'; }
           <span class="value" id="dash-cost-value">$0.0000</span>
           <span class="tokens" id="dash-cost-tokens"></span>
         </div>
+        <button class="btn btn-primary" id="btn-new-challenge">+ New Challenge</button>
       </div>
     </div>
-    <div id="cards-scroll">
-      <div id="cards-grid"></div>
+    <div id="dash-body">
+      <div id="dash-stats">
+        <div class="stat-panel" id="stat-solve">
+          <div class="stat-panel-title">SOLVE PROGRESS</div>
+          <div class="donut-wrap">
+            <svg viewBox="0 0 120 120" width="110" height="110" style="overflow:visible">
+              <circle class="donut-track" cx="60" cy="60" r="46"/>
+              <g id="donut-segments"></g>
+            </svg>
+            <div class="donut-center">
+              <div class="donut-fraction" id="donut-fraction">0/0</div>
+              <div class="donut-sublabel">solved</div>
+            </div>
+          </div>
+        </div>
+        <div class="stat-panel" id="stat-cost">
+          <div class="stat-panel-title">COST BY MODEL</div>
+          <div id="cost-bars-list"><div class="cost-bars-empty">No cost data yet</div></div>
+        </div>
+      </div>
+      <div id="dash-list">
+        <div id="chal-rows"></div>
+      </div>
     </div>
   </div>
 
@@ -1282,6 +1704,8 @@ details:not([open]) .accordion-icon::before { content: '+'; }
           </div>
         </div>
       </div>
+
+      <button class="btn btn-ghost btn-sm" id="btn-memory-toggle">Memory</button>
 
       <!-- Info popout -->
       <div class="ch-menu-wrap" id="ch-info-wrap">
@@ -1336,13 +1760,28 @@ details:not([open]) .accordion-icon::before { content: '+'; }
         <button class="flag-copy" id="flag-copy">Copy</button>
       </div>
 
+      <div id="writeup-inline" class="writeup-inline">
+        <div class="writeup-inline-head">
+          <div>
+            <div class="writeup-inline-kicker">WRITEUP</div>
+            <div class="writeup-inline-title">Approved Solve Writeup</div>
+            <div class="writeup-inline-meta" id="writeup-inline-meta"></div>
+          </div>
+          <div class="writeup-inline-actions">
+            <button class="btn btn-ghost btn-sm" id="btn-open-writeup-inline">Fullscreen</button>
+            <a class="writeup-link" id="writeup-download-inline" href="#" download>Download .md</a>
+          </div>
+        </div>
+        <pre id="writeup-inline-content">No writeup generated yet.</pre>
+      </div>
+
       <!-- Chat feed -->
       <div id="chat-feed"></div>
 
       <!-- Chat input bar -->
       <div id="chat-input-bar">
         <div id="chat-input-wrap">
-          <input type="text" id="prompt-input" placeholder="Add context for the agent (Enter to launch)">
+          <input type="text" id="prompt-input" placeholder="Add context for the agent (Enter to continue or launch)">
           <div id="chat-input-footer">
             <select id="model-select" title="Model (cheap to expensive)">
               {% for model in launch_models %}
@@ -1665,6 +2104,44 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-memory">
+  <div class="modal memory-modal">
+    <div class="modal-header">
+      <div class="modal-title">Agent Memory</div>
+      <button class="modal-close" data-close="modal-memory">X</button>
+    </div>
+    <div class="modal-body">
+      <div class="memory-shell">
+        <div class="memory-sidebar">
+          <div class="memory-meta" id="memory-path-label">No memory loaded.</div>
+          <div class="memory-list" id="memory-file-list">
+            <div class="memory-empty">No memory files yet.</div>
+          </div>
+        </div>
+        <div class="memory-editor-wrap">
+          <div class="memory-file-head">
+            <div class="memory-file-title">
+              <strong id="memory-file-name">overview.md</strong>
+              <div class="memory-file-status" id="memory-file-status"></div>
+            </div>
+          </div>
+          <textarea id="memory-editor" spellcheck="false" placeholder="Select a memory file."></textarea>
+          <div class="memory-actions">
+            <div class="memory-actions-left">
+              <button class="btn btn-sm" id="btn-memory-save">Save</button>
+              <button class="btn btn-ghost btn-sm" id="btn-memory-reload">Reload</button>
+            </div>
+            <div class="memory-actions-right">
+              <button class="btn btn-ghost btn-sm" id="btn-memory-delete">Delete</button>
+              <button class="btn btn-danger btn-sm" id="btn-memory-clear">Clear All</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!--  Toast container  -->
 <div id="toast-container"></div>
 
@@ -1675,7 +2152,6 @@ const state = {
   currentCid: null,
   filter: 'all',
   hideSolved: false,
-  solvedDisplayMode: 'fraction',
   agentRunning: false,
   lastActivityAt: null,
   lastActivityLabel: '',
@@ -1685,6 +2161,8 @@ const state = {
   pendingCandidateFlag: '',
   dockerBuildReady: false,
   dockerBuildInProgress: false,
+  memoryFiles: [],
+  currentMemoryFile: 'overview.md',
 };
 
 const STEP_LIMITS = {
@@ -1696,6 +2174,11 @@ const CAT_COLORS = {
   pwn:'#e05c6b', web:'#2dd4bf', crypto:'#e8c44c', forensics:'#7ed56f',
   rev:'#f09cb4', misc:'#a78bfa', osint:'#f0c040', network:'#5b9cf6',
 };
+const DONUT_RADIUS = 46;
+const DONUT_CIRC = 2 * Math.PI * DONUT_RADIUS;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+let donutHasPainted = false;
+const DOCKER_STATUS_MARK = '<img class="mark" src="/static/docker-logo.png" alt="" aria-hidden="true">';
 
 //  Socket.IO 
 const socket = io();
@@ -1918,6 +2401,10 @@ socket.on('challenge_updated', (data) => {
     if (titleEl) titleEl.textContent = sanitizeText(data.name || '');
     renderStatusBadge(data.status, !!data.running);
     renderFileList(data.files || []);
+    renderMemoryFiles(data.memory_files || []);
+    const memoryPathLabel = document.getElementById('memory-path-label');
+    if (memoryPathLabel && data.memory_path) memoryPathLabel.textContent = data.memory_path;
+    syncModelSelect(data);
     renderWriteupSection(data);
     updateSolveButtons(data.status);
     if (data.flag || data.flag_candidate) {
@@ -1984,28 +2471,28 @@ async function checkDockerStatus() {
     state.dockerBuildInProgress = !!s.build_in_progress;
     if (!s.running) {
       el.className = 'status-pill warn';
-      el.innerHTML = '<div class="dot"></div><span>Docker not running</span>';
+      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>Off</span>`;
       state.dockerBuildReady = false;
       state.dockerBuildInProgress = false;
     } else if (!s.image) {
       el.className = 'status-pill warn';
-      el.innerHTML = '<div class="dot"></div><span>Image not built — click to build</span>';
+      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>Build image</span>`;
     } else if (s.build_in_progress) {
       el.className = 'status-pill warn';
-      el.innerHTML = '<div class="dot"></div><span>Building image...</span>';
+      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>Building</span>`;
     } else if (!s.build_ready) {
       el.className = 'status-pill warn';
-      el.innerHTML = '<div class="dot"></div><span>Build required — click to build</span>';
+      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>Build required</span>`;
     } else {
       el.className = 'status-pill ok';
       const n = (typeof s.active_containers === 'number') ? s.active_containers : (s.active_agents || 0);
-      el.innerHTML = `<div class="dot"></div><span>Docker ready - ${n} containers running</span>`;
+      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>${n} running</span>`;
     }
     updateRunningUI();
   } catch {
     const el = document.getElementById('docker-status');
     el.className = 'status-pill warn';
-    el.innerHTML = '<div class="dot"></div><span>Docker offline</span>';
+    el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>Offline</span>`;
     state.dockerBuildReady = false;
     state.dockerBuildInProgress = false;
     updateRunningUI();
@@ -2014,7 +2501,7 @@ async function checkDockerStatus() {
 checkDockerStatus();
 setInterval(checkDockerStatus, 15000);
 
-//  Challenges 
+//  Challenges
 async function loadChallenges() {
   state.challenges = await api('/api/challenges');
   renderCards();
@@ -2026,83 +2513,158 @@ async function loadChallenges() {
 }
 
 function renderCards() {
-  const grid = document.getElementById('cards-grid');
+  const container = document.getElementById('chal-rows');
+  if (!container) return;
+
   const categoryFiltered = state.filter === 'all'
     ? state.challenges
     : state.challenges.filter(c => c.category === state.filter);
   const filtered = state.hideSolved
     ? categoryFiltered.filter(c => c.status !== 'solved')
     : categoryFiltered;
-  updateSolvedProgress();
 
   if (filtered.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">&#127988;</div>
-        <h3>No challenges yet</h3>
-        <p>Click <strong>+ New Challenge</strong> to add your first CTF challenge.</p>
-      </div>`;
+    container.innerHTML = `<div class="chal-rows-empty">${
+      state.challenges.length === 0
+        ? 'No challenges yet — click + New Challenge to add one.'
+        : 'No challenges match the current filter.'
+    }</div>`;
     return;
   }
 
-  grid.innerHTML = filtered.map(c => {
-    const color = CAT_COLORS[c.category] || '#888';
-    const info = statusInfo(c);
-    const statusClass = `status-${info.key}`;
-    const statusText = info.label;
-    const cardErr = state.cardErrors[c.id];
-    const nFiles = (c.files || []).length;
-    const cost = c.cost_usd > 0 ? `$${c.cost_usd.toFixed(3)}` : '-';
-    const safeDesc = sanitizeText(c.description || 'No description');
-    const desc = safeDesc.slice(0, 90) + (safeDesc.length > 90 ? '...' : '');
+  // Group by category for sticky headers
+  const byCategory = {};
+  for (const c of filtered) {
+    const cat = c.category || 'misc';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(c);
+  }
 
-    return `
-      <div class="card" onclick="openChallenge('${c.id}')" style="--card-accent:${color}">
-        ${cardErr ? `<div class="card-alert" title="${escHtml(cardErr)}">ERROR</div>` : ''}
-        <div class="card-cat" style="color:${color}">${c.category.toUpperCase()}</div>
-        <div class="card-name">${escHtml(c.name)}</div>
-        <div class="card-desc">${escHtml(desc)}</div>
-        <div class="card-footer">
-          <div class="card-status ${statusClass}">
-            <div class="status-dot"></div>
-            <span style="color:${info.color}">${statusText}</span>
-          </div>
-          <div class="card-meta">
-            <span title="Files">Files: ${nFiles}</span>
-            <span title="Cost">Cost: ${cost}</span>
-          </div>
-        </div>
-      </div>`;
+  const chunks = [];
+  for (const [cat, chals] of Object.entries(byCategory)) {
+    const color = CAT_COLORS[cat] || '#888';
+    const solvedInCat = chals.filter(c => c.status === 'solved').length;
+    chunks.push(`<div class="chal-rows-header">
+      <span style="color:${color}">${cat.toUpperCase()}</span>
+      <span class="chal-rows-header-count">${solvedInCat}/${chals.length}</span>
+    </div>`);
+    for (const c of chals) {
+      const info = statusInfo(c);
+      const nFiles = (c.files || []).length;
+      const solved = c.status === 'solved';
+      const err = state.cardErrors[c.id] ? ' title="Error — click to view"' : '';
+      chunks.push(`<div class="chal-row${solved ? ' solved' : ''}" onclick="openChallenge('${c.id}')" style="--row-accent:${color}"${err}>
+        <span class="chal-row-cat" style="color:${color}">${cat.toUpperCase()}</span>
+        <span class="chal-row-name">${escHtml(c.name)}</span>
+        <span class="chal-row-status" style="color:${info.color}">
+          <span class="status-dot status-${info.key}" style="background:${info.color}"></span>
+          ${info.label}
+        </span>
+        <span class="chal-row-files">${nFiles > 0 ? `${nFiles}f` : ''}</span>
+      </div>`);
+    }
+  }
+  container.innerHTML = chunks.join('');
+}
+
+function renderSolveDonut() {
+  const segGroup = document.getElementById('donut-segments');
+  const frac = document.getElementById('donut-fraction');
+  if (!segGroup || !frac) return;
+
+  const total = state.challenges.length;
+  const solvedChallenges = state.challenges.filter(c => c.status === 'solved');
+  const solved = solvedChallenges.length;
+  frac.textContent = `${solved}/${total}`;
+  segGroup.innerHTML = '';
+
+  if (total === 0 || solved === 0) return;
+
+  const categoryCounts = new Map();
+  const categoryOrder = [];
+  for (const challenge of solvedChallenges) {
+    const cat = challenge.category || 'misc';
+    if (!categoryCounts.has(cat)) categoryOrder.push(cat);
+    categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + 1);
+  }
+
+  let solvedLength = 0;
+  const useRoundCaps = categoryOrder.length === 1 && solved < total;
+  for (const cat of categoryOrder) {
+    const count = categoryCounts.get(cat) || 0;
+    const segLength = DONUT_CIRC * (count / total);
+    if (segLength <= 0) continue;
+
+    const seg = document.createElementNS(SVG_NS, 'circle');
+    seg.setAttribute('class', 'donut-segment');
+    seg.setAttribute('cx', '60');
+    seg.setAttribute('cy', '60');
+    seg.setAttribute('r', String(DONUT_RADIUS));
+    seg.style.stroke = CAT_COLORS[cat] || 'var(--cyan)';
+    seg.style.strokeLinecap = useRoundCaps ? 'round' : 'butt';
+    seg.style.strokeDasharray = `${segLength} ${Math.max(DONUT_CIRC - segLength, 0)}`;
+    seg.style.strokeDashoffset = String(DONUT_CIRC - solvedLength);
+    if (!donutHasPainted) seg.style.transition = 'none';
+    segGroup.appendChild(seg);
+    solvedLength += segLength;
+  }
+
+  if (!donutHasPainted) {
+    requestAnimationFrame(() => {
+      donutHasPainted = true;
+      segGroup.querySelectorAll('.donut-segment').forEach((seg) => {
+        seg.style.transition = '';
+      });
+    });
+  }
+}
+
+function renderStats() {
+  renderSolveDonut();
+
+  // Cost by model bars
+  const barList = document.getElementById('cost-bars-list');
+  if (!barList) return;
+  const modelCosts = {};
+  for (const c of state.challenges) {
+    const m = (c.last_model || '').trim();
+    if (!m) continue;
+    modelCosts[m] = (modelCosts[m] || 0) + Number(c.cost_usd || 0);
+  }
+  const entries = Object.entries(modelCosts).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) {
+    barList.innerHTML = '<div class="cost-bars-empty">No cost data yet</div>';
+    return;
+  }
+  const maxCost = entries[0][1];
+  const MODEL_LABELS = {
+    'gpt-5-mini':      'GPT-5 MINI',
+    'gpt-5.2':         'GPT-5.2',
+    'claude-opus-4-6': 'CLAUDE OPUS',
+  };
+  barList.innerHTML = entries.map(([model, cost]) => {
+    const label = MODEL_LABELS[model] || model.toUpperCase().slice(0, 14);
+    const pct = maxCost > 0 ? (cost / maxCost) * 100 : 0;
+    return `<div class="cost-bar-row">
+      <div class="cost-bar-header">
+        <span class="cost-bar-label">${escHtml(label)}</span>
+        <span class="cost-bar-value">$${cost.toFixed(4)}</span>
+      </div>
+      <div class="cost-bar-track">
+        <div class="cost-bar-fill" style="width:${pct.toFixed(1)}%"></div>
+      </div>
+    </div>`;
   }).join('');
 }
 
 function updateDashboardMetrics() {
   let totalCost = 0;
-  let totalIn = 0;
-  let totalOut = 0;
   for (const c of state.challenges) {
     totalCost += Number(c.cost_usd || 0);
-    totalIn += Number(c.tokens_in || 0);
-    totalOut += Number(c.tokens_out || 0);
   }
   const costEl = document.getElementById('dash-cost-value');
-  const tokEl = document.getElementById('dash-cost-tokens');
   if (costEl) costEl.textContent = `$${totalCost.toFixed(4)}`;
-  if (tokEl) tokEl.textContent = `${totalIn.toLocaleString()} in / ${totalOut.toLocaleString()} out`;
-  updateSolvedProgress();
-}
-
-function updateSolvedProgress() {
-  const solvedEl = document.getElementById('dash-solved-toggle');
-  if (!solvedEl) return;
-  const total = state.challenges.length;
-  const solved = state.challenges.filter(c => c.status === 'solved').length;
-  if (state.solvedDisplayMode === 'percent') {
-    const pct = total === 0 ? 0 : Math.round((solved / total) * 100);
-    solvedEl.textContent = `Solved: ${pct}%`;
-  } else {
-    solvedEl.textContent = `Solved: ${solved}/${total}`;
-  }
+  renderStats();
 }
 
 //  Challenge view 
@@ -2137,6 +2699,8 @@ function openChallenge(cid) {
   document.getElementById('ch-description').textContent = sanitizeText(c.description || 'No description provided.');
 
   renderFileList(c.files || []);
+  renderMemoryFiles(c.memory_files || []);
+  syncModelSelect(c);
   renderStatusBadge(c.status, c.running);
   renderWriteupSection(c);
 
@@ -2149,6 +2713,7 @@ function openChallenge(cid) {
 
   switchView('view-challenge');
   updateRunningUI();
+  loadMemoryIndex();
 
   // Load persisted logs for this challenge
   api(`/api/challenges/${state.currentCid}/logs`).then(logs => {
@@ -2200,6 +2765,131 @@ function renderFileList(files) {
     </div>`).join('');
 }
 
+function syncModelSelect(challenge) {
+  const select = document.getElementById('model-select');
+  if (!select) return;
+  const desired = String(challenge?.last_model || '').trim();
+  const hasOption = desired && Array.from(select.options).some(opt => opt.value === desired);
+  if (hasOption) {
+    select.value = desired;
+    return;
+  }
+  const fallback = Array.from(select.options).find(opt => opt.defaultSelected) || select.options[0];
+  if (fallback) select.value = fallback.value;
+}
+
+function formatMemorySize(bytes) {
+  const n = Number(bytes || 0);
+  if (!Number.isFinite(n) || n <= 0) return '0 B';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatMemoryTime(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function renderMemoryFiles(files) {
+  state.memoryFiles = Array.isArray(files) ? files : [];
+  const list = document.getElementById('memory-file-list');
+  if (!list) return;
+  if (!state.memoryFiles.length) {
+    list.innerHTML = '<div class="memory-empty">No memory files yet.</div>';
+    return;
+  }
+  if (!state.memoryFiles.find(file => file.name === state.currentMemoryFile)) {
+    state.currentMemoryFile = state.memoryFiles[0].name;
+  }
+  list.innerHTML = state.memoryFiles.map(file => `
+    <button
+      class="memory-file-btn${file.name === state.currentMemoryFile ? ' active' : ''}"
+      type="button"
+      onclick="loadMemoryFile('${file.name}')"
+      title="${escHtml(file.path || '')}"
+    >
+      <span class="memory-file-btn-name">${escHtml(file.name)}</span>
+      <span class="memory-file-btn-meta">${escHtml(formatMemorySize(file.size))}${file.updated_at ? ` • ${escHtml(formatMemoryTime(file.updated_at))}` : ''}</span>
+    </button>
+  `).join('');
+}
+
+async function loadMemoryIndex(preferred = '') {
+  if (!state.currentCid) return;
+  const res = await api(`/api/challenges/${state.currentCid}/memory`);
+  if (!res || res.error) return;
+  document.getElementById('memory-path-label').textContent = res.path || '';
+  renderMemoryFiles(res.files || []);
+  const target = preferred || state.currentMemoryFile || (res.files && res.files[0] && res.files[0].name) || '';
+  if (target) await loadMemoryFile(target);
+}
+
+async function loadMemoryFile(name) {
+  if (!state.currentCid || !name) return;
+  state.currentMemoryFile = name;
+  renderMemoryFiles(state.memoryFiles);
+  const res = await api(`/api/challenges/${state.currentCid}/memory/${encodeURIComponent(name)}`);
+  if (!res || res.error) {
+    toast(res?.error || 'Failed to load memory file.', 'error');
+    return;
+  }
+  document.getElementById('memory-file-name').textContent = res.name || name;
+  document.getElementById('memory-editor').value = res.content || '';
+  document.getElementById('memory-file-status').textContent = res.path || '';
+}
+
+async function saveCurrentMemoryFile() {
+  if (!state.currentCid || !state.currentMemoryFile) return;
+  const content = document.getElementById('memory-editor').value;
+  const res = await api(`/api/challenges/${state.currentCid}/memory/${encodeURIComponent(state.currentMemoryFile)}`, {
+    method: 'PUT',
+    body: { content },
+  });
+  if (!res || res.error) {
+    toast(res?.error || 'Failed to save memory file.', 'error');
+    return;
+  }
+  renderMemoryFiles(res.files || []);
+  document.getElementById('memory-file-status').textContent = res.path || '';
+  toast(`Saved ${state.currentMemoryFile}.`, 'success');
+}
+
+async function deleteCurrentMemoryFile() {
+  if (!state.currentCid || !state.currentMemoryFile) return;
+  if (!confirm(`Delete ${state.currentMemoryFile}?`)) return;
+  const res = await api(`/api/challenges/${state.currentCid}/memory/${encodeURIComponent(state.currentMemoryFile)}`, {
+    method: 'DELETE',
+  });
+  if (!res || res.error) {
+    toast(res?.error || 'Failed to delete memory file.', 'error');
+    return;
+  }
+  state.currentMemoryFile = 'overview.md';
+  await loadMemoryIndex('overview.md');
+  toast('Memory file deleted.', 'success');
+}
+
+async function clearAllMemoryFiles() {
+  if (!state.currentCid) return;
+  if (!confirm('Clear all saved agent memory for this challenge?')) return;
+  const res = await api(`/api/challenges/${state.currentCid}/memory/clear`, { method: 'POST' });
+  if (!res || res.error) {
+    toast(res?.error || 'Failed to clear memory.', 'error');
+    return;
+  }
+  state.currentMemoryFile = 'overview.md';
+  await loadMemoryIndex('overview.md');
+  toast('Agent memory cleared.', 'success');
+}
+
 function statusInfo(c) {
   if (c.running) return { key: 'running', label: 'RUNNING', color: 'var(--accent)' };
   if (c.status === 'pending_approval') return { key: 'pending', label: 'PENDING APPROVAL', color: 'var(--amber)' };
@@ -2229,6 +2919,8 @@ async function refreshCurrentChallenge() {
   document.getElementById('ch-title').textContent = sanitizeText(c.name || 'Untitled');
   document.getElementById('ch-description').textContent = sanitizeText(c.description || 'No description provided.');
   renderFileList(c.files || []);
+  renderMemoryFiles(c.memory_files || []);
+  syncModelSelect(c);
   renderStatusBadge(c.status, c.running);
   renderWriteupSection(c);
   state.agentRunning = !!c.running;
@@ -2237,6 +2929,7 @@ async function refreshCurrentChallenge() {
   if (c.flag || c.flag_candidate) document.getElementById('manual-flag-input').value = c.flag || c.flag_candidate;
   if (c.flag) showFlag(c.flag);
   else if (c.flag_candidate) showFlag(c.flag_candidate);
+  loadMemoryIndex();
 }
 
 //  Logs 
@@ -2417,22 +3110,37 @@ function renderWriteupSection(challenge) {
   const status = document.getElementById('writeup-status');
   const dl = document.getElementById('writeup-download');
   const dlModal = document.getElementById('writeup-download-modal');
-  if (!panel || !empty || !status || !dl || !dlModal) return;
+  const inline = document.getElementById('writeup-inline');
+  const inlineMeta = document.getElementById('writeup-inline-meta');
+  const inlineContent = document.getElementById('writeup-inline-content');
+  const inlineDl = document.getElementById('writeup-download-inline');
+  if (!panel || !empty || !status || !dl || !dlModal || !inline || !inlineMeta || !inlineContent || !inlineDl) return;
   if (!challenge || !challenge.id) {
     panel.classList.remove('visible');
+    inline.classList.remove('visible');
+    inlineContent.textContent = 'No writeup generated yet.';
+    inlineMeta.textContent = '';
     empty.style.display = '';
     return;
   }
-  const hasWriteup = !!(challenge.writeup_md && String(challenge.writeup_md).trim());
+  const writeup = String(challenge.writeup_md || '').trim();
+  const hasWriteup = !!writeup;
   const href = `/api/challenges/${challenge.id}/writeup.md`;
   dl.href = href;
   dlModal.href = href;
+  inlineDl.href = href;
   if (hasWriteup) {
     panel.classList.add('visible');
+    inline.classList.add('visible');
     empty.style.display = 'none';
     status.textContent = `Writeup ready${challenge.writeup_ready_at ? ` (${challenge.writeup_ready_at})` : ''}.`;
+    inlineMeta.textContent = challenge.writeup_ready_at ? `Generated ${challenge.writeup_ready_at}` : 'Generated for the approved solve.';
+    inlineContent.textContent = writeup;
   } else {
     panel.classList.remove('visible');
+    inline.classList.remove('visible');
+    inlineContent.textContent = 'No writeup generated yet.';
+    inlineMeta.textContent = '';
     empty.style.display = '';
   }
 }
@@ -2555,14 +3263,16 @@ async function launch(retry = false) {
   }
   const extra = document.getElementById('prompt-input').value.trim();
   const model = document.getElementById('model-select').value;
+  const feed = document.getElementById('chat-feed');
+  const hasTranscript = !!(feed && feed.childElementCount > 0);
   document.getElementById('prompt-input').value = '';
 
   state.agentRunning = true;
   markActivity('starting');
   updateRunningUI();
 
-  // Clear logs on fresh launch; separator on retry
-  if (!retry) {
+  // Preserve transcript when continuing an existing attempt; only hard-reset on a true fresh launch.
+  if (!retry && !hasTranscript) {
     document.getElementById('chat-feed').innerHTML = '';
     planStreams.clear();
     agentStreams.clear();
@@ -2571,7 +3281,7 @@ async function launch(retry = false) {
     document.getElementById('cost-tokens').textContent = '';
     state.stepCount = 0;
   } else {
-    appendRunDivider('Retry');
+    if (hasTranscript) appendRunDivider(retry ? 'Retry' : 'Continue');
     state.stepCount = 0;
   }
 
@@ -2589,6 +3299,7 @@ async function launch(retry = false) {
     if (idx >= 0) {
       state.challenges[idx].status = 'solving';
       state.challenges[idx].running = true;
+      state.challenges[idx].last_model = model;
     }
     renderStatusBadge('solving', true);
     updateDashboardMetrics();
@@ -2662,12 +3373,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setupChPopout('ch-info-wrap', 'btn-info-toggle', 'ch-info-menu');
   setupChPopout('ch-solve-wrap', 'btn-solve-toggle', 'ch-solve-menu');
   setupChPopout('ch-more-wrap', 'btn-more-toggle', 'ch-more-menu');
-
-  const solvedToggle = document.getElementById('dash-solved-toggle');
-  solvedToggle.addEventListener('click', () => {
-    state.solvedDisplayMode = state.solvedDisplayMode === 'fraction' ? 'percent' : 'fraction';
-    updateSolvedProgress();
-  });
 
   // New challenge
   document.getElementById('btn-new-challenge').addEventListener('click', () => {
@@ -2802,6 +3507,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Agent controls
   document.getElementById('btn-launch').addEventListener('click', () => launch(false));
+  document.getElementById('btn-memory-toggle').addEventListener('click', async () => {
+    if (!state.currentCid) return;
+    await loadMemoryIndex(state.currentMemoryFile);
+    openModal('modal-memory');
+  });
+  document.getElementById('btn-memory-save').addEventListener('click', async () => {
+    await saveCurrentMemoryFile();
+  });
+  document.getElementById('btn-memory-reload').addEventListener('click', async () => {
+    await loadMemoryIndex(state.currentMemoryFile);
+  });
+  document.getElementById('btn-memory-delete').addEventListener('click', async () => {
+    await deleteCurrentMemoryFile();
+  });
+  document.getElementById('btn-memory-clear').addEventListener('click', async () => {
+    await clearAllMemoryFiles();
+  });
   document.getElementById('btn-retry').addEventListener('click', () => launch(true));
   document.getElementById('btn-cli-start').addEventListener('click', async () => {
     if (!state.currentCid) return;
@@ -2924,6 +3646,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-open-writeup').addEventListener('click', async () => {
     await openWriteupModal();
   });
+  document.getElementById('btn-open-writeup-inline').addEventListener('click', async () => {
+    await openWriteupModal();
+  });
 
   document.getElementById('btn-approve-candidate').addEventListener('click', async () => {
     if (!state.currentCid) return;
@@ -2977,10 +3702,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Reset & Delete
   document.getElementById('btn-reset').addEventListener('click', async () => {
-    if (!confirm('Reset container? This kills the Docker container and agent state but keeps challenge files.')) return;
+    if (!confirm('Reset container? This kills the Docker container, clears the run transcript, and keeps challenge files.')) return;
     await api(`/api/challenges/${state.currentCid}/reset`, { method: 'POST' });
     state.agentRunning = false;
     updateRunningUI();
+    state.logCache[state.currentCid] = [];
     document.getElementById('chat-feed').innerHTML = '';
     planStreams.clear();
     agentStreams.clear();
@@ -2988,7 +3714,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderStatusBadge('unsolved');
     await refreshCurrentChallenge();
     checkDockerStatus();
-    toast('Container reset. Files preserved.', 'success');
+    toast('Container reset. Transcript cleared. Files preserved.', 'success');
   });
 
   document.getElementById('btn-delete').addEventListener('click', async () => {
@@ -3494,9 +4220,3 @@ function toast(msg, type = 'info') {
 </script>
 </body>
 </html>
-
-
-
-
-
-

@@ -110,6 +110,49 @@ class LLMMixin:
                 })
         return out
 
+    def _complete_text(self, messages: list[dict], system_prompt: str | None = None, max_tokens: int = 1200) -> str:
+        if self.provider == "anthropic":
+            if not self.anthropic_client:
+                raise RuntimeError("Anthropic model selected but no Anthropic key configured.")
+            anthropic_messages = self._anthropic_messages_from_history(messages)
+            resp = self.anthropic_client.messages.create(
+                model=self.model,
+                max_tokens=max_tokens,
+                system=system_prompt or self._system_prompt(),
+                messages=anthropic_messages,
+            )
+            in_tokens = 0
+            out_tokens = 0
+            usage = getattr(resp, "usage", None)
+            if usage:
+                in_tokens = (
+                    int(getattr(usage, "input_tokens", 0) or 0)
+                    + int(getattr(usage, "cache_creation_input_tokens", 0) or 0)
+                    + int(getattr(usage, "cache_read_input_tokens", 0) or 0)
+                )
+                out_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+            self._emit_cost(in_tokens, out_tokens)
+            text_parts = []
+            for block in getattr(resp, "content", []) or []:
+                if getattr(block, "type", "") == "text":
+                    text_parts.append(getattr(block, "text", "") or "")
+            return "".join(text_parts).strip()
+
+        if not self.openai_client:
+            raise RuntimeError("OpenAI model selected but no OpenAI key configured.")
+        resp = self.openai_client.chat.completions.create(
+            model=self.model,
+            **self._token_limit_kw(max_tokens),
+            messages=[{"role": "system", "content": system_prompt or self._system_prompt()}] + messages,
+        )
+        usage = getattr(resp, "usage", None)
+        if usage:
+            self._emit_cost(
+                int(getattr(usage, "prompt_tokens", 0) or 0),
+                int(getattr(usage, "completion_tokens", 0) or 0),
+            )
+        return (resp.choices[0].message.content or "").strip()
+
     def _call_openai(self, force_text=False):
         if not self.openai_client:
             raise RuntimeError("OpenAI model selected but no OpenAI key configured. Set openai_api_key in config.json or OPENAI_API_KEY.")

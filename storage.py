@@ -55,12 +55,39 @@ DEFAULT_CHALLENGE_FIELDS = {
     "cost_usd": 0.0,
     "tokens_in": 0,
     "tokens_out": 0,
+    "last_model": "",
     "notes": "",
     "tags": [],
     "credentials": [],
     "target": deepcopy(DEFAULT_TARGET),
     "source_meta": deepcopy(DEFAULT_SOURCE),
     "last_activity_at": None,
+}
+
+MEMORY_FILE_DEFAULTS = {
+    "overview.md": "# Agent Overview\n\nNo agent memory saved yet.\n",
+    "state.json": json.dumps({
+        "status": "idle",
+        "phase": "idle",
+        "step": 0,
+        "run_id": None,
+        "active_hypothesis_id": None,
+        "last_updated_at": None,
+    }, indent=2) + "\n",
+    "hypotheses.json": "[]\n",
+    "facts.json": json.dumps({
+        "confirmed": [],
+        "ruled_out": [],
+        "flag_candidates": [],
+        "updated_at": None,
+    }, indent=2) + "\n",
+    "artifacts.json": "[]\n",
+    "dead_ends.json": "[]\n",
+    "candidates.json": json.dumps({
+        "flags": [],
+        "other": [],
+        "updated_at": None,
+    }, indent=2) + "\n",
 }
 
 
@@ -90,6 +117,19 @@ def challenge_notes_path(cid: str) -> Path:
 
 def challenge_workspace_manifest_path(cid: str) -> Path:
     return challenge_workspace_dir(cid) / ".challenge.json"
+
+
+def challenge_memory_dir(cid: str) -> Path:
+    p = challenge_runs_dir(cid) / "memory"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def challenge_memory_file_path(cid: str, name: str) -> Path:
+    raw = str(name or "").strip()
+    if raw not in MEMORY_FILE_DEFAULTS:
+        raise ValueError(f"Unsupported memory file: {raw}")
+    return challenge_memory_dir(cid) / raw
 
 
 def normalize_string_list(value: Any) -> list[str]:
@@ -229,6 +269,60 @@ def read_notes(cid: str) -> str:
     if not path.exists():
         return ""
     return path.read_text(encoding="utf-8")
+
+
+def ensure_memory_files(cid: str):
+    root = challenge_memory_dir(cid)
+    for name, default_content in MEMORY_FILE_DEFAULTS.items():
+        path = root / name
+        if not path.exists():
+            path.write_text(default_content, encoding="utf-8")
+
+
+def list_memory_files(cid: str) -> list[dict[str, Any]]:
+    root = challenge_memory_dir(cid)
+    out = []
+    for name in MEMORY_FILE_DEFAULTS:
+        path = root / name
+        if not path.exists():
+            continue
+        stat = path.stat()
+        out.append({
+            "name": name,
+            "path": str(path),
+            "size": stat.st_size,
+            "updated_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat().replace("+00:00", "Z"),
+        })
+    return out
+
+
+def read_memory_file(cid: str, name: str) -> str:
+    path = challenge_memory_file_path(cid, name)
+    if not path.exists():
+        default_content = MEMORY_FILE_DEFAULTS.get(name, "")
+        if default_content:
+            path.write_text(default_content, encoding="utf-8")
+        else:
+            return ""
+    return path.read_text(encoding="utf-8")
+
+
+def write_memory_file(cid: str, name: str, content: str) -> str:
+    path = challenge_memory_file_path(cid, name)
+    path.write_text(str(content or ""), encoding="utf-8")
+    return str(path)
+
+
+def delete_memory_file(cid: str, name: str):
+    path = challenge_memory_file_path(cid, name)
+    if path.exists():
+        path.unlink()
+
+
+def clear_memory_files(cid: str):
+    root = challenge_memory_dir(cid)
+    if root.exists():
+        shutil.rmtree(root, ignore_errors=True)
 
 
 def build_challenge_environment(chal: dict[str, Any]) -> dict[str, str]:

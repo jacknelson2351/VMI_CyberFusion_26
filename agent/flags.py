@@ -1,5 +1,5 @@
 """
-FlagsMixin — flag candidate extraction, auto-submit logic, answer-mode helpers.
+FlagsMixin — flag candidate extraction and auto-submit logic.
 """
 import base64
 import re
@@ -7,87 +7,15 @@ import re
 from utils import (
     _is_plausible_flag_token, _prefix_looks_ctf_like, _decode_backslash_escapes, _is_picoctf_flag,
 )
-from db import update_challenge
 
 
 class FlagsMixin:
-
-    def _normalize_answer_token(self, token: str) -> str:
-        return re.sub(r"\s+", " ", (token or "").strip().lower())
-
-    def _remember_answer_candidate(self, token: str):
-        n = self._normalize_answer_token(token)
-        if not n:
-            return
-        self._answer_candidates.add(n)
-
-    def _harvest_answer_candidates(self, text: str):
-        if not text:
-            return
-        blob = _decode_backslash_escapes(text)
-        if not blob:
-            return
-
-        # IPv4 tokens.
-        for m in re.finditer(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", blob):
-            tok = m.group(0)
-            try:
-                octets = [int(x) for x in tok.split(".")]
-                if all(0 <= x <= 255 for x in octets):
-                    self._remember_answer_candidate(tok)
-            except Exception:
-                pass
-
-        # Domain-like indicators (exclude obvious PE noise).
-        banned = (".dll", ".exe", ".sys", ".pdb", ".obj", ".lib", ".startup", ".part", ".mingw")
-        for m in re.finditer(
-            r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|io|ru|cn|xyz|biz|info)\b",
-            blob,
-            re.IGNORECASE,
-        ):
-            d = m.group(0).lower().strip(".")
-            if d.endswith(banned):
-                continue
-            self._remember_answer_candidate(d)
-
-        # File type markers from `file` output.
-        if re.search(r"\bPE32\+\s+executable\b", blob, re.IGNORECASE):
-            self._remember_answer_candidate("PE32+ executable")
-            self._remember_answer_candidate("PE32+")
-        if re.search(r"\bELF\b", blob):
-            self._remember_answer_candidate("ELF")
-
-        # Packer marker.
-        if re.search(r"\bUPX[0-9!]*\b", blob, re.IGNORECASE):
-            self._remember_answer_candidate("UPX")
 
     def _allows_noncanonical_submit(self, flag: str, how: str) -> bool:
         if self.allow_nonstandard_submit:
             return True
         if self.flag_format:
             return self._flag_matches_format(flag)
-        if not self._answer_mode:
-            return False
-        f = (flag or "").strip()
-        if not f:
-            return False
-        n = self._normalize_answer_token(f)
-        if n in self._answer_candidates:
-            return True
-        # Accept high-signal direct answers for answer-style challenges.
-        if re.fullmatch(r"(?:\d{1,3}\.){3}\d{1,3}", f):
-            try:
-                octets = [int(x) for x in f.split(".")]
-                if all(0 <= x <= 255 for x in octets):
-                    return True
-            except Exception:
-                pass
-        if re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}", f, re.IGNORECASE):
-            return True
-        if f.upper() == "UPX":
-            return True
-        if re.search(r"\bPE32\+\b", f, re.IGNORECASE):
-            return True
         return False
 
     def _flag_matches_format(self, flag: str) -> bool:

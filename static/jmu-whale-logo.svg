@@ -1,0 +1,69 @@
+<svg width="220" height="128" viewBox="0 0 220 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="containerBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#55C4FF"/>
+      <stop offset="1" stop-color="#0D58C7"/>
+    </linearGradient>
+    <linearGradient id="whaleBlue" x1="42" y1="36" x2="182" y2="98" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#67D2FF"/>
+      <stop offset="0.48" stop-color="#2896E9"/>
+      <stop offset="1" stop-color="#103EAF"/>
+    </linearGradient>
+    <linearGradient id="finBlue" x1="116" y1="72" x2="166" y2="98" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8BE1FF"/>
+      <stop offset="1" stop-color="#1267D5"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="56" y1="93" x2="168" y2="122" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F6D25D"/>
+      <stop offset="1" stop-color="#D99A12"/>
+    </linearGradient>
+    <filter id="glow" x="0" y="0" width="220" height="128" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.12 0 0 0 0 0.42 0 0 0 0 0.96 0 0 0 0.32 0"/>
+      <feBlend in="SourceGraphic" in2="blur" mode="screen"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#glow)">
+    <g stroke="#0A218B" stroke-width="3">
+      <rect x="96" y="18" width="34" height="20" fill="url(#containerBlue)"/>
+      <rect x="76" y="38" width="34" height="20" fill="url(#containerBlue)"/>
+      <rect x="110" y="38" width="34" height="20" fill="url(#containerBlue)"/>
+      <rect x="144" y="44" width="24" height="18" fill="url(#containerBlue)"/>
+      <rect x="88" y="58" width="28" height="16" fill="url(#containerBlue)"/>
+      <rect x="116" y="58" width="28" height="16" fill="url(#containerBlue)"/>
+      <rect x="144" y="58" width="24" height="16" fill="url(#containerBlue)"/>
+      <g stroke-width="1.6" opacity="0.5">
+        <path d="M104 20V38M112 20V38M120 20V38" />
+        <path d="M84 40V58M92 40V58M100 40V58" />
+        <path d="M118 40V58M126 40V58M134 40V58" />
+        <path d="M150 45V62M158 45V62" />
+        <path d="M96 59V74M104 59V74" />
+        <path d="M124 59V74M132 59V74" />
+        <path d="M151 59V74M159 59V74" />
+      </g>
+    </g>
+
+    <g fill="#FF9F1B" stroke="#0A218B" stroke-width="3.2" stroke-linejoin="round">
+      <path d="M28 30H37V24H47V30H57V24H67V30H77V40H67V47H57V40H47V47H37V40H28V30Z"/>
+      <rect x="47" y="47" width="10" height="8" fill="#1B439E"/>
+    </g>
+
+    <g>
+      <path d="M22 66C42 57 70 54 97 56C114 44 136 40 157 46C163 41 170 42 176 51C189 48 201 49 208 52C202 62 194 70 181 71C174 80 164 84 152 83C143 89 132 92 119 91C93 98 63 99 41 89C30 84 24 76 22 66Z" fill="url(#whaleBlue)" stroke="#0A218B" stroke-width="3.2" stroke-linejoin="round"/>
+      <path d="M156 46C161 31 171 28 178 45C192 41 206 41 214 45C206 55 195 61 181 60" fill="#6EE1FF" stroke="#0A218B" stroke-width="3.2" stroke-linejoin="round"/>
+      <path d="M163 46C166 34 173 32 178 44C188 42 197 43 203 45C196 51 189 55 181 56" fill="#2EA6F2" opacity="0.72"/>
+      <path d="M111 78C127 73 142 75 155 84C143 94 128 95 112 87" fill="url(#finBlue)" stroke="#0A218B" stroke-width="3.2" stroke-linejoin="round"/>
+      <path d="M26 68C43 76 56 78 72 77C82 76 89 72 95 67C80 64 65 62 49 63C38 64 31 65 26 68Z" fill="#1A6FD8" opacity="0.56"/>
+      <path d="M30 77C52 82 74 82 91 77C100 90 112 97 129 99C100 104 60 103 38 93C34 89 31 84 30 77Z" fill="#F7FAFF" stroke="#0A218B" stroke-width="3.2" stroke-linejoin="round"/>
+      <path d="M43 81L52 92M52 80L61 92M61 79L70 92M70 78L79 90" stroke="#B9D8FF" stroke-width="3"/>
+      <circle cx="67" cy="68" r="5.6" fill="#0B1A3D"/>
+      <circle cx="65.4" cy="66.4" r="1.4" fill="#F8FDFF"/>
+    </g>
+
+    <g paint-order="stroke fill markers">
+      <text x="53" y="118" font-family="Arial Black, Arial, sans-serif" font-size="50" font-weight="900" letter-spacing="2" fill="url(#gold)" stroke="#3A1D90" stroke-width="8">JMU</text>
+      <text x="53" y="118" font-family="Arial Black, Arial, sans-serif" font-size="50" font-weight="900" letter-spacing="2" fill="url(#gold)" stroke="#F8F3E6" stroke-width="2.2">JMU</text>
+    </g>
+  </g>
+</svg>
