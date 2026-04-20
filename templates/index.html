@@ -175,12 +175,20 @@ html, body {
 #view-dashboard { flex-direction: column; }
 
 #dash-header {
-  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#dash-header-row1 {
+  padding: 14px 24px 10px;
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+}
+#dash-header-row2 {
+  padding: 0 24px 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 #dash-header h1 {
@@ -211,18 +219,14 @@ html, body {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg2);
+  gap: 6px;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--text-muted);
 }
-.dash-cost .label { letter-spacing: 0.12em; color: var(--text-muted); font-weight: 700; }
-.dash-cost .value { color: #fff; font-weight: 700; }
-.dash-cost .tokens { color: var(--text-dim); }
+.dash-cost .label { display: none; }
+.dash-cost .value { color: var(--text-dim); }
+.dash-cost .tokens { color: var(--text-muted); font-size: 10px; }
 
 .filter-tabs {
   display: flex;
@@ -481,69 +485,157 @@ html, body {
 
 /*  Challenge View  */
 #view-challenge {
-  flex-direction: row;
-}
-
-/* Sidebar */
-#ch-sidebar {
-  width: 280px;
-  flex-shrink: 0;
-  background: var(--bg1);
-  border-right: 1px solid var(--border);
-  display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
-#ch-sidebar-header {
-  padding: 16px;
+/* Challenge header bar */
+#ch-header {
+  height: 52px;
+  background: var(--bg1);
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 8px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 50;
+  overflow: visible;
 }
-
-.back-btn {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 12px; color: var(--text-dim);
-  cursor: pointer; margin-bottom: 14px;
-  transition: color 0.15s;
-  background: none; border: none;
-  font-family: var(--font-sans);
-}
-.back-btn:hover { color: var(--accent); }
-
-.ch-name-block {}
+#ch-header .back-btn { margin-bottom: 0; flex-shrink: 0; }
 .ch-category-badge {
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  margin-bottom: 5px;
+  flex-shrink: 0;
 }
 .ch-title {
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 700;
   color: #fff;
-  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
 }
+.ch-header-sep { flex: 1; min-width: 8px; }
 
-#ch-sidebar-body {
-  flex: 1;
+.back-btn {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s;
+  background: none; border: none;
+  font-family: var(--font-sans);
+  flex-shrink: 0;
+}
+.back-btn:hover { color: var(--accent); }
+
+/* Challenge popout menus */
+.ch-menu-wrap { position: relative; flex-shrink: 0; }
+.ch-popout {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  max-width: min(92vw, 320px);
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  box-shadow: 0 14px 28px rgba(0,0,0,0.5);
+  padding: 14px;
+  display: none;
+  z-index: 450;
+  max-height: 70vh;
   overflow-y: auto;
-  padding: 16px;
 }
-
-.sidebar-section {
-  margin-bottom: 20px;
-}
-.sidebar-section-title {
+.ch-popout.open { display: block; }
+.ch-popout-title {
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   color: var(--text-muted);
   margin-bottom: 10px;
   text-transform: uppercase;
 }
+.ch-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ch-menu-item:hover { background: var(--bg3); }
+.ch-menu-item-danger { color: var(--red); }
+.ch-menu-item-danger:hover { background: rgba(224,92,107,0.1); }
+.ch-menu-item-accent { color: var(--accent); }
+.ch-menu-item-accent:hover { background: rgba(217,115,87,0.1); }
+.ch-menu-divider { border-top: 1px solid var(--border); margin: 5px 0; }
+
+/* Filter popout */
+#filter-wrap { position: relative; }
+#filter-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 300px;
+  background: var(--bg1);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  box-shadow: 0 14px 28px rgba(0,0,0,0.45);
+  padding: 14px;
+  display: none;
+  z-index: 450;
+}
+#filter-menu.open { display: block; }
+.filter-pop-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.filter-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.filter-cat-btn {
+  padding: 5px 4px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.filter-cat-btn:hover { border-color: var(--border2); color: var(--text); }
+.filter-cat-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(217,115,87,0.08); }
+.filter-hide-row {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.filter-hide-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
 
 /* Status badge */
 .ch-status-badge {
@@ -691,14 +783,47 @@ html, body {
   font-size: 13px;
 }
 
-/* Sidebar actions */
-#ch-sidebar-actions {
-  padding: 14px 16px;
-  border-top: 1px solid var(--border);
+/* Accordion */
+.accordion {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  background: var(--bg2);
+  overflow: hidden;
+}
+.accordion-summary {
+  padding: 10px 14px;
   display: flex;
-  flex-direction: column;
-  gap: 7px;
-  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg1);
+  transition: background 0.15s;
+  list-style: none; /* Hide default arrow */
+}
+.accordion-summary::-webkit-details-marker { display: none; }
+.accordion-summary:hover { background: var(--bg2); }
+.accordion-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.accordion-icon {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+details[open] .accordion-icon::before { content: '-'; }
+details:not([open]) .accordion-icon::before { content: '+'; }
+.accordion-body {
+  padding: 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
 }
 
 /* Main area */
@@ -757,8 +882,8 @@ html, body {
 .chat-banner.command::before { content: '$ '; opacity: 0.5; }
 .chat-banner.gdb-command { background: rgba(167,139,250,0.06); border: 1px solid rgba(167,139,250,0.18); color: var(--purple); }
 .chat-banner.gdb-command::before { content: ' '; }
-.chat-banner.notice-command { background: rgba(232,160,76,0.06); border: 1px solid rgba(232,160,76,0.2); color: var(--amber); word-break: break-word; }
-.chat-banner.notice-command::before { content: '! '; opacity: 0.75; }
+.chat-banner.notice-command { background: transparent; border: none; color: var(--text-muted); font-size: 10px; padding: 1px 2px; opacity: 0.55; word-break: break-word; }
+.chat-banner.notice-command::before { content: ''; }
 .chat-banner.output {
   background: var(--bg2);
   border: 1px solid var(--border);
@@ -771,15 +896,9 @@ html, body {
 /*  Chat input bar  */
 #chat-input-bar {
   flex-shrink: 0;
-  padding: 10px 20px 14px;
+  padding: 8px 20px 12px;
   background: var(--bg1);
   border-top: 1px solid var(--border);
-}
-#agent-status-line {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  padding: 0 2px 5px;
 }
 #chat-input-wrap {
   background: var(--bg2);
@@ -1071,8 +1190,6 @@ html, body {
     <div id="topbar-logo">
       <span>&#128104;&#8205;&#129456;</span>
       <span class="brand-name">CTF Copilot</span>
-      <span class="sep">|</span>
-      <span id="topbar-title" style="font-weight:400;font-size:13px;color:var(--text-dim);">vibecoded by jack</span>
     </div>
     <div id="topbar-right">
       <div id="docker-menu-wrap">
@@ -1089,35 +1206,44 @@ html, body {
       </div>
       <button class="btn btn-ghost btn-sm" id="btn-settings-open" title="API keys & settings">Settings</button>
       <button class="btn btn-ghost btn-sm" id="btn-lock-app" title="Lock workspace now" style="display:none">Lock</button>
-      <button class="btn btn-ghost btn-sm" id="btn-build-open" title="Build Docker image">Build Image</button>
-      <button class="btn btn-danger btn-sm" id="btn-reset-all" title="Delete all challenges and uploads">Reset All</button>
     </div>
   </div>
 
   <!--  Dashboard View  -->
   <div class="view active" id="view-dashboard">
     <div id="dash-header">
-      <h1>Challenges</h1>
-      <button id="dash-solved-toggle" class="dash-solved" type="button" title="Toggle solved display mode">Solved: 0/0</button>
-      <div class="filter-tabs">
-        <button class="filter-tab active" data-cat="all">ALL</button>
-        <button class="filter-tab" data-cat="pwn">PWN</button>
-        <button class="filter-tab" data-cat="web">WEB</button>
-        <button class="filter-tab" data-cat="crypto">CRYPTO</button>
-        <button class="filter-tab" data-cat="forensics">FORENSICS</button>
-        <button class="filter-tab" data-cat="rev">REV</button>
-        <button class="filter-tab" data-cat="misc">MISC</button>
-        <button class="filter-tab" data-cat="osint">OSINT</button>
-        <button class="filter-tab" data-cat="network">NETWORK</button>
+      <div id="dash-header-row1">
+        <h1>Challenges</h1>
+        <button id="dash-solved-toggle" class="dash-solved" type="button" title="Toggle solved display mode">Solved: 0/0</button>
+        <button class="btn btn-primary" id="btn-new-challenge" style="margin-left:auto;">+ New Challenge</button>
       </div>
-      <button id="btn-hide-solved" class="filter-toggle" type="button" aria-pressed="false">HIDE SOLVED</button>
-      <div class="dash-cost" id="dash-cost">
-        <span class="label">SESSION COST</span>
-        <span class="value" id="dash-cost-value">$0.0000</span>
-        <span class="tokens" id="dash-cost-tokens">0 in / 0 out</span>
-      </div>
-      <div>
-        <button class="btn btn-primary" id="btn-new-challenge">+ New Challenge</button>
+      <div id="dash-header-row2">
+        <div id="filter-wrap">
+          <button class="btn btn-ghost btn-sm" id="btn-filter-toggle">Filter: ALL</button>
+          <div id="filter-menu">
+            <div class="filter-pop-title">Category</div>
+            <div class="filter-cat-grid">
+              <button class="filter-cat-btn active" data-cat="all">ALL</button>
+              <button class="filter-cat-btn" data-cat="pwn">PWN</button>
+              <button class="filter-cat-btn" data-cat="web">WEB</button>
+              <button class="filter-cat-btn" data-cat="crypto">CRYPTO</button>
+              <button class="filter-cat-btn" data-cat="forensics">FORENSICS</button>
+              <button class="filter-cat-btn" data-cat="rev">REV</button>
+              <button class="filter-cat-btn" data-cat="misc">MISC</button>
+              <button class="filter-cat-btn" data-cat="osint">OSINT</button>
+              <button class="filter-cat-btn" data-cat="network">NETWORK</button>
+            </div>
+            <div class="filter-hide-row">
+              <span class="filter-hide-label">Hide Solved</span>
+              <button id="btn-hide-solved" class="filter-toggle" type="button" aria-pressed="false">OFF</button>
+            </div>
+          </div>
+        </div>
+        <div class="dash-cost" id="dash-cost">
+          <span class="label">COST</span>
+          <span class="value" id="dash-cost-value">$0.0000</span>
+          <span class="tokens" id="dash-cost-tokens"></span>
+        </div>
       </div>
     </div>
     <div id="cards-scroll">
@@ -1127,101 +1253,74 @@ html, body {
 
   <!--  Challenge View  -->
   <div class="view" id="view-challenge">
-    <!-- Sidebar -->
-    <div id="ch-sidebar">
-      <div id="ch-sidebar-header">
-        <button class="back-btn" id="btn-back">&lt;- Back to Challenges</button>
-        <div class="ch-name-block">
-          <div class="ch-category-badge" id="ch-category-badge">PWN</div>
-          <div class="ch-title" id="ch-title">Challenge Name</div>
+
+    <!-- Challenge header bar -->
+    <div id="ch-header">
+      <button class="back-btn" id="btn-back">&#8592; Challenges</button>
+      <div class="ch-category-badge" id="ch-category-badge">WEB</div>
+      <div class="ch-title" id="ch-title">Challenge Name</div>
+      <div class="ch-header-sep"></div>
+      <div id="ch-status-badge" class="ch-status-badge badge-unsolved"><span class="status-dot"></span> UNSOLVED</div>
+      <div style="font-family:var(--font-mono);font-size:11px;display:flex;align-items:center;gap:4px;flex-shrink:0;">
+        <span class="cost-display" id="cost-display">-</span>
+        <span style="font-size:10px;color:var(--text-muted);" id="cost-tokens"></span>
+      </div>
+
+      <!-- Files popout -->
+      <div class="ch-menu-wrap" id="ch-files-wrap">
+        <button class="btn btn-ghost btn-sm" id="btn-files-toggle">Files</button>
+        <div class="ch-popout" id="ch-files-menu">
+          <div class="ch-popout-title">Files</div>
+          <div class="file-list" id="file-list"><span class="file-empty">No files uploaded</span></div>
+          <div style="margin-top:8px;">
+            <button class="btn btn-ghost btn-sm" id="btn-upload-more" style="width:100%">+ Add Files</button>
+            <input type="file" id="upload-input-hidden" multiple style="display:none">
+          </div>
+          <div id="upload-progress" style="margin-top:6px;">
+            <div class="upload-bar"><div class="upload-bar-fill" id="upload-bar-fill"></div></div>
+            <div id="upload-status-text" style="font-size:10px;color:var(--text-muted);margin-top:3px;font-family:var(--font-mono);">Uploading...</div>
+          </div>
         </div>
       </div>
 
-      <div id="ch-sidebar-body">
-        <!-- Status -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">Status</div>
-          <div id="ch-status-badge" class="ch-status-badge badge-unsolved">
-            <span class="status-dot"></span> UNSOLVED
-          </div>
+      <!-- Info popout -->
+      <div class="ch-menu-wrap" id="ch-info-wrap">
+        <button class="btn btn-ghost btn-sm" id="btn-info-toggle">Info</button>
+        <div class="ch-popout" id="ch-info-menu" style="width:380px;right:0;">
+          <div class="ch-popout-title">Description</div>
+          <div class="ch-description" id="ch-description" style="font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:var(--text-dim);"></div>
         </div>
+      </div>
 
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">Manual CLI</div>
-          <button class="btn btn-sm btn-primary" id="btn-cli-start" style="width:100%;margin-bottom:7px;">Run Manually</button>
-        </div>
-
-        <!-- Description -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">Description</div>
-          <div class="ch-description" id="ch-description">No description.</div>
-        </div>
-
-        <!-- Files -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">Files</div>
-          <div class="file-list" id="file-list">
-            <span class="file-empty">No files uploaded</span>
-          </div>
-        </div>
-
-        <!-- Upload -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">Upload Files</div>
-          <div id="upload-zone">
-            <div class="upload-icon">&#128193;</div>
-            <div class="upload-text">Drop files here or click to browse</div>
-            <div class="upload-hint">Zips/tars are auto-extracted</div>
-            <input type="file" id="upload-input-hidden" multiple>
-          </div>
-          <div id="upload-progress">
-            <div class="upload-bar"><div class="upload-bar-fill" id="upload-bar-fill"></div></div>
-            <div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-family:var(--font-mono)" id="upload-status-text">Uploading...</div>
-          </div>
-        </div>
-
-        <!-- Cost -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">API Cost</div>
-          <div class="cost-display" id="cost-display">-</div>
-          <div class="cost-tokens" id="cost-tokens"></div>
-        </div>
-
-        <!-- Manual Solve -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">Mark as Solved</div>
-          <div style="display:flex;flex-direction:column;gap:7px;">
-            <input type="text" id="manual-flag-input" placeholder="flag{...}  (optional)">
-            <button class="btn btn-sm" id="btn-mark-solved"
-              style="width:100%;background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.35);color:var(--cyan);">
-              Mark Solved
-            </button>
-            <button class="btn btn-sm" id="btn-mark-unsolved"
-              style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border2);color:var(--text-muted);display:none;">
-              Unmark Solved
-            </button>
-          </div>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">Writeup</div>
-          <div id="writeup-panel" class="writeup-panel">
-            <div id="writeup-status">Writeup not generated yet.</div>
+      <!-- Solve popout -->
+      <div class="ch-menu-wrap" id="ch-solve-wrap">
+        <button class="btn btn-ghost btn-sm" id="btn-solve-toggle">Solve</button>
+        <div class="ch-popout" id="ch-solve-menu">
+          <div class="ch-popout-title">Solve</div>
+          <input type="text" id="manual-flag-input" placeholder="flag{...}" style="margin-bottom:6px;">
+          <button class="btn btn-sm" id="btn-mark-solved" style="width:100%;margin-bottom:5px;background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.35);color:var(--cyan);">Mark Solved</button>
+          <button class="btn btn-sm" id="btn-mark-unsolved" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border2);color:var(--text-muted);display:none;">Unmark Solved</button>
+          <div id="writeup-panel" class="writeup-panel" style="margin-top:8px;">
+            <div id="writeup-status" style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:5px;"></div>
             <div class="writeup-actions">
-              <button class="btn btn-sm btn-ghost" id="btn-open-writeup">Open Writeup</button>
+              <button class="btn btn-sm btn-ghost" id="btn-open-writeup">Writeup</button>
               <a class="writeup-link" id="writeup-download" href="#" download>Download .md</a>
             </div>
           </div>
-          <div id="writeup-empty" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);">
-            Approve a found flag to generate a markdown writeup.
-          </div>
+          <div id="writeup-empty" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:4px;">Approve a flag to generate a writeup.</div>
         </div>
       </div>
 
-      <div id="ch-sidebar-actions">
-        <button class="btn btn-ghost btn-sm" id="btn-edit-challenge" style="width:100%">Edit Challenge</button>
-        <button class="btn btn-danger btn-sm" id="btn-reset" style="width:100%">Reset Container</button>
-        <button class="btn btn-danger btn-sm" id="btn-delete" style="width:100%;background:rgba(255,77,109,0.08)">Delete Challenge</button>
+      <!-- More menu -->
+      <div class="ch-menu-wrap" id="ch-more-wrap">
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-more-toggle" title="More options">&#8943;</button>
+        <div class="ch-popout" id="ch-more-menu" style="width:200px;">
+          <button class="ch-menu-item ch-menu-item-accent" id="btn-cli-start">Manual CLI</button>
+          <button class="ch-menu-item" id="btn-edit-challenge">Edit Challenge</button>
+          <div class="ch-menu-divider"></div>
+          <button class="ch-menu-item ch-menu-item-danger" id="btn-reset">Reset Container</button>
+          <button class="ch-menu-item ch-menu-item-danger" id="btn-delete">Delete Challenge</button>
+        </div>
       </div>
     </div>
 
@@ -1242,7 +1341,6 @@ html, body {
 
       <!-- Chat input bar -->
       <div id="chat-input-bar">
-        <div id="agent-status-line">Idle.</div>
         <div id="chat-input-wrap">
           <input type="text" id="prompt-input" placeholder="Add context for the agent (Enter to launch)">
           <div id="chat-input-footer">
@@ -1302,6 +1400,15 @@ html, body {
         <label>DESCRIPTION <span style="color:var(--text-muted);font-weight:400">(paste the full challenge text here)</span></label>
         <textarea id="new-desc" placeholder="Paste the complete challenge description, URLs, hints, anything the agent should know"></textarea>
       </div>
+      <div class="field" style="margin-bottom:0">
+        <label>FILES <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
+        <div id="new-upload-zone" style="border:1px dashed var(--border2);border-radius:var(--radius);padding:14px 12px;text-align:center;cursor:pointer;transition:all 0.2s;">
+          <div style="font-size:20px;margin-bottom:4px;">&#128193;</div>
+          <div style="font-size:11px;color:var(--text-dim);">Drop files or click to browse</div>
+          <input type="file" id="new-upload-input" multiple style="display:none">
+        </div>
+        <div id="new-staged-files" style="margin-top:6px;display:flex;flex-direction:column;gap:3px;"></div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" data-close="modal-new">Cancel</button>
@@ -1344,6 +1451,15 @@ html, body {
       <div class="field">
         <label>DESCRIPTION <span style="color:var(--text-muted);font-weight:400">(paste the full challenge text here)</span></label>
         <textarea id="edit-desc" placeholder="Paste the complete challenge description, URLs, hints, anything the agent should know"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>ADD FILES <span style="color:var(--text-muted);font-weight:400">(optional — appends to existing files)</span></label>
+        <div id="edit-upload-zone" style="border:1px dashed var(--border2);border-radius:var(--radius);padding:14px 12px;text-align:center;cursor:pointer;transition:all 0.2s;">
+          <div style="font-size:20px;margin-bottom:4px;">&#128193;</div>
+          <div style="font-size:11px;color:var(--text-dim);">Drop files or click to browse</div>
+          <input type="file" id="edit-upload-input" multiple style="display:none">
+        </div>
+        <div id="edit-staged-files" style="margin-top:6px;display:flex;flex-direction:column;gap:3px;"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -1401,6 +1517,21 @@ html, body {
       <div id="settings-save-msg" style="font-size:12px;color:var(--cyan);display:none;margin-top:4px">
         Saved.
       </div>
+
+      <!-- Network access -->
+      <div class="field" style="margin-bottom:0;margin-top:4px;">
+        <label>NETWORK ACCESS</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+          <code id="network-url" style="flex:1;font-family:var(--font-mono);font-size:13px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;color:var(--cyan);">loading...</code>
+          <button class="btn btn-ghost btn-sm" id="btn-copy-network-url" type="button">Copy</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:5px;font-family:var(--font-mono);">Share this URL with teammates on the same network. Enable Local Lock above to require a password.</div>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:8px;">
+      <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:0.1em;margin-right:4px;">DOCKER</span>
+      <button class="btn btn-ghost btn-sm" id="btn-build-open">Build Image</button>
+      <button class="btn btn-danger btn-sm" id="btn-reset-all">Reset All</button>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" id="btn-settings-about" type="button" style="margin-right:auto;">About</button>
@@ -1767,7 +1898,64 @@ socket.on('build_log', ({ line, done, error }) => {
   }
 });
 
-//  API helpers 
+//  Multi-client sync
+socket.on('challenge_updated', (data) => {
+  if (!data || !data.id) return;
+  const idx = state.challenges.findIndex(c => c.id === data.id);
+  if (idx >= 0) {
+    state.challenges[idx] = data;
+  } else {
+    state.challenges.push(data);
+  }
+  renderCards();
+  updateDashboardMetrics();
+  if (data.id === state.currentCid) {
+    // Update header elements without wiping the chat feed
+    const color = CAT_COLORS[data.category] || '#888';
+    const badge = document.getElementById('ch-category-badge');
+    if (badge) { badge.textContent = (data.category || 'misc').toUpperCase(); badge.style.color = color; }
+    const titleEl = document.getElementById('ch-title');
+    if (titleEl) titleEl.textContent = sanitizeText(data.name || '');
+    renderStatusBadge(data.status, !!data.running);
+    renderFileList(data.files || []);
+    renderWriteupSection(data);
+    updateSolveButtons(data.status);
+    if (data.flag || data.flag_candidate) {
+      document.getElementById('manual-flag-input').value = data.flag || data.flag_candidate;
+      showFlag(data.flag || data.flag_candidate);
+    }
+    if (typeof data.cost_usd === 'number') {
+      const costEl = document.getElementById('cost-display');
+      if (costEl) costEl.textContent = data.cost_usd > 0 ? `$${data.cost_usd.toFixed(4)}` : '-';
+    }
+  }
+});
+
+socket.on('challenge_deleted', ({ cid }) => {
+  if (!cid) return;
+  state.challenges = state.challenges.filter(c => c.id !== cid);
+  renderCards();
+  updateDashboardMetrics();
+  if (cid === state.currentCid) {
+    state.currentCid = null;
+    state.agentRunning = false;
+    switchView('view-dashboard');
+    toast('This challenge was deleted by another user.', 'info');
+  }
+});
+
+socket.on('challenges_reset', () => {
+  state.challenges = [];
+  state.currentCid = null;
+  state.agentRunning = false;
+  state.logCache = {};
+  state.cardErrors = {};
+  renderCards();
+  updateDashboardMetrics();
+  switchView('view-dashboard');
+});
+
+//  API helpers
 async function api(path, opts = {}) {
   const r = await fetch(path, {
     cache: 'no-store',
@@ -1775,7 +1963,12 @@ async function api(path, opts = {}) {
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
-  const data = await r.json();
+  let data;
+  try {
+    data = await r.json();
+  } catch {
+    return null;
+  }
   if (r.status === 401 && data && data.error === 'locked') {
     window.location.href = '/';
   }
@@ -1796,13 +1989,13 @@ async function checkDockerStatus() {
       state.dockerBuildInProgress = false;
     } else if (!s.image) {
       el.className = 'status-pill warn';
-      el.innerHTML = '<div class="dot"></div><span>Image not built</span>';
+      el.innerHTML = '<div class="dot"></div><span>Image not built — click to build</span>';
     } else if (s.build_in_progress) {
       el.className = 'status-pill warn';
       el.innerHTML = '<div class="dot"></div><span>Building image...</span>';
     } else if (!s.build_ready) {
       el.className = 'status-pill warn';
-      el.innerHTML = '<div class="dot"></div><span>Build required before launch</span>';
+      el.innerHTML = '<div class="dot"></div><span>Build required — click to build</span>';
     } else {
       el.className = 'status-pill ok';
       const n = (typeof s.active_containers === 'number') ? s.active_containers : (s.active_agents || 0);
@@ -2184,39 +2377,21 @@ function updateAgentActivity() {
   const el = document.getElementById('agent-activity');
   const labelEl = document.getElementById('agent-activity-label');
   const timeEl = document.getElementById('agent-activity-time');
-  const statusLine = document.getElementById('agent-status-line');
   if (!el || !labelEl || !timeEl) return;
 
   if (!state.agentRunning) {
     el.classList.remove('running');
     labelEl.textContent = 'IDLE';
     timeEl.textContent = '';
-    if (statusLine) statusLine.textContent = 'Idle.';
     return;
   }
 
   el.classList.add('running');
-  const baseLabel = state.lastActivityLabel || 'RUNNING';
-  labelEl.textContent = baseLabel.toUpperCase();
-  let agoText = '...';
-  let ageMs = null;
+  labelEl.textContent = (state.lastActivityLabel || 'RUNNING').toUpperCase();
   if (state.lastActivityAt) {
-    ageMs = Date.now() - state.lastActivityAt;
-    agoText = formatAgo(ageMs);
-  }
-  timeEl.textContent = agoText;
-
-  if (statusLine) {
-    const ch = state.challenges.find(c => c.id === state.currentCid);
-    const limit = ch ? (STEP_LIMITS[ch.category] || 80) : null;
-    const stepStr = limit ? `step ${state.stepCount}/${limit}` : `step ${state.stepCount}`;
-    if (ageMs !== null && ageMs > 5000) {
-      statusLine.textContent = `Waiting on model response (${stepStr}, no output for ${agoText})`;
-    } else if (state.lastActivityLabel) {
-      statusLine.textContent = `Running: ${state.lastActivityLabel} - ${stepStr}`;
-    } else {
-      statusLine.textContent = `Running - ${stepStr}`;
-    }
+    timeEl.textContent = formatAgo(Date.now() - state.lastActivityAt);
+  } else {
+    timeEl.textContent = '...';
   }
 }
 
@@ -2296,24 +2471,25 @@ function openEditChallengeModal() {
   openModal('modal-edit-challenge');
 }
 
-//  Upload 
+//  Upload
 function setupUpload() {
-  const zone  = document.getElementById('upload-zone');
   const input = document.getElementById('upload-input-hidden');
+  const addBtn = document.getElementById('btn-upload-more');
+  const filesMenu = document.getElementById('ch-files-menu');
 
-  zone.addEventListener('click', () => input.click());
-  input.addEventListener('change', () => uploadFiles(input.files));
+  if (addBtn) addBtn.addEventListener('click', () => input.click());
+  if (input) input.addEventListener('change', () => { uploadFiles(input.files); input.value = ''; });
 
-  zone.addEventListener('dragover', e => {
-    e.preventDefault();
-    zone.classList.add('drag-over');
-  });
-  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-  zone.addEventListener('drop', e => {
-    e.preventDefault();
-    zone.classList.remove('drag-over');
-    uploadFiles(e.dataTransfer.files);
-  });
+  // Drag-drop on files popout
+  if (filesMenu) {
+    filesMenu.addEventListener('dragover', e => { e.preventDefault(); filesMenu.style.outline = '2px dashed var(--accent)'; });
+    filesMenu.addEventListener('dragleave', () => { filesMenu.style.outline = ''; });
+    filesMenu.addEventListener('drop', e => {
+      e.preventDefault();
+      filesMenu.style.outline = '';
+      if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+    });
+  }
 }
 
 function showUploadProgress(name) {
@@ -2440,12 +2616,23 @@ document.addEventListener('DOMContentLoaded', () => {
     loadChallenges();
   });
 
-  // Filter tabs
-  document.querySelectorAll('.filter-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      state.filter = tab.dataset.cat;
+  // Filter popout
+  const filterToggleBtn = document.getElementById('btn-filter-toggle');
+  const filterMenu = document.getElementById('filter-menu');
+  filterToggleBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = filterMenu.classList.contains('open');
+    closeAllPopouts();
+    if (!open) filterMenu.classList.add('open');
+  });
+  filterMenu.addEventListener('click', e => e.stopPropagation());
+  document.querySelectorAll('.filter-cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.filter = btn.dataset.cat;
+      const label = btn.dataset.cat === 'all' ? 'ALL' : btn.dataset.cat.toUpperCase();
+      filterToggleBtn.textContent = `Filter: ${label}`;
       renderCards();
     });
   });
@@ -2454,9 +2641,28 @@ document.addEventListener('DOMContentLoaded', () => {
     state.hideSolved = !state.hideSolved;
     hideSolvedBtn.classList.toggle('active', state.hideSolved);
     hideSolvedBtn.setAttribute('aria-pressed', state.hideSolved ? 'true' : 'false');
-    hideSolvedBtn.textContent = state.hideSolved ? 'SHOW SOLVED' : 'HIDE SOLVED';
+    hideSolvedBtn.textContent = state.hideSolved ? 'ON' : 'OFF';
     renderCards();
   });
+
+  // Challenge header popouts
+  function setupChPopout(wrapId, toggleId, menuId) {
+    const toggle = document.getElementById(toggleId);
+    const menu = document.getElementById(menuId);
+    if (!toggle || !menu) return;
+    toggle.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = menu.classList.contains('open');
+      closeAllPopouts();
+      if (!open) menu.classList.add('open');
+    });
+    menu.addEventListener('click', e => e.stopPropagation());
+  }
+  setupChPopout('ch-files-wrap', 'btn-files-toggle', 'ch-files-menu');
+  setupChPopout('ch-info-wrap', 'btn-info-toggle', 'ch-info-menu');
+  setupChPopout('ch-solve-wrap', 'btn-solve-toggle', 'ch-solve-menu');
+  setupChPopout('ch-more-wrap', 'btn-more-toggle', 'ch-more-menu');
+
   const solvedToggle = document.getElementById('dash-solved-toggle');
   solvedToggle.addEventListener('click', () => {
     state.solvedDisplayMode = state.solvedDisplayMode === 'fraction' ? 'percent' : 'fraction';
@@ -2464,10 +2670,40 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // New challenge
-  document.getElementById('btn-new-challenge').addEventListener('click', () => openModal('modal-new'));
+  document.getElementById('btn-new-challenge').addEventListener('click', () => {
+    newStagedFiles.length = 0;
+    renderNewStagedFiles();
+    openModal('modal-new');
+  });
+  // New challenge modal upload zone
+  const newUploadZone = document.getElementById('new-upload-zone');
+  const newUploadInput = document.getElementById('new-upload-input');
+  if (newUploadZone && newUploadInput) {
+    newUploadZone.addEventListener('click', () => newUploadInput.click());
+    newUploadInput.addEventListener('change', () => {
+      for (const f of newUploadInput.files) {
+        if (!newStagedFiles.find(s => s.name === f.name)) newStagedFiles.push(f);
+      }
+      renderNewStagedFiles();
+      newUploadInput.value = '';
+    });
+    newUploadZone.addEventListener('dragover', e => { e.preventDefault(); newUploadZone.style.borderColor = 'var(--accent)'; newUploadZone.style.background = 'rgba(217,115,87,0.05)'; });
+    newUploadZone.addEventListener('dragleave', () => { newUploadZone.style.borderColor = ''; newUploadZone.style.background = ''; });
+    newUploadZone.addEventListener('drop', e => {
+      e.preventDefault();
+      newUploadZone.style.borderColor = '';
+      newUploadZone.style.background = '';
+      for (const f of e.dataTransfer.files) {
+        if (!newStagedFiles.find(s => s.name === f.name)) newStagedFiles.push(f);
+      }
+      renderNewStagedFiles();
+    });
+  }
   document.getElementById('btn-create-challenge').addEventListener('click', async () => {
     const name = document.getElementById('new-name').value.trim();
     if (!name) { document.getElementById('new-name').focus(); return; }
+    const btn = document.getElementById('btn-create-challenge');
+    btn.disabled = true;
     const newChal = await api('/api/challenges', {
       method: 'POST',
       body: {
@@ -2477,12 +2713,21 @@ document.addEventListener('DOMContentLoaded', () => {
         description: document.getElementById('new-desc').value.trim(),
       }
     });
+    const filesToUpload = [...newStagedFiles];
+    newStagedFiles.length = 0;
+    renderNewStagedFiles();
     document.getElementById('new-name').value = '';
     document.getElementById('new-flagfmt').value = '';
     document.getElementById('new-desc').value = '';
+    btn.disabled = false;
     closeModal('modal-new');
-    // Add to local state and open immediately so the upload zone is visible
     state.challenges.push(newChal);
+    // Upload any staged files
+    for (const file of filesToUpload) {
+      const fd = new FormData();
+      fd.append('file', file);
+      try { await fetch(`/api/challenges/${newChal.id}/upload`, { method: 'POST', body: fd }); } catch {}
+    }
     openChallenge(newChal.id);
   });
 
@@ -2490,7 +2735,36 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('new-name').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('btn-create-challenge').click();
   });
-  document.getElementById('btn-edit-challenge').addEventListener('click', () => openEditChallengeModal());
+  document.getElementById('btn-edit-challenge').addEventListener('click', () => {
+    editStagedFiles.length = 0;
+    renderEditStagedFiles();
+    openEditChallengeModal();
+    closeAllPopouts();
+  });
+  // Edit modal upload zone
+  const editUploadZone = document.getElementById('edit-upload-zone');
+  const editUploadInput = document.getElementById('edit-upload-input');
+  if (editUploadZone && editUploadInput) {
+    editUploadZone.addEventListener('click', () => editUploadInput.click());
+    editUploadInput.addEventListener('change', () => {
+      for (const f of editUploadInput.files) {
+        if (!editStagedFiles.find(s => s.name === f.name)) editStagedFiles.push(f);
+      }
+      renderEditStagedFiles();
+      editUploadInput.value = '';
+    });
+    editUploadZone.addEventListener('dragover', e => { e.preventDefault(); editUploadZone.style.borderColor = 'var(--accent)'; editUploadZone.style.background = 'rgba(217,115,87,0.05)'; });
+    editUploadZone.addEventListener('dragleave', () => { editUploadZone.style.borderColor = ''; editUploadZone.style.background = ''; });
+    editUploadZone.addEventListener('drop', e => {
+      e.preventDefault();
+      editUploadZone.style.borderColor = '';
+      editUploadZone.style.background = '';
+      for (const f of e.dataTransfer.files) {
+        if (!editStagedFiles.find(s => s.name === f.name)) editStagedFiles.push(f);
+      }
+      renderEditStagedFiles();
+    });
+  }
   document.getElementById('btn-save-challenge-edit').addEventListener('click', async () => {
     if (!state.currentCid) return;
     const name = document.getElementById('edit-name').value.trim();
@@ -2508,7 +2782,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (res && res.id) {
       const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
       if (idx >= 0) state.challenges[idx] = res;
+      // Upload any staged files
+      const filesToUpload = [...editStagedFiles];
+      editStagedFiles.length = 0;
+      renderEditStagedFiles();
       closeModal('modal-edit-challenge');
+      for (const file of filesToUpload) {
+        const fd = new FormData();
+        fd.append('file', file);
+        try { await fetch(`/api/challenges/${state.currentCid}/upload`, { method: 'POST', body: fd }); } catch {}
+      }
       await refreshCurrentChallenge();
       renderCards();
       toast('Challenge updated.', 'success');
@@ -2574,7 +2857,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Manual solve / unsolve
   document.getElementById('btn-mark-solved').addEventListener('click', async () => {
-    if (!state.currentCid) return;
+    const cid = state.currentCid;
+    if (!cid) return;
     const flagVal = document.getElementById('manual-flag-input').value.trim();
     const body = {
       status: 'solved',
@@ -2582,59 +2866,57 @@ document.addEventListener('DOMContentLoaded', () => {
       approved_at: new Date().toISOString(),
     };
     if (flagVal) body.flag = flagVal;
-    const res = await api(`/api/challenges/${state.currentCid}`, { method: 'PUT', body });
-    if (res && res.id) {
-      const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
-      if (idx >= 0) {
-        state.challenges[idx].status = 'solved';
-        if (flagVal) {
-          state.challenges[idx].flag = flagVal;
-          state.challenges[idx].flag_candidate = flagVal;
-        }
+    try {
+      const res = await api(`/api/challenges/${cid}`, { method: 'PUT', body });
+      if (res && res.id) {
+        const idx = state.challenges.findIndex(ch => ch.id === cid);
+        if (idx >= 0) state.challenges[idx] = { ...state.challenges[idx], ...res };
+        renderStatusBadge('solved', false);
+        renderWriteupSection(res);
+        renderCards();
+        updateSolveButtons('solved');
+        if (flagVal) showFlag(flagVal);
+        else document.getElementById('flag-banner').classList.remove('visible');
+        toast('Challenge marked as solved!', 'success');
+      } else {
+        toast(res?.error || 'Failed to update challenge', 'error');
       }
-      renderStatusBadge('solved', false);
-      renderWriteupSection(res);
-      renderCards();
-      updateSolveButtons('solved');
-      if (flagVal) showFlag(flagVal);
-      else { document.getElementById('flag-banner').classList.remove('visible'); }
-      toast('Challenge marked as solved!', 'success');
-    } else {
+    } catch (err) {
       toast('Failed to update challenge', 'error');
     }
   });
 
   document.getElementById('btn-mark-unsolved').addEventListener('click', async () => {
-    if (!state.currentCid) return;
-    const res = await api(`/api/challenges/${state.currentCid}`, {
-      method: 'PUT',
-      body: {
-        status: 'unsolved',
-        flag: null,
-        flag_candidate: null,
-        flag_how: null,
-        approved_at: null,
-        writeup_md: null,
-        writeup_path: null,
-        writeup_ready_at: null,
-      },
-    });
-    if (res && res.id) {
-      const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
-      if (idx >= 0) {
-        state.challenges[idx].status = 'unsolved';
-        state.challenges[idx].flag = null;
-        state.challenges[idx].flag_candidate = null;
-        state.challenges[idx].writeup_md = null;
+    const cid = state.currentCid;
+    if (!cid) return;
+    try {
+      const res = await api(`/api/challenges/${cid}`, {
+        method: 'PUT',
+        body: {
+          status: 'unsolved',
+          flag: null,
+          flag_candidate: null,
+          flag_how: null,
+          approved_at: null,
+          writeup_md: null,
+          writeup_path: null,
+          writeup_ready_at: null,
+        },
+      });
+      if (res && res.id) {
+        const idx = state.challenges.findIndex(ch => ch.id === cid);
+        if (idx >= 0) state.challenges[idx] = { ...state.challenges[idx], ...res };
+        renderStatusBadge('unsolved', false);
+        renderWriteupSection(res);
+        renderCards();
+        updateSolveButtons('unsolved');
+        document.getElementById('flag-banner').classList.remove('visible');
+        document.getElementById('manual-flag-input').value = '';
+        toast('Challenge unmarked.', 'success');
+      } else {
+        toast(res?.error || 'Failed to update challenge', 'error');
       }
-      renderStatusBadge('unsolved', false);
-      renderWriteupSection(res);
-      renderCards();
-      updateSolveButtons('unsolved');
-      document.getElementById('flag-banner').classList.remove('visible');
-      document.getElementById('manual-flag-input').value = '';
-      toast('Challenge unmarked.', 'success');
-    } else {
+    } catch (err) {
       toast('Failed to update challenge', 'error');
     }
   });
@@ -2735,12 +3017,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Settings
   document.getElementById('btn-settings-open').addEventListener('click', () => {
-    setDockerMenuOpen(false);
+    closeAllPopouts();
     loadSettings();
     openModal('modal-settings');
   });
   document.getElementById('btn-settings-about').addEventListener('click', () => {
     openModal('modal-about');
+  });
+  document.getElementById('btn-copy-network-url').addEventListener('click', () => {
+    const url = document.getElementById('network-url').textContent.trim();
+    if (url && url !== 'loading...') {
+      navigator.clipboard.writeText(url);
+      const btn = document.getElementById('btn-copy-network-url');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+    }
   });
   document.getElementById('btn-lock-app').addEventListener('click', async () => {
     const res = await api('/api/auth/lock', { method: 'POST' });
@@ -2752,14 +3043,23 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('docker-status').addEventListener('click', async (e) => {
     e.stopPropagation();
-    await toggleDockerMenu();
+    // If image not built or build required, go straight to the build modal
+    if (!state.dockerBuildReady && !state.dockerBuildInProgress) {
+      closeAllPopouts();
+      openModal('modal-build');
+      return;
+    }
+    const menu = document.getElementById('docker-menu');
+    const opening = !menu.classList.contains('open');
+    closeAllPopouts();
+    if (opening) { await loadActiveContainers(); setDockerMenuOpen(true); }
   });
   document.getElementById('docker-menu').addEventListener('click', (e) => {
     e.stopPropagation();
   });
-  document.addEventListener('click', () => setDockerMenuOpen(false));
+  document.addEventListener('click', () => closeAllPopouts());
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') setDockerMenuOpen(false);
+    if (e.key === 'Escape') closeAllPopouts();
   });
   document.getElementById('oai-remove').addEventListener('click', () => {
     _settingsClearOai = true;
@@ -2881,7 +3181,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-//  Helpers 
+//  Helpers
+function closeAllPopouts() {
+  document.querySelectorAll('.ch-popout, #filter-menu, #docker-menu').forEach(m => m.classList.remove('open'));
+  const dockerBtn = document.getElementById('docker-status');
+  if (dockerBtn) dockerBtn.setAttribute('aria-expanded', 'false');
+}
+
 function switchView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -3029,7 +3335,27 @@ function sanitizeText(value) {
   return s.replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '');
 }
 
-//  Settings 
+//  Staged files for modals
+let newStagedFiles = [];
+let editStagedFiles = [];
+
+function renderStagedFileList(files, containerId, renderFn) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  if (!files.length) { container.innerHTML = ''; return; }
+  container.innerHTML = files.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">
+      <span style="font-size:12px;">&#128196;</span>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(f.name)}</span>
+      <button onclick="${renderFn}(${i})" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1;">&times;</button>
+    </div>`).join('');
+}
+function renderNewStagedFiles() { renderStagedFileList(newStagedFiles, 'new-staged-files', 'removeNewFile'); }
+function removeNewFile(i) { newStagedFiles.splice(i, 1); renderNewStagedFiles(); }
+function renderEditStagedFiles() { renderStagedFileList(editStagedFiles, 'edit-staged-files', 'removeEditFile'); }
+function removeEditFile(i) { editStagedFiles.splice(i, 1); renderEditStagedFiles(); }
+
+//  Settings
 let _settingsClearOai = false;
 let _settingsClearAnt = false;
 let _securityEnabled = false;
@@ -3077,6 +3403,12 @@ async function loadSettings() {
   _securityPasswordSet = !!cfg.local_lock_password_set;
   renderSecurityControls();
   document.getElementById('settings-save-msg').style.display = 'none';
+
+  // Network URL
+  const netUrlEl = document.getElementById('network-url');
+  if (netUrlEl && cfg.local_ip && cfg.port) {
+    netUrlEl.textContent = `http://${cfg.local_ip}:${cfg.port}`;
+  }
 }
 
 async function loadActiveContainers() {

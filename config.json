@@ -7,9 +7,13 @@
   "allow_nonstandard_submit": false,
   "hypothesis_budget": 2,
   "allow_runtime_installs": false,
+  "max_tool_calls_per_turn": 3,
+  "family_budget_non_web": 4,
+  "family_budget_web": 1,
   "broad_eval_min_total_challenges": 100,
   "broad_eval_min_categories": 5,
   "broad_eval_min_challenges_per_category": 10,
   "broad_eval_min_solve_rate": 0.6,
-  "local_lock_enabled": false
+  "local_lock_enabled": true,
+  "local_lock_password_hash": "scrypt:32768:8:1$ShURZvKpili944IS$27863aec8b1d85e78cb5953988fb8216798e7d5b3dc6a4771e0a449a9594313267cba2e3262324ea3000d25a42f0c71890160463565d815afcd32e5c266b51c8"
 }

@@ -15,12 +15,17 @@ AVAILABLE TOOLS:
 - run_command  : run any bash command in the container
 - run_gdb      : run GDB+pwndbg on a binary in batch mode (never hangs)
 - write_file   : write a file directly to /ctf/ (use for exploit scripts, solvers, C files, payloads)
+- list_files   : inspect the mounted challenge workspace without shelling out
+- extract_artifact : unpack/decode archives and extracted bundles into a destination folder
+- http_request : make a stateful HTTP request with a reusable cookie jar for web challenges
+- save_note    : append structured notes/evidence to the challenge notes file
 - submit_flag  : submit the flag the instant you find it
 - search_flag  : recursively grep /ctf/ for flag-shaped strings
 
 WORKFLOW RULES:
 - write_file → run_command is the pattern for exploit scripts: write the script, then execute it
 - Use run_gdb for binary triage and debugging; never use run_command to invoke gdb interactively
+- Prefer list_files / extract_artifact / http_request when they fit; they preserve more structure than raw shell
 - submit_flag immediately when any output contains a valid flag string
 - Only call submit_flag for canonical flag tokens (WORD{...}) unless the challenge defines an explicit non-standard flag format
 - Never guess flags. Derive them empirically from the challenge artifacts
@@ -28,7 +33,7 @@ WORKFLOW RULES:
 - During execution turns, respond with tool calls only. During planning/re-planning, respond with text.
 - All tool arguments must be valid JSON
 - Work hypothesis-first: state what you are testing and what output would confirm/deny it
-- Prefer one decisive targeted command over many shallow recon commands
+- Prefer 1-3 decisive tool calls over many shallow recon commands
 - After each result: update confirmed facts, ruled-out paths, next best action
 - If 3 consecutive actions yield no new evidence, CHANGE strategy entirely
 - If a command returns "command not found", auto-install the tool and retry once
@@ -76,6 +81,8 @@ ENCODED STRINGS - ALWAYS DECODE IMMEDIATELY:
 EXAMPLES (correct):
   write_file: {"filename":"exploit.py","content":"from pwn import *\n...","reasoning":"pwntools exploit"}
   run_gdb: {"binary_path":"/ctf/vuln","gdb_commands":["checksec","info functions","disas main"]}
+  http_request: {"url":"http://target.local/login","method":"POST","form":{"username":"admin","password":"admin"},"session_name":"main"}
+  save_note: {"title":"Observed auth cookie","content":"Session cookie changes after /login.","kind":"evidence"}
   submit_flag: {"flag":"picoCTF{abc123}","how_found":"printed by binary after exploit"}
 
 EXAMPLES (incorrect):
@@ -86,7 +93,7 @@ EXAMPLES (incorrect):
 
 COMPACT_BASE_RULES = """You are a deterministic CTF solving agent in a Kali container.
 Use only tool calls during execution turns. Never guess flags.
-Prefer one decisive command over broad exploration. Use exactly one decisive tool call per turn.
+Prefer 1-3 decisive tool calls over broad exploration. Use structured tools before raw shell when they fit.
 Do not ask the user for approval; execute the best next action autonomously.
 If no progress after 2 actions on a hypothesis, pivot strategy.
 Submit immediately when a canonical flag token appears (WORD{...}) unless challenge flag format says otherwise. Preserve reproducibility: avoid installing new tools unless policy allows it.
@@ -94,7 +101,7 @@ Submit immediately when a canonical flag token appears (WORD{...}) unless challe
 
 CATEGORY_EXECUTION_BRIEFS = {
     "pwn":      "Prioritize checksec, symbols, controlled crash, offset, then exploit script (write_file -> run_command).",
-    "web":      "Prioritize endpoint discovery, auth/session flaws, injection primitives, then focused exploitation.",
+    "web":      "Prioritize stateful http_request flows, auth/session flaws, injection primitives, then focused exploitation.",
     "crypto":   "Identify primitive first, test known break conditions, implement shortest solver script.",
     "forensics":"Start with file/meta triage, decode embedded artifacts, then extraction chain and targeted scans.",
     "rev":      "Triaging strings/calls first, then static+dynamic path to recover constraints/secret.",
@@ -781,6 +788,50 @@ CTF_TOOLS = [
         }, "required": ["binary_path", "gdb_commands"]},
     }},
     {"type": "function", "function": {
+        "name": "list_files",
+        "description": "List files from the mounted challenge workspace without using shell recursion.",
+        "parameters": {"type": "object", "properties": {
+            "path":           {"type": "string", "description": "Relative workspace path, defaults to '.'"},
+            "depth":          {"type": "integer", "description": "Maximum recursion depth, defaults to 3"},
+            "include_hidden": {"type": "boolean", "description": "Include dotfiles if true"},
+        }},
+    }},
+    {"type": "function", "function": {
+        "name": "extract_artifact",
+        "description": "Unpack or extract an artifact into a destination folder using unzip/tar/7z/binwalk.",
+        "parameters": {"type": "object", "properties": {
+            "path":        {"type": "string", "description": "Relative path under /ctf/ to the source artifact"},
+            "destination": {"type": "string", "description": "Relative destination folder under /ctf/"},
+            "password":    {"type": "string", "description": "Optional archive password"},
+            "tool":        {"type": "string", "description": "Optional override: auto, unzip, tar, 7z, binwalk"},
+        }, "required": ["path"]},
+    }},
+    {"type": "function", "function": {
+        "name": "http_request",
+        "description": "Make a structured HTTP request with a reusable cookie jar and optional saved response body.",
+        "parameters": {"type": "object", "properties": {
+            "url":              {"type": "string", "description": "Full URL to request"},
+            "method":           {"type": "string", "description": "HTTP method, defaults to GET"},
+            "headers":          {"type": "object", "description": "Optional header map"},
+            "body":             {"type": "string", "description": "Optional raw request body"},
+            "json_body":        {"type": "object", "description": "Optional JSON body"},
+            "form":             {"type": "object", "description": "Optional form body map"},
+            "save_to":          {"type": "string", "description": "Optional relative file path to save the response body"},
+            "session_name":     {"type": "string", "description": "Cookie jar name, defaults to default"},
+            "follow_redirects": {"type": "boolean", "description": "Follow redirects if true"},
+            "timeout":          {"type": "integer", "description": "Request timeout in seconds"},
+        }, "required": ["url"]},
+    }},
+    {"type": "function", "function": {
+        "name": "save_note",
+        "description": "Append a structured note/evidence block to the challenge notes file.",
+        "parameters": {"type": "object", "properties": {
+            "title":   {"type": "string", "description": "Short note title"},
+            "content": {"type": "string", "description": "Body of the note"},
+            "kind":    {"type": "string", "description": "Optional note kind such as note, evidence, hypothesis"},
+        }, "required": ["title", "content"]},
+    }},
+    {"type": "function", "function": {
         "name": "submit_flag",
         "description": "Submit the flag immediately when found.",
         "parameters": {"type": "object", "properties": {
@@ -815,4 +866,3 @@ ANTHROPIC_TOOLS = [
     }
     for t in CTF_TOOLS
 ]
-

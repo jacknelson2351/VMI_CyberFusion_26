@@ -6,6 +6,7 @@ import os
 import re
 import secrets
 import shutil
+import socket
 import subprocess
 import threading
 import uuid
@@ -20,17 +21,29 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from extensions import app, socketio
 from config import (
     load_config, _as_bool, _canonical_launch_model,
-    LAUNCH_MODEL_CHOICES, LAUNCH_MODEL_IDS, UPLOAD_DIR, CONFIG_PATH, BASE_DIR,
+    LAUNCH_MODEL_CHOICES, LAUNCH_MODEL_IDS, CONFIG_PATH, BASE_DIR,
 )
 from db import (
     load_challenges, get_challenge, update_challenge, build_capability_report,
-    _db_lock, _load_challenges_unlocked, _save_challenges_unlocked,
+    save_challenges, _db_lock, _load_challenges_unlocked, _save_challenges_unlocked,
 )
 from docker_mgr import (
     get_container, sync_challenge_uploads, image_exists, get_docker,
     _containers, CONTAINER_PREFIX,
 )
-from agent import _agents, _logs, _log_event, CTFAgent
+from agent import _agents, _logs, _log_event, _load_log_events, CTFAgent
+from storage import (
+    apply_challenge_defaults,
+    append_note,
+    challenge_notes_path,
+    challenge_workspace_dir,
+    normalize_import_payload,
+    read_notes,
+    remove_challenge_artifacts,
+    utc_now_iso,
+    workspace_listing,
+    write_workspace_manifest,
+)
 
 WRITEUPS_DIR = BASE_DIR / "writeups"
 WRITEUPS_DIR.mkdir(exist_ok=True)
@@ -49,6 +62,24 @@ def _trim_text(value: str, limit: int = 260) -> str:
     if len(v) <= limit:
         return v
     return v[:limit] + "..."
+
+
+def _default_launch_model() -> str:
+    cfg = load_config()
+    default_model = _canonical_launch_model(cfg.get("model"))
+    if default_model not in LAUNCH_MODEL_IDS:
+        default_model = LAUNCH_MODEL_CHOICES[0]["id"]
+    return default_model
+
+
+def _challenge_payload(chal: dict | None) -> dict | None:
+    if not chal:
+        return None
+    out = _with_runtime(apply_challenge_defaults(chal))
+    out["workspace_path"] = str(challenge_workspace_dir(out["id"]))
+    out["notes_path"] = str(challenge_notes_path(out["id"]))
+    out["workspace_files"] = workspace_listing(out["id"], max_depth=3)
+    return out
 
 
 def _docker_build_gate() -> tuple[bool, str]:
@@ -366,15 +397,22 @@ def _with_runtime(chal: dict) -> dict:
 
 @app.route("/")
 def index():
-    cfg = load_config()
-    default_model = _canonical_launch_model(cfg.get("model"))
-    if default_model not in LAUNCH_MODEL_IDS:
-        default_model = LAUNCH_MODEL_CHOICES[0]["id"]
     return render_template(
         "index.html",
         launch_models=LAUNCH_MODEL_CHOICES,
-        default_launch_model=default_model,
+        default_launch_model=_default_launch_model(),
     )
+
+
+@app.route("/api/bootstrap", methods=["GET"])
+def bootstrap_api():
+    return jsonify({
+        "launch_models": LAUNCH_MODEL_CHOICES,
+        "default_launch_model": _default_launch_model(),
+        "config": _public_config_payload(),
+        "docker": _docker_status_payload(),
+        "challenges": [_challenge_payload(c) for c in load_challenges()],
+    })
 
 
 @app.route("/manual/<cid>")
@@ -389,38 +427,34 @@ def manual_terminal_view(cid):
 
 @app.route("/api/challenges", methods=["GET"])
 def get_challenges():
-    return jsonify([_with_runtime(c) for c in load_challenges()])
+    return jsonify([_challenge_payload(c) for c in load_challenges()])
 
 
 @app.route("/api/challenges", methods=["POST"])
 def create_challenge():
-    data = request.json
-    chal = {
-        "id":            str(uuid.uuid4())[:8],
-        "name":          data.get("name", "Untitled"),
-        "category":      data.get("category", "misc"),
-        "flag_format":   data.get("flag_format", ""),
-        "description":   data.get("description", ""),
-        "files":         [],
-        "status":        "unsolved",
-        "flag":          None,
-        "flag_candidate": None,
-        "flag_how":      None,
-        "approved_at":   None,
-        "writeup_md":    None,
-        "writeup_path":  None,
-        "writeup_ready_at": None,
-        "retry_summary": None,
-        "created_at":    datetime.now().isoformat(),
-        "cost_usd":      0.0,
-        "tokens_in":     0,
-        "tokens_out":    0,
-    }
+    data = request.json or {}
+    chal = apply_challenge_defaults({
+        "id": str(uuid.uuid4())[:8],
+        "name": data.get("name", "Untitled"),
+        "category": data.get("category", "misc"),
+        "flag_format": data.get("flag_format", ""),
+        "description": data.get("description", ""),
+        "tags": data.get("tags", []),
+        "notes": data.get("notes", ""),
+        "credentials": data.get("credentials", []),
+        "target": data.get("target", {}),
+        "source_meta": data.get("source_meta", {}),
+        "created_at": utc_now_iso(),
+        "last_activity_at": utc_now_iso(),
+    })
     with _db_lock:
         chals = _load_challenges_unlocked()
         chals.append(chal)
         _save_challenges_unlocked(chals)
-    return jsonify(chal)
+    challenge_workspace_dir(chal["id"])
+    write_workspace_manifest(chal)
+    _broadcast_challenge(chal)
+    return jsonify(_challenge_payload(chal))
 
 
 @app.route("/api/challenges/<cid>", methods=["GET"])
@@ -428,14 +462,83 @@ def get_challenge_route(cid):
     chal = get_challenge(cid)
     if not chal:
         return jsonify({"error": "Not found"}), 404
-    return jsonify(_with_runtime(chal))
+    return jsonify(_challenge_payload(chal))
 
 
 @app.route("/api/challenges/<cid>/logs", methods=["GET"])
 def get_challenge_logs(cid):
     if not get_challenge(cid):
         return jsonify({"error": "Not found"}), 404
-    return jsonify(_logs.get(cid, []))
+    return jsonify(_load_log_events(cid))
+
+
+@app.route("/api/challenges/export", methods=["GET"])
+def export_challenges():
+    return jsonify({"challenges": load_challenges()})
+
+
+@app.route("/api/challenges/import", methods=["POST"])
+def import_challenges():
+    data = request.get_json(force=True) or {}
+    imported = normalize_import_payload(data.get("payload"))
+    if not imported:
+        return jsonify({"error": "No importable challenge records found."}), 400
+    existing = load_challenges()
+    for item in imported:
+        item["id"] = str(uuid.uuid4())[:8]
+        item["created_at"] = utc_now_iso()
+        item["last_activity_at"] = item["created_at"]
+        existing.append(item)
+        challenge_workspace_dir(item["id"])
+        write_workspace_manifest(item)
+    save_challenges(existing)
+    return jsonify({
+        "ok": True,
+        "imported": len(imported),
+        "challenges": [_challenge_payload(c) for c in existing],
+    })
+
+
+@app.route("/api/challenges/<cid>/workspace", methods=["GET"])
+def challenge_workspace(cid):
+    chal = get_challenge(cid)
+    if not chal:
+        return jsonify({"error": "Not found"}), 404
+    max_depth = max(1, min(int(request.args.get("depth") or 4), 8))
+    include_hidden = bool(request.args.get("include_hidden"))
+    return jsonify({
+        "cid": cid,
+        "path": str(challenge_workspace_dir(cid)),
+        "entries": workspace_listing(cid, max_depth=max_depth, include_hidden=include_hidden),
+    })
+
+
+@app.route("/api/challenges/<cid>/notes", methods=["GET"])
+def challenge_notes(cid):
+    chal = get_challenge(cid)
+    if not chal:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify({
+        "cid": cid,
+        "notes": read_notes(cid),
+        "path": str(challenge_notes_path(cid)),
+    })
+
+
+@app.route("/api/challenges/<cid>/notes", methods=["POST"])
+def challenge_notes_append(cid):
+    chal = get_challenge(cid)
+    if not chal:
+        return jsonify({"error": "Not found"}), 404
+    data = request.get_json(force=True) or {}
+    path = append_note(
+        cid,
+        title=data.get("title") or "Manual Note",
+        content=data.get("content") or "",
+        kind=data.get("kind") or "manual",
+    )
+    update_challenge(cid, last_activity_at=utc_now_iso())
+    return jsonify({"ok": True, "path": path, "notes": read_notes(cid)})
 
 
 @app.route("/api/challenges/<cid>/manual-start", methods=["POST"])
@@ -472,11 +575,15 @@ def manual_start_container(cid):
         "combined_hint": "Inside the shell, run: tail -n 120 -f /ctf/.agent_live.log",
         "listing": listing,
         "message": "Manual container session is ready. Agent launch is optional.",
+        "workspace_path": str(challenge_workspace_dir(cid)),
         "challenge": {
             "name": chal.get("name", ""),
             "category": chal.get("category", ""),
             "description": chal.get("description", ""),
             "files": chal.get("files", []) or [],
+            "tags": chal.get("tags", []) or [],
+            "target": chal.get("target", {}) or {},
+            "source_meta": chal.get("source_meta", {}) or {},
         },
     }
     return jsonify(payload)
@@ -515,9 +622,21 @@ def manual_cli_run(cid):
 
 @app.route("/api/challenges/<cid>", methods=["PUT"])
 def update_challenge_route(cid):
-    data = request.json
+    chal = get_challenge(cid)
+    if not chal:
+        return jsonify({"error": "Not found"}), 404
+    data = request.json or {}
+    if "files" not in data:
+        workspace_files = [
+            entry["path"]
+            for entry in workspace_listing(cid, max_depth=1)
+            if entry["kind"] == "file" and "/" not in entry["path"]
+        ]
+        data["files"] = workspace_files
     update_challenge(cid, **data)
-    return jsonify(get_challenge(cid))
+    updated = get_challenge(cid)
+    _broadcast_challenge(updated)
+    return jsonify(_challenge_payload(updated))
 
 
 @app.route("/api/challenges/<cid>/approve-flag", methods=["POST"])
@@ -555,9 +674,11 @@ def approve_flag_route(cid):
         socketio.emit("done", payload, room=cid)
         _log_event(cid, "flag_rejected", payload)
         _log_event(cid, "done", payload)
-        return jsonify(get_challenge(cid))
+        updated = get_challenge(cid)
+        _broadcast_challenge(updated)
+        return jsonify(_challenge_payload(updated))
 
-    logs = _logs.get(cid, [])
+    logs = _load_log_events(cid)
     writeup_md = _build_writeup_markdown(chal, logs, candidate, validator_notes=notes)
     writeup_file = WRITEUPS_DIR / f"{cid}.md"
     writeup_file.write_text(writeup_md, encoding="utf-8")
@@ -604,7 +725,9 @@ def approve_flag_route(cid):
     socketio.emit("done", payload, room=cid)
     _log_event(cid, "flag_approved", payload)
     _log_event(cid, "done", payload)
-    return jsonify(get_challenge(cid))
+    updated = get_challenge(cid)
+    _broadcast_challenge(updated)
+    return jsonify(_challenge_payload(updated))
 
 
 @app.route("/api/challenges/<cid>/writeup", methods=["GET"])
@@ -656,6 +779,8 @@ def delete_challenge(cid):
                 wp.unlink()
     except Exception:
         pass
+    remove_challenge_artifacts(cid)
+    _broadcast_challenge_deleted(cid)
     return jsonify({"ok": True})
 
 
@@ -675,26 +800,24 @@ def upload_file(cid):
     if not fname:
         return jsonify({"error": "Invalid filename"}), 400
 
-    # Use per-challenge subdirectory to prevent filename collisions across challenges
-    chal_upload_dir = UPLOAD_DIR / cid
-    chal_upload_dir.mkdir(exist_ok=True)
-    local = chal_upload_dir / fname
+    workspace_dir = challenge_workspace_dir(cid)
+    local = workspace_dir / fname
     f.save(str(local))
 
-    files = chal.get("files", [])
+    files = list(chal.get("files", []))
     if fname not in files:
         files.append(fname)
     update_challenge(cid, files=files)
+    write_workspace_manifest(get_challenge(cid) or chal)
 
-    # Do not auto-start containers on upload. Only sync if a challenge container is already running.
+    _broadcast_challenge(get_challenge(cid))
     try:
         if cid in _containers and _containers[cid].running:
             container = _containers[cid]
-            remote = container.upload_file(str(local))
             listing = container.run("ls -lh /ctf/")
             socketio.emit("file_uploaded", {"name": fname, "listing": listing}, room=cid)
-            return jsonify({"ok": True, "name": fname, "remote": remote, "listing": listing})
-        return jsonify({"ok": True, "name": fname, "stored": True, "synced": False})
+            return jsonify({"ok": True, "name": fname, "remote": f"/ctf/{fname}", "listing": listing})
+        return jsonify({"ok": True, "name": fname, "stored": True, "synced": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -729,12 +852,33 @@ def launch_agent(cid):
 
     flag_fmt  = chal.get("flag_format", "")
     extra     = data.get("extra_context", "")
+    tags      = ", ".join(chal.get("tags") or [])
+    target    = chal.get("target") or {}
+    source_meta = chal.get("source_meta") or {}
+    creds = chal.get("credentials") or []
+    target_block = ""
+    non_empty_target = {k: v for k, v in target.items() if str(v or "").strip()}
+    if non_empty_target:
+        target_block = "\nTarget config:\n" + json.dumps(non_empty_target, indent=2) + "\n"
+    source_block = ""
+    non_empty_source = {k: v for k, v in source_meta.items() if str(v or "").strip()}
+    if non_empty_source:
+        source_block = "\nSource metadata:\n" + json.dumps(non_empty_source, indent=2) + "\n"
+    credential_block = ""
+    if creds:
+        credential_block = "\nCredentials:\n" + json.dumps(creds, indent=2) + "\n"
     full_desc = (
         f"Challenge: {chal['name']}\n"
         f"Category: {chal['category'].upper()}\n"
         f"Working directory: /ctf/\n"
+        f"Workspace path: {challenge_workspace_dir(cid)}\n"
         + (f"Flag format: {flag_fmt}\n" if flag_fmt else "")
+        + (f"Tags: {tags}\n" if tags else "")
         + (f"\n{chal.get('description', '')}\n" if chal.get("description") else "")
+        + target_block
+        + source_block
+        + credential_block
+        + (f"\nOperator notes:\n{chal.get('notes', '').strip()}\n" if chal.get("notes") else "")
         + (f"\nAdditional context: {extra}\n" if extra else "")
     )
 
@@ -750,10 +894,8 @@ def launch_agent(cid):
         writeup_ready_at=None,
     )
 
-    synced_files = []
-    chal_upload_dir = UPLOAD_DIR / cid
-    if chal_upload_dir.exists():
-        synced_files = sorted([p.name for p in chal_upload_dir.iterdir() if p.is_file()])
+    workspace_dir = challenge_workspace_dir(cid)
+    synced_files = sorted([p.name for p in workspace_dir.iterdir() if p.is_file() and not p.name.startswith(".")])
     if not synced_files:
         synced_files = list(chal.get("files") or [])
 
@@ -855,6 +997,8 @@ def reset_container(cid):
             wp.unlink()
     except Exception:
         pass
+    write_workspace_manifest(get_challenge(cid) or {"id": cid})
+    _broadcast_challenge(get_challenge(cid))
     return jsonify({"ok": True})
 
 
@@ -888,25 +1032,18 @@ def reset_all():
     except Exception:
         pass
 
-    # Clear in-memory logs and persisted challenges.
-    _logs.clear()
     _manual_mode_cids.clear()
+    _logs.clear()
     with _db_lock:
         _save_challenges_unlocked([])
+    socketio.emit("challenges_reset", {})
 
-    # Remove all uploaded files for all challenges.
-    try:
-        for p in UPLOAD_DIR.iterdir():
-            if p.is_dir():
-                shutil.rmtree(p, ignore_errors=True)
-            else:
-                try:
-                    p.unlink()
-                except FileNotFoundError:
-                    pass
-    except FileNotFoundError:
-        pass
-    UPLOAD_DIR.mkdir(exist_ok=True)
+    for root in ("workspaces", "runs"):
+        base = BASE_DIR / root
+        if base.exists():
+            for p in base.iterdir():
+                if p.is_dir():
+                    shutil.rmtree(p, ignore_errors=True)
     try:
         if WRITEUPS_DIR.exists():
             for p in WRITEUPS_DIR.iterdir():
@@ -989,6 +1126,16 @@ def auth_lock():
     return jsonify({"ok": True})
 
 
+def _broadcast_challenge(chal: dict | None) -> None:
+    if not chal:
+        return
+    socketio.emit("challenge_updated", _challenge_payload(chal))
+
+
+def _broadcast_challenge_deleted(cid: str) -> None:
+    socketio.emit("challenge_deleted", {"cid": cid})
+
+
 def _mask_key(key: str) -> str:
     """Return a safe display version of an API key."""
     if not key:
@@ -998,20 +1145,40 @@ def _mask_key(key: str) -> str:
     return key[:10] + "…" + key[-4:]
 
 
-@app.route("/api/config", methods=["GET"])
-def get_config_api():
+def _get_local_ip() -> str:
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+def _public_config_payload() -> dict:
     cfg = load_config()
     oai = cfg.get("openai_api_key") or ""
     ant = cfg.get("anthropic_api_key") or ""
-    return jsonify({
-        "openai_api_key_set":       bool(oai),
-        "openai_api_key_masked":    _mask_key(oai),
-        "anthropic_api_key_set":    bool(ant),
+    return {
+        "openai_api_key_set": bool(oai),
+        "openai_api_key_masked": _mask_key(oai),
+        "anthropic_api_key_set": bool(ant),
         "anthropic_api_key_masked": _mask_key(ant),
-        "model":                    cfg.get("model") or "gpt-5-mini",
-        "local_lock_enabled":       _lock_enabled(cfg),
-        "local_lock_password_set":  bool(_lock_hash(cfg)),
-    })
+        "model": cfg.get("model") or "gpt-5-mini",
+        "prompt_profile": cfg.get("prompt_profile") or "compact",
+        "allow_runtime_installs": _as_bool(cfg.get("allow_runtime_installs"), default=False),
+        "max_tool_calls_per_turn": int(cfg.get("max_tool_calls_per_turn") or 3),
+        "local_lock_enabled": _lock_enabled(cfg),
+        "local_lock_password_set": bool(_lock_hash(cfg)),
+        "local_ip": _get_local_ip(),
+        "port": 7331,
+    }
+
+
+@app.route("/api/config", methods=["GET"])
+def get_config_api():
+    return jsonify(_public_config_payload())
 
 
 @app.route("/api/config", methods=["POST"])
@@ -1032,6 +1199,17 @@ def save_config_api():
         new_model = (data.get("model") or "").strip()
         if new_model:
             cfg["model"] = new_model
+        prompt_profile = (data.get("prompt_profile") or "").strip().lower()
+        if prompt_profile in {"compact", "full"}:
+            cfg["prompt_profile"] = prompt_profile
+        if "allow_runtime_installs" in data:
+            cfg["allow_runtime_installs"] = bool(data.get("allow_runtime_installs"))
+        max_tool_calls = data.get("max_tool_calls_per_turn")
+        if max_tool_calls is not None:
+            try:
+                cfg["max_tool_calls_per_turn"] = max(1, min(int(max_tool_calls), 6))
+            except Exception:
+                pass
 
         current_pw = (data.get("current_password") or "").strip()
         new_pw = (data.get("new_password") or "").strip()
@@ -1079,8 +1257,7 @@ def save_config_api():
 
 # ── Docker management ──────────────────────────────────────────────────────────
 
-@app.route("/api/docker/status", methods=["GET"])
-def docker_status():
+def _docker_status_payload() -> dict:
     try:
         get_docker().ping()
         has_image = image_exists()
@@ -1098,23 +1275,27 @@ def docker_status():
             pass
         tracked_cids = {cid for cid, conn in _containers.items() if getattr(conn, "running", False)}
         running_containers = len(docker_cids | tracked_cids)
-        return jsonify({
+        return {
             "running": True,
             "image": has_image,
             "build_ready": build_ready,
             "build_in_progress": build_in_progress,
             "active_agents": running_agents,
             "active_containers": running_containers,
-        })
+        }
     except Exception as e:
-        return jsonify({
+        return {
             "running": False,
             "error": str(e),
             "build_ready": False,
             "build_in_progress": False,
             "active_agents": 0,
             "active_containers": 0,
-        })
+        }
+
+@app.route("/api/docker/status", methods=["GET"])
+def docker_status():
+    return jsonify(_docker_status_payload())
 
 
 @app.route("/api/docker/containers", methods=["GET"])

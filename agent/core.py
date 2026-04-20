@@ -72,6 +72,7 @@ class CTFAgentCore:
         self.allow_nonstandard_submit = _as_bool(cfg.get("allow_nonstandard_submit"), default=False)
         self.tool_context_limit = int(cfg.get("tool_context_limit") or 4000)
         self.hypothesis_budget = int(cfg.get("hypothesis_budget") or 2)
+        self.max_tool_calls_per_turn = max(1, min(int(cfg.get("max_tool_calls_per_turn") or 3), 6))
         self.messages= []
         self.running = False
         self.step    = 0
@@ -151,6 +152,7 @@ class CTFAgentCore:
             writeup_ready_at=None,
             approved_at=None,
         )
+        self.running = False
         self.emit("thought", {
             "text": f"Flag candidate found: {candidate}. Awaiting user approval.",
             "type": "system",
@@ -166,7 +168,6 @@ class CTFAgentCore:
             "flag": candidate,
             "message": "Flag candidate found. Validate it and approve to finalize + generate writeup.",
         })
-        self.running = False
         return True
 
     def _system_prompt(self):
@@ -333,15 +334,17 @@ class CTFAgentCore:
         # Deterministic guards that avoid unnecessary model-call attempts.
         if self.provider == "openai" and not self.openai_client:
             msg = "OpenAI model selected but no OpenAI key configured."
+            self.running = False
+            update_challenge(self.cid, status="unsolved")
             self.emit("error", {"message": msg})
             self.emit("done", {"status": "unsolved", "message": msg})
-            self.running = False
             return True
         if self.provider == "anthropic" and not self.anthropic_client:
             msg = "Anthropic model selected but no Anthropic key configured."
+            self.running = False
+            update_challenge(self.cid, status="unsolved")
             self.emit("error", {"message": msg})
             self.emit("done", {"status": "unsolved", "message": msg})
-            self.running = False
             return True
         return False
 
@@ -419,12 +422,12 @@ class CTFAgentCore:
             f"{challenge_desc}\n\nFiles in container:\n{recon}{prior_ctx}{tooling_ctx}{playbook_ctx}{web_ctx}{rev_fast_ctx}\n\n"
             f"{self._evidence_summary()}\n"
             "Execution policy:\n"
-            "- Use exactly one decisive tool call per turn.\n"
+            f"- Use between 1 and {self.max_tool_calls_per_turn} decisive tool calls per turn when a short chain is needed.\n"
             "- Do not ask for approval; execute autonomously.\n"
             "- Prefer proving or falsifying a hypothesis in one action.\n"
             "- If a hypothesis fails twice, pivot to a different hypothesis class.\n"
             "- For WEB category, strictly follow: upload validation -> execution path -> include/LFI -> bounded fuzzing.\n"
-            "Now execute the best next action with one tool call."
+            f"Now execute the best next action with up to {self.max_tool_calls_per_turn} tool calls."
         )
         self.messages.append({"role": "user", "content": initial})
 
@@ -467,7 +470,7 @@ class CTFAgentCore:
                 if _is_approval_seeking_text(msg.content):
                     self.messages.append({"role": "assistant", "content": msg.content or ""})
                     self._append_user_guidance_once(
-                        "Do not ask for approval. Choose the best next decisive action and execute it now with one tool call.",
+                        f"Do not ask for approval. Choose the best next decisive action and execute it now with up to {self.max_tool_calls_per_turn} tool calls.",
                         key="guidance:no_approval_requests",
                     )
                     continue
@@ -475,7 +478,7 @@ class CTFAgentCore:
             if not msg.tool_calls:
                 self.messages.append({"role": "assistant", "content": msg.content or ""})
                 self._append_user_guidance_once(
-                    "Use exactly one decisive tool call now. No additional planning text.",
+                    f"Use decisive tool calls now. You may use up to {self.max_tool_calls_per_turn} tool calls. No additional planning text.",
                     key="guidance:force_single_tool_call",
                 )
                 self._trace_loop("step_no_tool_calls")
@@ -492,12 +495,12 @@ class CTFAgentCore:
             for idx, tc in enumerate(msg.tool_calls):
                 fn   = tc.function.name
                 self._trace_loop("tool_dispatch_start", tool=fn, index=int(idx))
-                if idx > 0:
+                if idx >= self.max_tool_calls_per_turn:
                     step_had_error = True
                     self.messages.append({
                         "role": "tool",
                         "tool_call_id": tc.id,
-                        "content": "[tool error] Only one tool call is allowed per turn. Re-issue with a single decisive tool call.",
+                        "content": f"[tool error] Too many tool calls in one turn. Limit is {self.max_tool_calls_per_turn}.",
                     })
                     continue
                 args, arg_err = self._parse_tool_args(tc.function.arguments)
@@ -561,7 +564,7 @@ class CTFAgentCore:
                 self.emit("thought", {"text": "Low information gain across recent steps. Forcing strategy shift.", "type": "system"})
                 self.messages.append({"role": "user", "content":
                     self._evidence_summary()
-                    + "You are stuck. Pick a NEW hypothesis class and run one decisive tool call to falsify/confirm it. "
+                    + f"You are stuck. Pick a NEW hypothesis class and run up to {self.max_tool_calls_per_turn} decisive tool calls to falsify/confirm it. "
                       "Do not repeat previous command families."
                 })
                 self._trace_loop(
@@ -586,9 +589,10 @@ class CTFAgentCore:
                 )
 
         if self.running:
-            self.emit("done", {"status": "unsolved", "message": "Max steps reached without finding the flag."})
+            self.running = False
             self._save_retry_summary()
             update_challenge(self.cid, status="unsolved")
+            self.emit("done", {"status": "unsolved", "message": "Max steps reached without finding the flag."})
             self._trace_loop("run_exit_max_steps", max_steps=int(max_steps))
         self.running = False
 
@@ -782,6 +786,18 @@ class CTFAgentCore:
                 self.emit("error", {"message": str(e)})
                 self._last_tool_progress = False
                 return err
+
+        elif fn == "list_files":
+            return self._tool_list_files(args)
+
+        elif fn == "save_note":
+            return self._tool_save_note(args)
+
+        elif fn == "extract_artifact":
+            return self._tool_extract_artifact(args)
+
+        elif fn == "http_request":
+            return self._tool_http_request(args)
 
         elif fn == "search_flag":
             pattern = args.get("flag_pattern", "").strip() or self.flag_format or "flag{"

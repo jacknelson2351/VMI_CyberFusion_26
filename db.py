@@ -5,10 +5,10 @@ Also houses the capability evaluation report.
 import json
 import os
 import threading
-import time
 from datetime import datetime
 
 from config import DB_PATH, CATEGORIES, CONFIG_PATH, load_config
+from storage import apply_challenge_defaults, utc_now_iso, write_workspace_manifest
 from utils import _safe_float
 
 _db_lock = threading.RLock()
@@ -20,7 +20,8 @@ def _load_challenges_unlocked() -> list[dict]:
     if not DB_PATH.exists():
         return []
     with open(DB_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+        raw = json.load(f)
+    return [apply_challenge_defaults(item) for item in raw]
 
 
 def _save_challenges_unlocked(challenges: list[dict]):
@@ -39,7 +40,11 @@ def load_challenges() -> list[dict]:
 
 def save_challenges(challenges: list[dict]):
     with _db_lock:
-        _save_challenges_unlocked(challenges)
+        normalized = [apply_challenge_defaults(item) for item in challenges]
+        _save_challenges_unlocked(normalized)
+        for chal in normalized:
+            if chal.get("id"):
+                write_workspace_manifest(chal)
 
 
 def get_challenge(cid: str) -> dict | None:
@@ -53,6 +58,11 @@ def update_challenge(cid: str, **kwargs):
         for c in chals:
             if c["id"] == cid:
                 c.update(kwargs)
+                c["last_activity_at"] = utc_now_iso()
+                normalized = apply_challenge_defaults(c)
+                c.clear()
+                c.update(normalized)
+                write_workspace_manifest(c)
         _save_challenges_unlocked(chals)
 
 

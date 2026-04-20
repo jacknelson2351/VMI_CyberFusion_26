@@ -1,13 +1,15 @@
 # CTF Copilot (VMI CyberFusion 26)
 
-CTF Copilot is a local web app for running CTF workflows with Docker-backed challenge containers and an optional AI agent.
+CTF Copilot is a local web app for running CTF workflows with Docker-backed challenge containers, persistent per-challenge workspaces, and an optional AI agent.
 
 ## What You Get
 
-- Challenge dashboard (create, edit, track solve state)
-- Per-challenge Docker runtime
-- File uploads into `/ctf/`
-- Optional AI solve assistant (OpenAI or Anthropic key)
+- React/Vite operator workspace UI
+- Persistent per-challenge workspace mounted into `/ctf/`
+- Durable event log + notes capture per challenge
+- Rich target metadata for remote instances, proxies, credentials, and source metadata
+- Per-challenge Docker runtime with optional AI solve assistant
+- Bulk challenge import/export
 - Writeup generation after flag approval
 
 ## Prerequisites
@@ -18,25 +20,39 @@ CTF Copilot is a local web app for running CTF workflows with Docker-backed chal
 
 ## Quick Start (Recommended)
 
-1. Install dependencies:
+1. Install backend dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Start the app:
+2. Install frontend dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+3. Build the frontend bundle:
+
+```bash
+npm run build
+cd ..
+```
+
+4. Start the app:
 
 ```bash
 python server.py
 ```
 
-3. Open:
+5. Open:
 
 `http://localhost:7331`
 
-4. In the UI, open **Settings** and add your API key.
+6. In the UI, open **Settings** and add your API key.
 
-5. Click **Build Image** once.
+7. Click **Build Image** once.
 
 Important: the agent cannot launch until image build finishes successfully.
 
@@ -79,17 +95,17 @@ Then restart the server.
 
 ## First Challenge Flow
 
-1. Click **+ New Challenge**
-2. Fill in name, category, optional flag format, and description
-3. Open the challenge card
-4. Upload files
-5. Launch agent or run manually
-6. When a flag is found, review and approve/reject
-7. On approval, container is cleaned up and writeup is generated
+1. Click **New Challenge** or import a JSON challenge pack
+2. Fill in metadata, tags, target config, source metadata, and credentials
+3. Upload files into the persistent workspace
+4. Launch the agent or open the manual shell
+5. Capture notes/evidence as you go
+6. Review candidate flags and approve/reject them
+7. On approval, a markdown writeup is generated
 
 ## Manual Mode
 
-Use **Run Manually** in challenge view to start container without launching the agent.
+Use **Manual Shell** in challenge view to start a container-backed shell without launching the agent.
 
 Useful direct attach command:
 
@@ -102,6 +118,10 @@ Live log inside container:
 ```bash
 tail -n 120 -f /ctf/.agent_live.log
 ```
+
+Notes captured by the UI/agent are stored under `runs/<challenge_id>/notes.md`.
+
+Event logs are stored under `runs/<challenge_id>/events.jsonl`.
 
 ## Useful Scripts
 
@@ -128,10 +148,11 @@ python scripts/container_cli.py <challenge_id> --both
 - `Docker not running`: start Docker Desktop/Engine.
 - `Build required before launch`: run **Build Image** in UI.
 - Agent errors about missing key: set API key in Settings and save.
-- Upload worked but not in container yet: launch/run manual first; files sync to active container.
+- Files, scripts, and extracted artifacts live in `workspaces/<challenge_id>/` and are bind-mounted into `/ctf/`.
 
 ## Notes
 
 - Max upload size: `256MB`
 - Docker image tag: `ctf-kali:latest`
 - Main app entrypoint: `server.py`
+- Frontend source: `frontend/`

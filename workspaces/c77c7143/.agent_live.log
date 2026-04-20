@@ -1,0 +1,79 @@
+[2026-04-20T17:13:49Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-04-20T17:13:49Z] EXIT 0
+
+[2026-04-20T17:13:49Z] CMD ls -1 /ctf/ 2>/dev/null || true
+confidential.pdf
+[2026-04-20T17:13:49Z] EXIT 0
+
+[2026-04-20T17:13:50Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 192
+drwxr-xr-x 7 root root    224 Apr 20 17:13 .
+drwxr-xr-x 1 root root   4096 Apr 20 17:13 ..
+-rw-r--r-- 1 root root    291 Apr 20 17:13 .agent_live.log
+drwxr-xr-x 2 root root     64 Apr 20 17:13 .artifacts
+-rw-r--r-- 1 root root   1073 Apr 20 17:13 .challenge.json
+drwxr-xr-x 2 root root     64 Apr 20 17:13 .sessions
+-rw-r--r-- 1 root root 182705 Apr 20 17:13 confidential.pdf
+---
+/ctf/confidential.pdf: PDF document, version 1.7, 1 page(s)
+[2026-04-20T17:13:50Z] EXIT 0
+
+[2026-04-20T17:13:50Z] CMD command -v exiftool >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-20T17:13:50Z] EXIT 0
+
+[2026-04-20T17:13:50Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-20T17:13:50Z] EXIT 0
+
+[2026-04-20T17:13:51Z] CMD command -v binwalk >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-20T17:13:51Z] EXIT 0
+
+[2026-04-20T17:13:51Z] CMD command -v foremost >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-20T17:13:51Z] EXIT 0
+
+[2026-04-20T17:13:51Z] CMD command -v pdfinfo >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-20T17:13:51Z] EXIT 0
+
+[2026-04-20T17:13:51Z] CMD command -v yara >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-20T17:13:51Z] EXIT 0
+
+[2026-04-20T17:13:52Z] CMD command -v fls >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-20T17:13:52Z] EXIT 0
+
+[2026-04-20T17:13:52Z] CMD command -v pdf-parser.py >/dev/null 2>&1 && echo OK || echo MISSING
+MISSING
+[2026-04-20T17:13:52Z] EXIT 0
+
+[2026-04-20T17:13:52Z] CMD command -v steghide >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-20T17:13:52Z] EXIT 0
+
+[2026-04-20T17:13:52Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-20T17:13:52Z] EXIT 0
+
+[2026-04-20T17:13:57Z] CMD exiftool /ctf/confidential.pdf
+ExifTool Version Number         : 13.36
+File Name                       : confidential.pdf
+Directory                       : /ctf
+File Size                       : 183 kB
+File Modification Date/Time     : 2026:04:20 17:13:46+00:00
+File Access Date/Time           : 2026:04:20 17:13:48+00:00
+File Inode Change Date/Time     : 2026:04:20 17:13:46+00:00
+File Permissions                : -rw-r--r--
+File Type                       : PDF
+File Type Extension             : pdf
+MIME Type                       : application/pdf
+PDF Version                     : 1.7
+Linearized                      : No
+Page Count                      : 1
+Producer                        : PyPDF2
+Author                          : cGljb0NURntwdXp6bDNkX20zdGFkYXRhX2YwdW5kIV9mOTQzMDBjNH0=
+[2026-04-20T17:13:57Z] EXIT 0
+
