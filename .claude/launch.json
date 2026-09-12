@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ctf-copilot",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["server.py"],
+      "port": 7331
+    }
+  ]
+}

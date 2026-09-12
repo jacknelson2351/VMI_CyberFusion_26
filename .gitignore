@@ -3,3 +3,5 @@ frontend/dist/
 static/app/
 **/__pycache__/
 config.json
+_reference/
+.superpowers/
