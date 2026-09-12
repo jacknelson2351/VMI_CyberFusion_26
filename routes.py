@@ -10,6 +10,7 @@ import socket
 import subprocess
 import threading
 import uuid
+import importlib.util
 from datetime import datetime
 from threading import RLock
 
@@ -20,9 +21,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from extensions import app, socketio
 from config import (
-    load_config, _as_bool, _canonical_launch_model,
+    load_config, _as_bool, _canonical_launch_model, _is_anthropic_model,
     LAUNCH_MODEL_CHOICES, LAUNCH_MODEL_IDS, CONFIG_PATH, BASE_DIR,
+    PROVIDER_PRESETS,
 )
+import providers
+from prompts import CATEGORY_TOOL_CHECKS
+from agent.graph import StateGraph
 from db import (
     load_challenges, get_challenge, update_challenge, build_capability_report,
     save_challenges, _db_lock, _load_challenges_unlocked, _save_challenges_unlocked,
@@ -41,6 +46,7 @@ from storage import (
     challenge_memory_file_path,
     challenge_notes_path,
     challenge_workspace_dir,
+    enrich_target,
     delete_memory_file,
     ensure_memory_files,
     list_memory_files,
@@ -73,9 +79,28 @@ def _trim_text(value: str, limit: int = 260) -> str:
     return v[:limit] + "..."
 
 
+def _registry_launch_models(cfg: dict | None = None) -> list[dict]:
+    """Launch-dropdown choices sourced from the provider registry. Falls back to the
+    static LAUNCH_MODEL_CHOICES only if the registry is somehow empty."""
+    cfg = cfg or load_config()
+    specs = providers.list_models(cfg)
+    if not specs:
+        return list(LAUNCH_MODEL_CHOICES)
+    out = []
+    for s in specs:
+        price = f" · ${s.pricing[0]:g}/${s.pricing[1]:g}" if s.pricing else ""
+        key_note = "" if s.has_key else " · no key"
+        out.append({"id": s.id, "label": f"{s.name}{price}{key_note}"})
+    return out
+
+
 def _default_launch_model() -> str:
     cfg = load_config()
-    default_model = _canonical_launch_model(cfg.get("model"))
+    roles = cfg.get("roles") or {}
+    solver = providers.resolve_role(cfg, "solver")
+    if solver:
+        return solver.id
+    default_model = _canonical_launch_model(cfg.get("solver_model") or cfg.get("model"))
     if default_model not in LAUNCH_MODEL_IDS:
         default_model = LAUNCH_MODEL_CHOICES[0]["id"]
     return default_model
@@ -105,6 +130,88 @@ def _docker_build_gate() -> tuple[bool, str]:
     if has_image:
         return True, ""
     return False, "Build the Docker image first before launching the agent."
+
+
+def _agent_readiness_report(model: str, category: str = "misc", container=None) -> dict:
+    cfg = load_config()
+    resolved_model = _canonical_launch_model(model) or cfg.get("model") or "gpt-5-mini"
+    provider = "anthropic" if _is_anthropic_model(resolved_model) else "openai"
+    checks = []
+    errors = []
+    warnings = []
+
+    def add_check(name: str, ok: bool, message: str, level: str = "error"):
+        row = {"name": name, "ok": bool(ok), "message": message, "level": level}
+        checks.append(row)
+        if not ok and level == "error":
+            errors.append(message)
+        elif not ok:
+            warnings.append(message)
+
+    add_check("langgraph", StateGraph is not None, "LangGraph is installed." if StateGraph is not None else "LangGraph is missing. Run pip install -r requirements.txt.")
+
+    if provider == "anthropic":
+        has_key = bool(cfg.get("anthropic_api_key") or os.environ.get("ANTHROPIC_API_KEY"))
+        has_pkg = importlib.util.find_spec("anthropic") is not None
+        add_check("anthropic_key", has_key, "Anthropic key configured." if has_key else "Anthropic model selected but no Anthropic key is configured.")
+        add_check("anthropic_package", has_pkg, "Anthropic package installed." if has_pkg else "Anthropic package missing. Run pip install -r requirements.txt.")
+    else:
+        has_key = bool(cfg.get("openai_api_key") or os.environ.get("OPENAI_API_KEY"))
+        has_pkg = importlib.util.find_spec("openai") is not None
+        add_check("openai_key", has_key, "OpenAI key configured." if has_key else "OpenAI model selected but no OpenAI key is configured.")
+        add_check("openai_package", has_pkg, "OpenAI package installed." if has_pkg else "OpenAI package missing. Run pip install -r requirements.txt.")
+
+    missing_tools = []
+    if container is not None:
+        for tool in CATEGORY_TOOL_CHECKS.get((category or "misc").lower(), []):
+            try:
+                out = container.run(f"command -v {tool} >/dev/null 2>&1 && echo OK || echo MISSING", timeout=10)
+            except Exception:
+                out = "MISSING"
+            if "MISSING" in (out or ""):
+                missing_tools.append(tool)
+        if missing_tools:
+            install_policy = _as_bool(cfg.get("allow_runtime_installs"), default=False)
+            msg = "Missing container tools: " + ", ".join(sorted(set(missing_tools)))
+            if install_policy:
+                msg += " (runtime installs enabled)."
+            else:
+                msg += " (runtime installs disabled)."
+            add_check("container_tools", False, msg, level="warning")
+        else:
+            add_check("container_tools", True, "Required category tools are available.", level="warning")
+
+    return {
+        "ok": not errors,
+        "model": resolved_model,
+        "provider": provider,
+        "checks": checks,
+        "errors": errors,
+        "warnings": warnings,
+        "missing_tools": missing_tools,
+    }
+
+
+def _emit_readiness_trace(cid: str, readiness: dict, broadcast: bool = True):
+    summary = "Ready"
+    if readiness.get("errors"):
+        summary = "; ".join(readiness.get("errors") or [])
+    elif readiness.get("warnings"):
+        summary = "; ".join(readiness.get("warnings") or [])
+    payload = {
+        "cid": cid,
+        "step": 0,
+        "phase": "readiness",
+        "agent_phase": "preflight",
+        "phase_label": "Preflight",
+        "checkpoint_summary": summary,
+        "next_best_action": "Resolve readiness errors before launch." if readiness.get("errors") else "Launch checks complete.",
+        "readiness": readiness,
+        "no_progress_streak": 0,
+    }
+    if broadcast:
+        socketio.emit("loop_trace", payload, room=cid)
+    _log_event(cid, "loop_trace", payload)
 
 
 def _build_writeup_markdown(chal: dict, logs: list[dict], approved_flag: str, validator_notes: str = "") -> str:
@@ -394,13 +501,17 @@ def _with_runtime(chal: dict) -> dict:
     if not chal:
         return chal
     running = False
+    paused = False
     if chal["id"] in _agents:
         try:
             running = bool(_agents[chal["id"]].running)
+            paused = not running
         except Exception:
             running = False
+            paused = False
     out = dict(chal)
     out["running"] = running
+    out["agent_paused"] = paused
     return out
 
 
@@ -410,7 +521,7 @@ def _with_runtime(chal: dict) -> dict:
 def index():
     return render_template(
         "index.html",
-        launch_models=LAUNCH_MODEL_CHOICES,
+        launch_models=_registry_launch_models(),
         default_launch_model=_default_launch_model(),
     )
 
@@ -418,7 +529,7 @@ def index():
 @app.route("/api/bootstrap", methods=["GET"])
 def bootstrap_api():
     return jsonify({
-        "launch_models": LAUNCH_MODEL_CHOICES,
+        "launch_models": _registry_launch_models(),
         "default_launch_model": _default_launch_model(),
         "config": _public_config_payload(),
         "docker": _docker_status_payload(),
@@ -918,43 +1029,45 @@ def upload_file(cid):
 
 # ── Agent control ──────────────────────────────────────────────────────────────
 
-@app.route("/api/challenges/<cid>/launch", methods=["POST"])
-def launch_agent(cid):
-    data  = request.json or {}
-    retry = data.get("retry", False)
-    model = _canonical_launch_model(data.get("model"))
-    if model and model not in LAUNCH_MODEL_IDS:
-        return jsonify({
-            "error": f"Unsupported model: {model}. Choose one of: {', '.join(m['label'] for m in LAUNCH_MODEL_CHOICES)}"
-        }), 400
+def _spawn_agent_for(cid, model_arg=None, retry=False, extra_context=""):
+    """Fresh-launch the solver agent for a challenge. Returns (ok, error, http_status).
+    Shared by the interactive /launch route and the batch /launch-all runner."""
+    model = _canonical_launch_model(model_arg)
     chal  = get_challenge(cid)
     if not chal:
-        return jsonify({"error": "Not found"}), 404
+        return False, "Not found", 404
+
+    _cfg = load_config()
+    resolved_model = model or _cfg.get("solver_model") or _cfg.get("model") or "gpt-5-mini"
+    readiness = _agent_readiness_report(resolved_model, chal.get("category", "misc"))
+    if not readiness["ok"]:
+        _emit_readiness_trace(cid, readiness)
+        return False, "; ".join(readiness["errors"]), 400
     ok, err = _docker_build_gate()
     if not ok:
-        return jsonify({"error": err}), 400
-
-    if cid in _agents and _agents[cid].running:
-        return jsonify({"error": "Agent already running"}), 400
+        return False, err, 400
 
     try:
         container = get_container(cid)
         sync_challenge_uploads(cid, container)
         _manual_mode_cids.discard(cid)
         ensure_memory_files(cid)
+        readiness = _agent_readiness_report(resolved_model, chal.get("category", "misc"), container=container)
+        _emit_readiness_trace(cid, readiness, broadcast=bool(readiness.get("errors") or readiness.get("warnings")))
     except Exception as e:
-        return jsonify({"error": f"Container failed: {e}"}), 500
+        return False, f"Container failed: {e}", 500
 
     flag_fmt  = chal.get("flag_format", "")
-    extra     = data.get("extra_context", "")
+    extra     = extra_context or ""
     tags      = ", ".join(chal.get("tags") or [])
-    target    = chal.get("target") or {}
+    target    = enrich_target(chal.get("target"), chal.get("description"), chal.get("notes"))
     source_meta = chal.get("source_meta") or {}
     creds = chal.get("credentials") or []
     target_block = ""
     non_empty_target = {k: v for k, v in target.items() if str(v or "").strip()}
     if non_empty_target:
-        target_block = "\nTarget config:\n" + json.dumps(non_empty_target, indent=2) + "\n"
+        lines = "\n".join(f"  {k}: {v}" for k, v in non_empty_target.items() if str(v or "").strip())
+        target_block = f"\nTarget:\n{lines}\n"
     source_block = ""
     non_empty_source = {k: v for k, v in source_meta.items() if str(v or "").strip()}
     if non_empty_source:
@@ -978,7 +1091,6 @@ def launch_agent(cid):
     )
 
     prior = chal.get("retry_summary") if retry else None
-    resolved_model = model or load_config().get("model") or "gpt-5-mini"
     update_challenge(
         cid,
         status="solving",
@@ -1000,9 +1112,22 @@ def launch_agent(cid):
     container_entries = [ln.strip() for ln in (container_listing or "").splitlines() if ln.strip()]
     container_set = set(container_entries)
 
+    upload_payload = {
+        "cid": cid,
+        "total": len(synced_files),
+        "present": [],
+        "missing": [],
+        "sample": container_entries[:12],
+        "ok": True,
+    }
     if synced_files:
         present = [f for f in synced_files if f in container_set]
         missing = [f for f in synced_files if f not in container_set]
+        upload_payload.update({
+            "present": present,
+            "missing": missing,
+            "ok": not bool(missing),
+        })
         present_preview = ", ".join(present[:8]) if present else "none"
         if len(present) > 8:
             present_preview += ", ..."
@@ -1026,9 +1151,11 @@ def launch_agent(cid):
             upload_msg += f" | /ctf sample: {sample}"
     else:
         upload_msg = "[uploads verify] no uploaded files yet."
-    upload_payload = {"cid": cid, "cmd": upload_msg, "notice": True}
-    socketio.emit("command", upload_payload, room=cid)
-    _log_event(cid, "command", upload_payload)
+    _log_event(cid, "upload_verify", upload_payload)
+    if synced_files and upload_payload["missing"]:
+        visible_payload = {"cid": cid, "cmd": upload_msg, "notice": True}
+        socketio.emit("command", visible_payload, room=cid)
+        _log_event(cid, "command", visible_payload)
 
     agent = CTFAgent(
         cid,
@@ -1046,7 +1173,149 @@ def launch_agent(cid):
     _agents[cid] = agent
     agent.start(full_desc, prior_summary=prior)
 
+    return True, None, 200
+
+
+@app.route("/api/challenges/<cid>/launch", methods=["POST"])
+def launch_agent(cid):
+    data  = request.json or {}
+    retry = data.get("retry", False)
+    model = _canonical_launch_model(data.get("model"))
+    if model and model not in LAUNCH_MODEL_IDS:
+        return jsonify({
+            "error": f"Unsupported model: {model}. Choose one of: {', '.join(m['label'] for m in LAUNCH_MODEL_CHOICES)}"
+        }), 400
+    chal  = get_challenge(cid)
+    if not chal:
+        return jsonify({"error": "Not found"}), 404
+    existing_agent = _agents.get(cid)
+    if existing_agent is not None and not retry:
+        extra = str(data.get("extra_context") or "").strip()
+        if existing_agent.running:
+            if extra:
+                mode = existing_agent.submit_user_input(extra)
+                update_challenge(cid, status="solving")
+                return jsonify({"ok": True, "mode": mode})
+            return jsonify({"error": "Agent already running"}), 400
+        if extra:
+            mode = existing_agent.submit_user_input(extra)
+        else:
+            mode = existing_agent.resume_from_current_state()
+        update_challenge(cid, status="solving")
+        return jsonify({"ok": True, "mode": mode, "resumed": True})
+
+    ok, err, status = _spawn_agent_for(cid, data.get("model"), retry=retry,
+                                       extra_context=data.get("extra_context", ""))
+    if not ok:
+        return jsonify({"error": err, "code": "launch_failed"}), status
     return jsonify({"ok": True})
+
+
+# ── Batch launcher: run every eligible challenge unattended, one at a time ────────
+_batch_state = {"running": False, "queue": [], "current": None, "done": [], "started_at": None}
+_batch_lock = threading.Lock()
+
+
+def _batch_runner(cids: list[str], model_arg=None):
+    for cid in cids:
+        with _batch_lock:
+            if not _batch_state["running"]:
+                break
+            _batch_state["current"] = cid
+        try:
+            ok, err, _status = _spawn_agent_for(cid, model_arg)
+            socketio.emit("batch_progress", {"cid": cid, "ok": ok, "error": err,
+                                             "remaining": len(_batch_state["queue"])})
+            if ok:
+                # Wait for this challenge's solver thread to finish before starting the next,
+                # so we never run multiple heavy containers at once.
+                agent = _agents.get(cid)
+                worker = getattr(agent, "_worker_thread", None) if agent else None
+                if worker is not None:
+                    worker.join()
+        except Exception as e:
+            socketio.emit("batch_progress", {"cid": cid, "ok": False, "error": str(e)})
+        with _batch_lock:
+            _batch_state["done"].append(cid)
+            if cid in _batch_state["queue"]:
+                _batch_state["queue"].remove(cid)
+    with _batch_lock:
+        _batch_state["running"] = False
+        _batch_state["current"] = None
+    socketio.emit("batch_done", {"done": list(_batch_state["done"])})
+
+
+@app.route("/api/challenges/launch-all", methods=["POST"])
+def launch_all():
+    data = request.json or {}
+    model = _canonical_launch_model(data.get("model"))
+    if model and model not in LAUNCH_MODEL_IDS:
+        return jsonify({"error": f"Unsupported model: {model}"}), 400
+    categories = data.get("categories") or []
+    include_solved = bool(data.get("include_solved"))
+    only_never_run = bool(data.get("only_never_run"))
+    ok, err = _docker_build_gate()
+    if not ok:
+        return jsonify({"error": err}), 400
+    with _batch_lock:
+        if _batch_state["running"]:
+            return jsonify({"error": "Batch already running", "current": _batch_state["current"]}), 409
+        cids = []
+        for c in load_challenges():
+            cid = c.get("id")
+            if not cid:
+                continue
+            if not include_solved and c.get("status") == "solved":
+                continue
+            if categories and (c.get("category") or "").lower() not in categories:
+                continue
+            if only_never_run and challenge_events_path(cid).exists():
+                continue
+            if cid in _agents and getattr(_agents[cid], "running", False):
+                continue
+            cids.append(cid)
+        if not cids:
+            return jsonify({"error": "No eligible challenges to launch"}), 400
+        _batch_state.update({"running": True, "queue": list(cids), "current": None,
+                             "done": [], "started_at": utc_now_iso()})
+    threading.Thread(target=_batch_runner, args=(cids, data.get("model")), daemon=True).start()
+    return jsonify({"ok": True, "queued": cids, "count": len(cids)})
+
+
+@app.route("/api/challenges/launch-all/status", methods=["GET"])
+def launch_all_status():
+    with _batch_lock:
+        return jsonify(dict(_batch_state))
+
+
+@app.route("/api/challenges/launch-all/stop", methods=["POST"])
+def launch_all_stop():
+    with _batch_lock:
+        _batch_state["running"] = False
+        cur = _batch_state["current"]
+    if cur and cur in _agents:
+        try:
+            _agents[cur].stop()
+        except Exception:
+            pass
+    return jsonify({"ok": True})
+
+
+@app.route("/api/challenges/<cid>/input", methods=["POST"])
+def agent_input(cid):
+    data = request.json or {}
+    text = str(data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "Input text is required."}), 400
+    chal = get_challenge(cid)
+    if not chal:
+        return jsonify({"error": "Not found"}), 404
+    agent = _agents.get(cid)
+    if agent is None:
+        return jsonify({"error": "No running or paused agent exists for this challenge.", "code": "no_agent"}), 409
+    mode = agent.submit_user_input(text)
+    update_challenge(cid, status="solving")
+    return jsonify({"ok": True, "mode": mode})
 
 
 @app.route("/api/challenges/<cid>/stop", methods=["POST"])
@@ -1057,10 +1326,6 @@ def stop_agent(cid):
         except Exception:
             pass
         _agents[cid].stop()
-        del _agents[cid]
-    if cid in _containers:
-        threading.Thread(target=_containers[cid].stop, daemon=True).start()
-        del _containers[cid]
     _manual_mode_cids.discard(cid)
     update_challenge(
         cid,
@@ -1068,8 +1333,15 @@ def stop_agent(cid):
         flag_candidate=None,
         flag_how=None,
     )
-    socketio.emit("done", {"cid": cid, "status": "unsolved", "message": "Stopped by user."}, room=cid)
-    return jsonify({"ok": True})
+    payload = {
+        "cid": cid,
+        "status": "unsolved",
+        "message": "Agent paused. Type guidance and press Enter to continue.",
+        "paused": True,
+    }
+    socketio.emit("done", payload, room=cid)
+    _log_event(cid, "done", payload)
+    return jsonify({"ok": True, "paused": True})
 
 
 @app.route("/api/challenges/<cid>/reset", methods=["POST"])
@@ -1249,6 +1521,13 @@ def _broadcast_challenge_deleted(cid: str) -> None:
     socketio.emit("challenge_deleted", {"cid": cid})
 
 
+def _safe_float(v):
+    try:
+        return float(v) if v is not None and str(v).strip() != "" else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _mask_key(key: str) -> str:
     """Return a safe display version of an API key."""
     if not key:
@@ -1282,16 +1561,56 @@ def _public_config_payload() -> dict:
         "prompt_profile": cfg.get("prompt_profile") or "compact",
         "allow_runtime_installs": _as_bool(cfg.get("allow_runtime_installs"), default=False),
         "max_tool_calls_per_turn": int(cfg.get("max_tool_calls_per_turn") or 3),
+        "checkpoint_interval": int(cfg.get("checkpoint_interval") or 5),
+        "self_eval_interval": int(cfg.get("self_eval_interval") or 10),
+        "context_compression_interval": int(cfg.get("context_compression_interval") or 15),
+        "adaptive_tool_ranking": _as_bool(cfg.get("adaptive_tool_ranking"), default=True),
         "local_lock_enabled": _lock_enabled(cfg),
         "local_lock_password_set": bool(_lock_hash(cfg)),
         "local_ip": _get_local_ip(),
         "port": 7331,
+        "models": _public_models_payload(cfg),
+        "roles": cfg.get("roles") or {},
+        "presets": {k: {kk: vv for kk, vv in v.items() if kk != "api_key_ref"} | {"key": k}
+                    for k, v in PROVIDER_PRESETS.items()},
     }
+
+
+def _public_models_payload(cfg: dict) -> list[dict]:
+    """Registry for the UI: capabilities/pricing shown, key material redacted to set/last-4."""
+    out = []
+    for spec in providers.list_models(cfg):
+        out.append({
+            "id": spec.id,
+            "name": spec.name,
+            "provider_kind": spec.provider_kind,
+            "base_url": spec.base_url,
+            "model_id": spec.model_id,
+            "api_key_ref": spec.api_key_ref,
+            "key_set": spec.has_key,
+            "key_masked": _mask_key(spec.api_key) if spec.has_key else "",
+            "pricing": {"in": spec.pricing_in, "out": spec.pricing_out},
+            "capabilities": spec.caps,
+            "context": spec.context,
+        })
+    return out
 
 
 @app.route("/api/config", methods=["GET"])
 def get_config_api():
     return jsonify(_public_config_payload())
+
+
+@app.route("/api/agent/readiness", methods=["GET"])
+def agent_readiness_api():
+    model = _canonical_launch_model(request.args.get("model")) or _default_launch_model()
+    category = (request.args.get("category") or "misc").strip().lower()
+    readiness = _agent_readiness_report(model, category)
+    ok, err = _docker_build_gate()
+    readiness["docker"] = {"ok": ok, "message": err or "Docker image is built."}
+    if not ok:
+        readiness["warnings"].append(err)
+    return jsonify(readiness)
 
 
 @app.route("/api/config", methods=["POST"])
@@ -1323,6 +1642,64 @@ def save_config_api():
                 cfg["max_tool_calls_per_turn"] = max(1, min(int(max_tool_calls), 6))
             except Exception:
                 pass
+        for key, default, lo, hi in (
+            ("checkpoint_interval", 5, 1, 50),
+            ("self_eval_interval", 10, 1, 80),
+            ("context_compression_interval", 15, 3, 120),
+        ):
+            if key in data:
+                try:
+                    cfg[key] = max(lo, min(int(data.get(key) or default), hi))
+                except Exception:
+                    cfg[key] = default
+        if "adaptive_tool_ranking" in data:
+            cfg["adaptive_tool_ranking"] = bool(data.get("adaptive_tool_ranking"))
+
+        # Provider registry: models (full replace), keys (merge + clear), roles (merge).
+        if "models" in data and isinstance(data["models"], list):
+            cleaned = []
+            for m in data["models"]:
+                if not isinstance(m, dict):
+                    continue
+                mid = (m.get("id") or "").strip()
+                model_id = (m.get("model_id") or "").strip()
+                if not mid or not model_id:
+                    continue
+                kind = (m.get("provider_kind") or "openai_compat").strip()
+                if kind not in providers.VALID_PROVIDER_KINDS:
+                    kind = "openai_compat"
+                pricing = m.get("pricing") or {}
+                caps = m.get("capabilities") or {}
+                cleaned.append({
+                    "id": mid,
+                    "name": (m.get("name") or mid).strip(),
+                    "provider_kind": kind,
+                    "base_url": (m.get("base_url") or "").strip(),
+                    "api_key_ref": (m.get("api_key_ref") or mid).strip(),
+                    "model_id": model_id,
+                    "pricing": {"in": _safe_float(pricing.get("in")), "out": _safe_float(pricing.get("out"))},
+                    "capabilities": {"tools": bool(caps.get("tools", True)), "vision": bool(caps.get("vision", False))},
+                    "context": int(m.get("context") or 0),
+                })
+            cfg["models"] = cleaned
+        if isinstance(data.get("keys"), dict):
+            keys = dict(cfg.get("keys") or {})
+            for ref, val in data["keys"].items():
+                ref = (ref or "").strip()
+                if not ref:
+                    continue
+                val = (val or "").strip()
+                if val:
+                    keys[ref] = val  # blank value leaves the existing key untouched
+            for ref in (data.get("clear_keys") or []):
+                keys.pop((ref or "").strip(), None)
+            cfg["keys"] = keys
+        if isinstance(data.get("roles"), dict):
+            roles = dict(cfg.get("roles") or {})
+            for role in ("solver", "aux"):
+                if role in data["roles"]:
+                    roles[role] = (data["roles"][role] or "").strip()
+            cfg["roles"] = roles
 
         current_pw = (data.get("current_password") or "").strip()
         new_pw = (data.get("new_password") or "").strip()
@@ -1366,6 +1743,66 @@ def save_config_api():
     # Otherwise enabling security can immediately lock subsequent UI API calls.
     _set_unlocked(True)
     return jsonify({"ok": True})
+
+
+@app.route("/api/models/test", methods=["POST"])
+def test_model_endpoint():
+    """Fire one tiny probe at an endpoint to confirm it works and detect tool support,
+    before the user saves it. Never persists anything."""
+    import time as _time
+    data = request.get_json(force=True) or {}
+    kind = (data.get("provider_kind") or "openai_compat").strip()
+    base_url = (data.get("base_url") or "").strip()
+    model_id = (data.get("model_id") or "").strip()
+    api_key = (data.get("api_key") or "").strip()
+    if not api_key and data.get("api_key_ref"):
+        api_key = providers.key_for(load_config(), data["api_key_ref"])
+    if not model_id:
+        return jsonify({"ok": False, "error": "model_id is required"}), 400
+    if not api_key:
+        return jsonify({"ok": False, "error": "no API key provided or on file for this endpoint"}), 400
+
+    spec = providers.ModelSpec(id="probe", name="probe", provider_kind=kind,
+                               model_id=model_id, base_url=base_url, api_key=api_key)
+    client, _ = providers.build_client(spec)
+    if client is None:
+        return jsonify({"ok": False, "error": "could not build client (missing key or package)"}), 400
+
+    probe_tool = {
+        "type": "function",
+        "function": {"name": "noop", "description": "probe", "parameters": {"type": "object", "properties": {}}},
+    }
+    t0 = _time.time()
+    try:
+        if kind == "anthropic":
+            client.messages.create(
+                model=model_id, max_tokens=1, messages=[{"role": "user", "content": "hi"}],
+                tools=[{"name": "noop", "description": "probe", "input_schema": {"type": "object", "properties": {}}}],
+            )
+        else:
+            tok = ({"max_completion_tokens": 1}
+                   if model_id.lower().startswith(("o1", "o3", "gpt-5")) else {"max_tokens": 1})
+            client.chat.completions.create(
+                model=model_id, messages=[{"role": "user", "content": "hi"}],
+                tools=[probe_tool], tool_choice="auto", **tok,
+            )
+        latency = int((_time.time() - t0) * 1000)
+        return jsonify({"ok": True, "status": 200, "tools": True,
+                        "latency_ms": latency, "error": ""})
+    except Exception as e:
+        # Retry once without tools — distinguishes "endpoint down" from "no tool support".
+        try:
+            if kind == "anthropic":
+                client.messages.create(model=model_id, max_tokens=1,
+                                       messages=[{"role": "user", "content": "hi"}])
+            else:
+                client.chat.completions.create(model=model_id, max_tokens=1,
+                                               messages=[{"role": "user", "content": "hi"}])
+            latency = int((_time.time() - t0) * 1000)
+            return jsonify({"ok": True, "status": 200, "tools": False,
+                            "latency_ms": latency, "error": "endpoint works but rejected tool calling"})
+        except Exception as e2:
+            return jsonify({"ok": False, "status": 0, "tools": False, "error": str(e2)[:400]})
 
 
 # ── Docker management ──────────────────────────────────────────────────────────

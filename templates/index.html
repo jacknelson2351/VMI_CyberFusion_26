@@ -1270,6 +1270,18 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 .chat-msg.replan { border-left-color: var(--amber); background: rgba(232,160,76,0.05); }
 .chat-msg.system { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 2px 0; }
 .chat-msg.error  { font-size: 13px; color: var(--red); }
+.chat-msg.user {
+  align-self: flex-end;
+  width: auto;
+  max-width: min(620px, 86%);
+  background: var(--accent);
+  color: white;
+  border-radius: 8px;
+  padding: 9px 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 .chat-banner {
   max-width: 720px;
@@ -1352,6 +1364,45 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 .agent-activity.running .activity-dot { background: var(--accent); animation: pulse 1.2s infinite; }
 .agent-activity .activity-label { color: var(--text-muted); font-weight: 700; }
 .agent-activity .activity-time  { color: var(--text-muted); letter-spacing: 0; font-weight: 400; }
+.agent-status-panel {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: minmax(120px, 170px) 1fr minmax(110px, 150px);
+  gap: 10px;
+  align-items: stretch;
+  padding: 10px 28px;
+  background: linear-gradient(90deg, rgba(217,115,87,0.08), rgba(91,156,246,0.04));
+  border-bottom: 1px solid var(--border);
+}
+.agent-status-card {
+  background: rgba(0,0,0,0.12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  min-width: 0;
+}
+.agent-status-kicker {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.agent-status-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-status-value.phase { color: var(--accent); font-weight: 700; }
+.agent-status-value.subtle { color: var(--text-muted); }
+@media (max-width: 760px) {
+  .agent-status-panel { grid-template-columns: 1fr; padding: 8px 18px; }
+}
 #btn-launch {
   margin-left: auto;
   display: inline-flex; align-items: center; justify-content: center;
@@ -1591,7 +1642,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   <!--  Topbar  -->
   <div id="topbar">
     <div id="topbar-logo">
-      <img class="brand-mark" src="/static/jmu-whale-logo.svg" alt="JMU whale logo">
+      <img class="brand-mark" src="/static/jmu-whale-logo.svg" alt="Beer mug logo">
       <span class="brand-name">CTF Copilot</span>
     </div>
     <div id="topbar-right">
@@ -1644,6 +1695,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
           <span class="value" id="dash-cost-value">$0.0000</span>
           <span class="tokens" id="dash-cost-tokens"></span>
         </div>
+        <button class="btn btn-ghost" id="btn-run-all" title="Launch the agent on every unsolved challenge, one at a time, unattended">&#9654; Run All</button>
         <button class="btn btn-primary" id="btn-new-challenge">+ New Challenge</button>
       </div>
     </div>
@@ -1712,6 +1764,10 @@ details:not([open]) .accordion-icon::before { content: '+'; }
         <button class="btn btn-ghost btn-sm" id="btn-info-toggle">Info</button>
         <div class="ch-popout" id="ch-info-menu" style="width:380px;right:0;">
           <div class="ch-popout-title">Description</div>
+          <div id="ch-target-url-wrap" style="margin-bottom:10px;display:none;">
+            <div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Target</div>
+            <a id="ch-target-url-link" href="#" target="_blank" rel="noopener" style="font-size:12px;font-family:var(--font-mono);color:var(--accent);word-break:break-all;text-decoration:none;"></a>
+          </div>
           <div class="ch-description" id="ch-description" style="font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:var(--text-dim);"></div>
         </div>
       </div>
@@ -1775,6 +1831,21 @@ details:not([open]) .accordion-icon::before { content: '+'; }
         <pre id="writeup-inline-content">No writeup generated yet.</pre>
       </div>
 
+      <div class="agent-status-panel" id="agent-status-panel">
+        <div class="agent-status-card">
+          <div class="agent-status-kicker">Phase</div>
+          <div class="agent-status-value phase" id="agent-phase-value">Idle</div>
+        </div>
+        <div class="agent-status-card">
+          <div class="agent-status-kicker">Checkpoint</div>
+          <div class="agent-status-value" id="agent-checkpoint-value">No active checkpoint.</div>
+        </div>
+        <div class="agent-status-card">
+          <div class="agent-status-kicker">Stall Count</div>
+          <div class="agent-status-value subtle" id="agent-stall-value">0</div>
+        </div>
+      </div>
+
       <!-- Chat feed -->
       <div id="chat-feed"></div>
 
@@ -1836,6 +1907,10 @@ details:not([open]) .accordion-icon::before { content: '+'; }
         <input type="text" id="new-flagfmt" placeholder="e.g.  cyberfusion{...}   or   flag{...}">
       </div>
       <div class="field">
+        <label>TARGET URL <span style="color:var(--text-muted);font-weight:400">(optional — service URL the agent should connect to)</span></label>
+        <input type="text" id="new-target-url" placeholder="e.g.  http://challenge.ctf.local:1337  or  nc host port">
+      </div>
+      <div class="field">
         <label>DESCRIPTION <span style="color:var(--text-muted);font-weight:400">(paste the full challenge text here)</span></label>
         <textarea id="new-desc" placeholder="Paste the complete challenge description, URLs, hints, anything the agent should know"></textarea>
       </div>
@@ -1888,6 +1963,10 @@ details:not([open]) .accordion-icon::before { content: '+'; }
         <input type="text" id="edit-flagfmt" placeholder="e.g.  picoCTF{...}   or   flag{...}">
       </div>
       <div class="field">
+        <label>TARGET URL <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
+        <input type="text" id="edit-target-url" placeholder="e.g.  http://challenge.ctf.local:1337  or  nc host port">
+      </div>
+      <div class="field">
         <label>DESCRIPTION <span style="color:var(--text-muted);font-weight:400">(paste the full challenge text here)</span></label>
         <textarea id="edit-desc" placeholder="Paste the complete challenge description, URLs, hints, anything the agent should know"></textarea>
       </div>
@@ -1908,14 +1987,82 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   </div>
 </div>
 
+<style id="models-tab-css">
+  .settings-tabs{display:flex;gap:4px;margin:-4px 0 16px;border-bottom:1px solid var(--border);padding-bottom:0}
+  .settings-tabs .stab{background:none;border:none;color:var(--text-muted);font-family:var(--font-mono);
+    font-size:12px;font-weight:600;letter-spacing:.04em;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .settings-tabs .stab:hover{color:var(--text-dim)}
+  .settings-tabs .stab.on{color:var(--text);border-bottom-color:var(--accent)}
+  .models-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+  .models-title{font-size:15px;font-weight:600;color:var(--text)}
+  .models-sub{font-size:12px;color:var(--text-muted);margin-top:2px;line-height:1.4}
+  .models-head .btn{margin-left:auto;white-space:nowrap}
+  .model-row{display:flex;align-items:center;gap:10px;border:1px solid var(--border2);border-radius:10px;
+    padding:11px 12px;margin-bottom:8px;background:var(--bg)}
+  .model-row.is-solver{border-color:color-mix(in srgb,var(--accent) 55%,transparent);
+    background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 8%,transparent),transparent 65%)}
+  .model-row.no-key{opacity:.55}
+  .mr-dot{width:8px;height:8px;border-radius:50%;background:var(--green,#39d98a);flex:none;box-shadow:0 0 8px var(--green,#39d98a)}
+  .mr-dot.off{background:var(--text-muted);box-shadow:none}
+  .mr-main{flex:1;min-width:0}
+  .mr-name{font-size:13px;font-weight:600;color:var(--text)}
+  .mr-meta{font-size:10.5px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mr-chips{display:flex;gap:5px;flex:none}
+  .mr-chip{font-size:9px;font-weight:600;font-family:var(--font-mono);color:var(--text-muted);
+    border:1px solid var(--border2);border-radius:20px;padding:2px 7px}
+  .mr-chip.ok{color:var(--green,#39d98a);border-color:color-mix(in srgb,var(--green,#39d98a) 40%,transparent)}
+  .mr-price{font-size:10px;font-family:var(--font-mono);color:var(--accent);flex:none;width:78px;text-align:right}
+  .mr-role{flex:none}
+  .mr-role select{font-family:var(--font-mono);font-size:10px;font-weight:600;background:var(--bg2,#1b1b1f);
+    color:var(--text-dim);border:1px solid var(--border2);border-radius:6px;padding:4px 6px;cursor:pointer}
+  .mr-del{flex:none;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 4px}
+  .mr-del:hover{color:var(--danger,#e5484d)}
+  .model-editor{border:1px solid var(--accent);border-radius:11px;padding:14px;margin-top:12px;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 8%,transparent),transparent)}
+  .me-title{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px}
+  .me-presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .me-preset{font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--text-muted);
+    border:1px solid var(--border2);border-radius:20px;padding:5px 10px;cursor:pointer;background:none}
+  .me-preset.on{color:#000;background:var(--accent);border-color:var(--accent)}
+  .me-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .me-field label{display:block;font-family:var(--font-mono);font-size:9px;font-weight:600;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--text-muted);margin:10px 0 4px}
+  .me-field input{width:100%}
+  .me-test{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .me-test-result{font-family:var(--font-mono);font-size:10.5px;color:var(--text-muted)}
+  .me-test-result.ok{color:var(--green,#39d98a)}
+  .me-test-result.err{color:var(--danger,#e5484d)}
+  .me-actions{margin-left:auto;display:flex;gap:8px}
+</style>
+
 <!--  Settings Modal  -->
 <div class="modal-overlay" id="modal-settings">
-  <div class="modal" style="width:640px">
+  <div class="modal" style="width:720px">
     <div class="modal-header">
       <div class="modal-title">Settings</div>
       <button class="modal-close" data-close="modal-settings">X</button>
     </div>
     <div class="modal-body">
+      <div class="settings-tabs">
+        <button type="button" class="stab on" data-stab="models">Models</button>
+        <button type="button" class="stab" data-stab="general">General</button>
+      </div>
+
+      <!-- MODELS TAB -->
+      <div data-spanel="models">
+        <div class="models-head">
+          <div>
+            <div class="models-title">Models</div>
+            <div class="models-sub">Register any OpenAI-compatible or Anthropic endpoint. Assign one Solver (drives the solve loop) and a cheap Aux (context summaries).</div>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-model-new">＋ New endpoint</button>
+        </div>
+        <div id="models-list"></div>
+        <div id="model-editor" class="model-editor" hidden></div>
+      </div>
+
+      <!-- GENERAL TAB -->
+      <div data-spanel="general" hidden>
 
       <!-- OpenAI key -->
       <div class="field">
@@ -1945,6 +2092,18 @@ details:not([open]) .accordion-icon::before { content: '+'; }
         <input type="text" id="settings-model" placeholder="e.g. gpt-5-mini">
       </div>
       <div class="field">
+        <label>AGENT CONTROL <span style="color:var(--text-muted);font-weight:400">(phase checkpoints and tool ordering)</span></label>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          <input type="number" id="settings-checkpoint-interval" min="1" max="50" placeholder="checkpoint">
+          <input type="number" id="settings-self-eval-interval" min="1" max="80" placeholder="self eval">
+          <input type="number" id="settings-compress-interval" min="3" max="120" placeholder="compress">
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--text-dim);font-weight:500;letter-spacing:0;text-transform:none;">
+          <input type="checkbox" id="settings-adaptive-tools" style="width:auto;">
+          Adaptive tool ranking
+        </label>
+      </div>
+      <div class="field">
         <label>LOCAL LOCK</label>
         <div class="security-row">
           <span id="settings-lock-status-pill" class="security-pill off">SECURITY DISABLED</span>
@@ -1966,6 +2125,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:5px;font-family:var(--font-mono);">Share this URL with teammates on the same network. Enable Local Lock above to require a password.</div>
       </div>
+      </div><!-- /general panel -->
     </div>
     <div style="border-top:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:8px;">
       <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:0.1em;margin-right:4px;">DOCKER</span>
@@ -2153,6 +2313,7 @@ const state = {
   filter: 'all',
   hideSolved: false,
   agentRunning: false,
+  agentPaused: false,
   lastActivityAt: null,
   lastActivityLabel: '',
   logCache: {},
@@ -2163,6 +2324,13 @@ const state = {
   dockerBuildInProgress: false,
   memoryFiles: [],
   currentMemoryFile: 'overview.md',
+  agentStatus: {
+    phase: 'Idle',
+    checkpoint: 'No active checkpoint.',
+    nextAction: '',
+    stallCount: 0,
+    step: 0,
+  },
 };
 
 const STEP_LIMITS = {
@@ -2204,16 +2372,19 @@ function handleLogEvent(ev, data) {
     const idx = state.challenges.findIndex(ch => ch.id === cid);
     if (idx >= 0 && !state.challenges[idx].running) {
       state.challenges[idx].running = true;
+      state.challenges[idx].agent_paused = false;
       renderCards();
     }
     if (cid === state.currentCid) {
       state.agentRunning = true;
+      state.agentPaused = false;
       updateRunningUI();
     }
   }
   cacheLog(cid, { event: ev, data, ts: t });
   if (!cid || cid !== state.currentCid) return false;
   if (ev === 'plan') appendPlan(data.text || '', !!data.replan, t);
+  else if (ev === 'user_message') appendUser(data.text || '', t);
   else if (ev === 'thought') {
     const thoughtType = data.type || 'reasoning';
     if (thoughtType === 'reasoning') appendPlan(data.text || '', false, t);
@@ -2231,6 +2402,47 @@ function handleLogEvent(ev, data) {
     if (data.message) appendAgent(data.message, 'system');
   }
   return true;
+}
+
+function resetAgentStatus() {
+  state.agentStatus = {
+    phase: 'Idle',
+    checkpoint: 'No active checkpoint.',
+    nextAction: '',
+    stallCount: 0,
+    step: 0,
+  };
+  renderAgentStatus();
+}
+
+function renderAgentStatus() {
+  const phaseEl = document.getElementById('agent-phase-value');
+  const checkpointEl = document.getElementById('agent-checkpoint-value');
+  const stallEl = document.getElementById('agent-stall-value');
+  if (!phaseEl || !checkpointEl || !stallEl) return;
+  phaseEl.textContent = state.agentStatus.phase || 'Idle';
+  const checkpoint = state.agentStatus.checkpoint || 'No active checkpoint.';
+  const next = state.agentStatus.nextAction ? ` Next: ${state.agentStatus.nextAction}` : '';
+  checkpointEl.textContent = `${checkpoint}${next}`;
+  checkpointEl.title = checkpointEl.textContent;
+  stallEl.textContent = `${state.agentStatus.stallCount || 0}${state.agentStatus.step ? ` / step ${state.agentStatus.step}` : ''}`;
+}
+
+function handleLoopTrace(data, cache = true) {
+  const cid = data && data.cid;
+  if (cache) cacheLog(cid, { event: 'loop_trace', data, ts: Date.now() / 1000 });
+  if (!cid || cid !== state.currentCid) return;
+  const rawPhase = data.phase_label || data.agent_phase || data.phase || 'Idle';
+  state.agentStatus = {
+    phase: String(rawPhase).replace(/_/g, ' '),
+    checkpoint: data.checkpoint_summary || data.message || state.agentStatus.checkpoint || 'No active checkpoint.',
+    nextAction: data.next_best_action || state.agentStatus.nextAction || '',
+    stallCount: Number(data.no_progress_streak || 0),
+    step: Number(data.step || 0),
+  };
+  renderAgentStatus();
+  if (data.phase === 'checkpoint' || data.phase === 'self_eval') markActivity('checkpoint');
+  else if (data.phase === 'readiness') markActivity('preflight');
 }
 
 function setCardError(cid, message) {
@@ -2285,6 +2497,10 @@ socket.on('plan', (data) => {
   handleLogEvent('plan', data);
   if (data && data.cid === state.currentCid) markActivity('planning');
 });
+socket.on('user_message', (data) => {
+  handleLogEvent('user_message', data);
+  if (data && data.cid === state.currentCid) markActivity('operator input');
+});
 socket.on('flag', (data) => {
   handleLogEvent('flag', data);
   if (data && data.cid === state.currentCid) {
@@ -2301,12 +2517,14 @@ socket.on('done', (data) => {
     const idx = state.challenges.findIndex(ch => ch.id === data.cid);
     if (idx >= 0) {
       state.challenges[idx].running = false;
+      state.challenges[idx].agent_paused = !!data.paused;
       if (data.status) state.challenges[idx].status = data.status;
     }
     renderCards();
   }
   if (!data || data.cid !== state.currentCid) return;
   state.agentRunning = false;
+  state.agentPaused = !!data.paused;
   updateRunningUI();
   refreshCurrentChallenge();
   if (data.status === 'pending_approval') {
@@ -2361,6 +2579,7 @@ socket.on('cost', ({ cost, cost_usd, tokens_in, tokens_out, known, model, cid })
     }
   }
 });
+socket.on('loop_trace', (data) => handleLoopTrace(data));
 socket.on('file_uploaded', ({ name, listing }) => {
   toast(` Uploaded: ${name}`, 'success');
   refreshCurrentChallenge();
@@ -2677,6 +2896,7 @@ function openChallenge(cid) {
 
   state.currentCid = cid;
   state.agentRunning = !!(c.running);  // preserve running state; don't flash IDLE
+  state.agentPaused = !!(c.agent_paused);
   state.stepCount = 0;
 
   // Join socket room
@@ -2689,6 +2909,7 @@ function openChallenge(cid) {
   document.getElementById('flag-banner').classList.remove('visible');
   document.getElementById('cost-display').textContent = '-';
   document.getElementById('cost-tokens').textContent = '';
+  resetAgentStatus();
 
   // Populate sidebar
   const color = CAT_COLORS[c.category] || '#888';
@@ -2697,6 +2918,16 @@ function openChallenge(cid) {
   badge.style.color = color;
   document.getElementById('ch-title').textContent = sanitizeText(c.name);
   document.getElementById('ch-description').textContent = sanitizeText(c.description || 'No description provided.');
+  const _turl = (c.target && c.target.url) ? c.target.url.trim() : '';
+  const _turlWrap = document.getElementById('ch-target-url-wrap');
+  const _turlLink = document.getElementById('ch-target-url-link');
+  if (_turl && _turlWrap && _turlLink) {
+    _turlLink.textContent = _turl;
+    _turlLink.href = _turl.startsWith('http') ? _turl : '#';
+    _turlWrap.style.display = '';
+  } else if (_turlWrap) {
+    _turlWrap.style.display = 'none';
+  }
 
   renderFileList(c.files || []);
   renderMemoryFiles(c.memory_files || []);
@@ -2728,6 +2959,8 @@ function openChallenge(cid) {
         const t = entry.ts || null;
         if (ev === 'plan') {
           appendPlan(data.text || '', !!data.replan, t);
+        } else if (ev === 'user_message') {
+          appendUser(data.text || '', t);
         } else if (ev === 'thought') {
           const thoughtType = data.type || 'reasoning';
           if (thoughtType === 'reasoning') appendPlan(data.text || '', false, t);
@@ -2743,6 +2976,8 @@ function openChallenge(cid) {
           if (data.how) appendAgent(data.how, 'system');
         } else if (ev === 'done') {
           if (data.message) appendAgent(data.message, 'system');
+        } else if (ev === 'loop_trace') {
+          handleLoopTrace(data, false);
         }
       }
     }
@@ -2918,12 +3153,23 @@ async function refreshCurrentChallenge() {
   badge.style.color = color;
   document.getElementById('ch-title').textContent = sanitizeText(c.name || 'Untitled');
   document.getElementById('ch-description').textContent = sanitizeText(c.description || 'No description provided.');
+  const _turl = (c.target && c.target.url) ? c.target.url.trim() : '';
+  const _turlWrap = document.getElementById('ch-target-url-wrap');
+  const _turlLink = document.getElementById('ch-target-url-link');
+  if (_turl && _turlWrap && _turlLink) {
+    _turlLink.textContent = _turl;
+    _turlLink.href = _turl.startsWith('http') ? _turl : '#';
+    _turlWrap.style.display = '';
+  } else if (_turlWrap) {
+    _turlWrap.style.display = 'none';
+  }
   renderFileList(c.files || []);
   renderMemoryFiles(c.memory_files || []);
   syncModelSelect(c);
   renderStatusBadge(c.status, c.running);
   renderWriteupSection(c);
   state.agentRunning = !!c.running;
+  state.agentPaused = !!c.agent_paused;
   updateRunningUI();
   updateSolveButtons(c.status);
   if (c.flag || c.flag_candidate) document.getElementById('manual-flag-input').value = c.flag || c.flag_candidate;
@@ -2961,6 +3207,15 @@ function appendAgent(text, type = 'reasoning') {
   } else {
     el.className = 'chat-msg reasoning';
   }
+  el.textContent = sanitizeText(text);
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function appendUser(text, t = null) {
+  const feed = document.getElementById('chat-feed');
+  const el = document.createElement('div');
+  el.className = 'chat-msg user';
   el.textContent = sanitizeText(text);
   feed.appendChild(el);
   feed.scrollTop = feed.scrollHeight;
@@ -3175,6 +3430,7 @@ function openEditChallengeModal() {
   document.getElementById('edit-name').value = c.name || '';
   document.getElementById('edit-cat').value = c.category || 'misc';
   document.getElementById('edit-flagfmt').value = c.flag_format || '';
+  document.getElementById('edit-target-url').value = (c.target && c.target.url) ? c.target.url.trim() : '';
   document.getElementById('edit-desc').value = c.description || '';
   openModal('modal-edit-challenge');
 }
@@ -3295,10 +3551,12 @@ async function launch(retry = false) {
     state.agentRunning = false;
     updateRunningUI();
   } else {
+    state.agentPaused = false;
     const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
     if (idx >= 0) {
       state.challenges[idx].status = 'solving';
       state.challenges[idx].running = true;
+      state.challenges[idx].agent_paused = false;
       state.challenges[idx].last_model = model;
     }
     renderStatusBadge('solving', true);
@@ -3306,6 +3564,40 @@ async function launch(retry = false) {
     renderCards();
     checkDockerStatus();
   }
+}
+
+async function sendAgentInput() {
+  if (!state.currentCid) return;
+  const input = document.getElementById('prompt-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  const res = await api(`/api/challenges/${state.currentCid}/input`, {
+    method: 'POST',
+    body: { text },
+  });
+  if (res && res.error) {
+    if (res.code === 'no_agent') {
+      input.value = text;
+      await launch(false);
+      return;
+    }
+    input.value = text;
+    toast(`Input failed: ${res.error}`, 'error');
+    return;
+  }
+  state.agentRunning = true;
+  state.agentPaused = false;
+  markActivity('operator input');
+  updateRunningUI();
+  const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
+  if (idx >= 0) {
+    state.challenges[idx].status = 'solving';
+    state.challenges[idx].running = true;
+    state.challenges[idx].agent_paused = false;
+  }
+  renderStatusBadge('solving', true);
+  renderCards();
 }
 
 //  Event Listeners 
@@ -3380,6 +3672,17 @@ document.addEventListener('DOMContentLoaded', () => {
     renderNewStagedFiles();
     openModal('modal-new');
   });
+  const btnRunAll = document.getElementById('btn-run-all');
+  if (btnRunAll) {
+    btnRunAll.addEventListener('click', async () => {
+      if (!confirm('Launch the agent on all unsolved challenges, one at a time, unattended? This uses API tokens.')) return;
+      btnRunAll.disabled = true;
+      const res = await api('/api/challenges/launch-all', { method: 'POST', body: { only_never_run: false } });
+      btnRunAll.disabled = false;
+      if (res && res.error) alert('Run All: ' + res.error);
+      else if (res && res.ok) alert('Batch started: ' + res.count + ' challenge(s) queued. They run one at a time — open each to watch progress.');
+    });
+  }
   // New challenge modal upload zone
   const newUploadZone = document.getElementById('new-upload-zone');
   const newUploadInput = document.getElementById('new-upload-input');
@@ -3416,6 +3719,7 @@ document.addEventListener('DOMContentLoaded', () => {
         category: document.getElementById('new-cat').value,
         flag_format: document.getElementById('new-flagfmt').value.trim(),
         description: document.getElementById('new-desc').value.trim(),
+        target: { url: document.getElementById('new-target-url').value.trim() },
       }
     });
     const filesToUpload = [...newStagedFiles];
@@ -3423,6 +3727,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderNewStagedFiles();
     document.getElementById('new-name').value = '';
     document.getElementById('new-flagfmt').value = '';
+    document.getElementById('new-target-url').value = '';
     document.getElementById('new-desc').value = '';
     btn.disabled = false;
     closeModal('modal-new');
@@ -3477,11 +3782,14 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('edit-name').focus();
       return;
     }
+    const currentChal = state.challenges.find(ch => ch.id === state.currentCid);
+    const existingTarget = (currentChal && currentChal.target) ? currentChal.target : {};
     const body = {
       name,
       category: document.getElementById('edit-cat').value,
       flag_format: document.getElementById('edit-flagfmt').value.trim(),
       description: document.getElementById('edit-desc').value.trim(),
+      target: { ...existingTarget, url: document.getElementById('edit-target-url').value.trim() },
     };
     const res = await api(`/api/challenges/${state.currentCid}`, { method: 'PUT', body });
     if (res && res.id) {
@@ -3562,19 +3870,30 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     state.agentRunning = false;
+    state.agentPaused = !!res.paused;
     updateRunningUI();
     const idx = state.challenges.findIndex(ch => ch.id === state.currentCid);
-    if (idx >= 0) state.challenges[idx].running = false;
+    if (idx >= 0) {
+      state.challenges[idx].running = false;
+      state.challenges[idx].agent_paused = !!res.paused;
+    }
     renderStatusBadge('unsolved', false);
     updateDashboardMetrics();
     renderCards();
-    appendAgent('Agent stopped.', 'system');
     checkDockerStatus();
   });
 
-  // Enter to launch
+  // Enter to launch, resume, or send operator input
   document.getElementById('prompt-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !state.agentRunning) launch(false);
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const text = document.getElementById('prompt-input').value.trim();
+    if (state.agentRunning || state.agentPaused) {
+      if (text) sendAgentInput();
+      else if (state.agentPaused) launch(false);
+      return;
+    }
+    launch(false);
   });
 
   // Manual solve / unsolve
@@ -3806,6 +4125,10 @@ document.addEventListener('DOMContentLoaded', () => {
       openai_api_key:    document.getElementById('oai-key-input').value.trim(),
       anthropic_api_key: document.getElementById('ant-key-input').value.trim(),
       model:             document.getElementById('settings-model').value.trim(),
+      checkpoint_interval: Number(document.getElementById('settings-checkpoint-interval').value || 5),
+      self_eval_interval: Number(document.getElementById('settings-self-eval-interval').value || 10),
+      context_compression_interval: Number(document.getElementById('settings-compress-interval').value || 15),
+      adaptive_tool_ranking: document.getElementById('settings-adaptive-tools').checked,
       clear_openai:      _settingsClearOai,
       clear_anthropic:   _settingsClearAnt,
     };
@@ -3819,6 +4142,58 @@ document.addEventListener('DOMContentLoaded', () => {
       toast(res?.error || 'Save failed', 'error');
     }
   });
+  // Settings tab switching
+  document.querySelectorAll('.settings-tabs .stab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.stab;
+      document.querySelectorAll('.settings-tabs .stab').forEach(t => t.classList.toggle('on', t === tab));
+      document.querySelectorAll('#modal-settings [data-spanel]').forEach(p => {
+        p.hidden = p.getAttribute('data-spanel') !== target;
+      });
+    });
+  });
+  // Models tab actions
+  const btnModelNew = document.getElementById('btn-model-new');
+  if (btnModelNew) btnModelNew.addEventListener('click', () => openModelEditor(null));
+  const modelsList = document.getElementById('models-list');
+  if (modelsList) {
+    modelsList.addEventListener('click', async (e) => {
+      const editBtn = e.target.closest('[data-edit-for]');
+      if (editBtn) {
+        const m = _modelsState.models.find(x => x.id === editBtn.getAttribute('data-edit-for'));
+        if (m) openModelEditor(m);
+        return;
+      }
+      const delBtn = e.target.closest('[data-del-for]');
+      if (delBtn) {
+        const id = delBtn.getAttribute('data-del-for');
+        if (!confirm(`Remove model "${id}"?`)) return;
+        _modelsState.models = _modelsState.models.filter(m => m.id !== id);
+        if (_modelsState.roles.solver === id) _modelsState.roles.solver = '';
+        if (_modelsState.roles.aux === id) _modelsState.roles.aux = '';
+        await _saveModels();
+      }
+    });
+    modelsList.addEventListener('change', async (e) => {
+      const sel = e.target.closest('[data-role-for]');
+      if (!sel) return;
+      const id = sel.getAttribute('data-role-for');
+      const val = sel.value;
+      // a model can hold at most one role; assigning clears the same role from others
+      if (val === 'solver' || val === 'aux') {
+        if (_modelsState.roles[val] && _modelsState.roles[val] !== id) { /* reassign */ }
+        // clear this model from the other role if it held it
+        const other = val === 'solver' ? 'aux' : 'solver';
+        if (_modelsState.roles[other] === id) _modelsState.roles[other] = '';
+        _modelsState.roles[val] = id;
+      } else {
+        // "no role": clear whichever role this model held
+        if (_modelsState.roles.solver === id) _modelsState.roles.solver = '';
+        if (_modelsState.roles.aux === id) _modelsState.roles.aux = '';
+      }
+      await _saveModels();
+    });
+  }
   document.getElementById('btn-security-toggle').addEventListener('click', async () => {
     if (!_securityEnabled) {
       if (_securityPasswordSet) {
@@ -4125,6 +4500,10 @@ async function loadSettings() {
 
   // Model
   document.getElementById('settings-model').value = cfg.model || '';
+  document.getElementById('settings-checkpoint-interval').value = cfg.checkpoint_interval || 5;
+  document.getElementById('settings-self-eval-interval').value = cfg.self_eval_interval || 10;
+  document.getElementById('settings-compress-interval').value = cfg.context_compression_interval || 15;
+  document.getElementById('settings-adaptive-tools').checked = cfg.adaptive_tool_ranking !== false;
   _securityEnabled = !!cfg.local_lock_enabled;
   _securityPasswordSet = !!cfg.local_lock_password_set;
   renderSecurityControls();
@@ -4135,6 +4514,193 @@ async function loadSettings() {
   if (netUrlEl && cfg.local_ip && cfg.port) {
     netUrlEl.textContent = `http://${cfg.local_ip}:${cfg.port}`;
   }
+
+  // Models registry
+  _modelsState.models = Array.isArray(cfg.models) ? cfg.models : [];
+  _modelsState.roles = cfg.roles || {};
+  _modelsState.presets = cfg.presets || {};
+  renderModelsList();
+}
+
+// ── Models tab ──────────────────────────────────────────────────────────────
+const _modelsState = { models: [], roles: {}, presets: {} };
+
+function _providerBadge(kind) {
+  return kind === 'anthropic' ? 'Anthropic' : 'OpenAI-compat';
+}
+
+function renderModelsList() {
+  const list = document.getElementById('models-list');
+  if (!list) return;
+  const { models, roles } = _modelsState;
+  if (!models.length) {
+    list.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:14px 0;text-align:center;">
+      No models yet. Click <b>＋ New endpoint</b> to add one (the Shannon preset sets up abliterated Kimi-K3 in seconds).</div>`;
+    return;
+  }
+  list.innerHTML = models.map(m => {
+    const isSolver = roles.solver === m.id;
+    const isAux = roles.aux === m.id;
+    const caps = m.capabilities || {};
+    const pr = m.pricing || {};
+    const price = (pr.in || pr.out) ? `$${(+pr.in||0)}/$${(+pr.out||0)}` : '—';
+    const chips = [
+      caps.tools ? `<span class="mr-chip ok">tools</span>` : '',
+      caps.vision ? `<span class="mr-chip ok">vision</span>` : '',
+      (m.base_url||'').includes('shannon') ? `<span class="mr-chip">no-refusal</span>` : '',
+    ].join('');
+    const roleVal = isSolver ? 'solver' : (isAux ? 'aux' : '');
+    return `<div class="model-row ${isSolver?'is-solver':''} ${m.key_set?'':'no-key'}" data-id="${escHtml(m.id)}">
+      <span class="mr-dot ${m.key_set?'':'off'}"></span>
+      <div class="mr-main">
+        <div class="mr-name">${escHtml(m.name)}</div>
+        <div class="mr-meta">${escHtml(_providerBadge(m.provider_kind))} · ${escHtml(m.model_id)}${m.context?(' · '+(m.context/1000|0)+'K'):''}${m.key_set?'':' · key not set'}</div>
+      </div>
+      <div class="mr-chips">${chips}</div>
+      <div class="mr-price">${price}</div>
+      <div class="mr-role">
+        <select data-role-for="${escHtml(m.id)}">
+          <option value=""${roleVal===''?' selected':''}>no role</option>
+          <option value="solver"${roleVal==='solver'?' selected':''}>◆ Solver</option>
+          <option value="aux"${roleVal==='aux'?' selected':''}>Aux</option>
+        </select>
+      </div>
+      <button class="mr-del" data-edit-for="${escHtml(m.id)}" title="Edit">✎</button>
+      <button class="mr-del" data-del-for="${escHtml(m.id)}" title="Delete">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function _saveModels() {
+  const res = await api('/api/config', { method: 'POST', body: {
+    models: _modelsState.models, roles: _modelsState.roles,
+  }});
+  if (!res || res.error) { toast(res?.error || 'Save failed', 'error'); return false; }
+  await loadSettings();
+  // refresh the launch model dropdown so new models are selectable immediately
+  if (typeof refreshLaunchModels === 'function') { try { await refreshLaunchModels(); } catch(e){} }
+  return true;
+}
+
+function openModelEditor(existing) {
+  const ed = document.getElementById('model-editor');
+  ed.hidden = false;
+  const presets = _modelsState.presets || {};
+  const presetChips = Object.entries(presets).map(([k,p]) =>
+    `<button type="button" class="me-preset" data-preset="${escHtml(k)}">${escHtml(p.label||k)}</button>`).join('');
+  const m = existing || { id:'', name:'', provider_kind:'openai_compat', base_url:'', model_id:'', api_key_ref:'', pricing:{in:0,out:0}, capabilities:{tools:true,vision:false}, context:0 };
+  ed.innerHTML = `
+    <div class="me-title">${existing ? 'Edit endpoint' : '＋ New endpoint'}</div>
+    ${existing ? '' : `<div class="me-presets">${presetChips}</div>`}
+    <div class="me-grid">
+      <div class="me-field"><label>Name</label><input id="me-name" value="${escHtml(m.name)}" placeholder="Kimi-K3 abliterated"></div>
+      <div class="me-field"><label>Provider</label>
+        <select id="me-kind"><option value="openai_compat"${m.provider_kind!=='anthropic'?' selected':''}>OpenAI-compatible</option><option value="anthropic"${m.provider_kind==='anthropic'?' selected':''}>Anthropic</option></select>
+      </div>
+    </div>
+    <div class="me-field"><label>Base URL <span style="text-transform:none;letter-spacing:0;color:var(--text-muted)">(blank = provider default)</span></label><input id="me-baseurl" value="${escHtml(m.base_url)}" placeholder="https://api.shannon-ai.com/v1"></div>
+    <div class="me-grid">
+      <div class="me-field"><label>Model ID</label><input id="me-modelid" value="${escHtml(m.model_id)}" placeholder="kimi-k3-3bit-reap"></div>
+      <div class="me-field"><label>API key ${m.key_set?'<span style="text-transform:none;letter-spacing:0;color:var(--green,#39d98a)">(on file — blank keeps)</span>':''}</label><input id="me-key" type="password" autocomplete="off" placeholder="${m.key_set?'••••••••':'sk-...'}"></div>
+    </div>
+    <div class="me-grid">
+      <div class="me-field"><label>Price in ($/M)</label><input id="me-pin" type="number" step="0.01" value="${(m.pricing||{}).in||0}"></div>
+      <div class="me-field"><label>Price out ($/M)</label><input id="me-pout" type="number" step="0.01" value="${(m.pricing||{}).out||0}"></div>
+    </div>
+    <label style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--text-dim);font-family:var(--font-mono)">
+      <span><input type="checkbox" id="me-tools" ${(m.capabilities||{}).tools!==false?'checked':''} style="width:auto"> tools</span>
+      <span><input type="checkbox" id="me-vision" ${(m.capabilities||{}).vision?'checked':''} style="width:auto"> vision</span>
+    </label>
+    <div class="me-test">
+      <button type="button" class="btn btn-ghost btn-sm" id="me-test-btn">Test connection</button>
+      <span class="me-test-result" id="me-test-result"></span>
+      <div class="me-actions">
+        <button type="button" class="btn btn-ghost btn-sm" id="me-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="me-save">${existing?'Save changes':'Save model'}</button>
+      </div>
+    </div>`;
+  ed.dataset.editId = existing ? existing.id : '';
+
+  ed.querySelectorAll('.me-preset').forEach(btn => btn.addEventListener('click', () => {
+    ed.querySelectorAll('.me-preset').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    const p = presets[btn.dataset.preset] || {};
+    ed.querySelector('#me-name').value = p.label || '';
+    ed.querySelector('#me-kind').value = p.provider_kind || 'openai_compat';
+    ed.querySelector('#me-baseurl').value = p.base_url || '';
+    ed.querySelector('#me-modelid').value = p.model_id || '';
+    ed.querySelector('#me-pin').value = (p.pricing||{}).in || 0;
+    ed.querySelector('#me-pout').value = (p.pricing||{}).out || 0;
+    ed.querySelector('#me-tools').checked = (p.capabilities||{}).tools !== false;
+    ed.querySelector('#me-vision').checked = !!(p.capabilities||{}).vision;
+    ed.dataset.presetKey = btn.dataset.preset;
+  }));
+
+  ed.querySelector('#me-cancel').addEventListener('click', () => { ed.hidden = true; ed.innerHTML=''; });
+  ed.querySelector('#me-test-btn').addEventListener('click', () => _testModelEditor());
+  ed.querySelector('#me-save').addEventListener('click', () => _saveModelEditor(existing));
+}
+
+function _editorPayload() {
+  const ed = document.getElementById('model-editor');
+  const g = id => ed.querySelector(id);
+  return {
+    provider_kind: g('#me-kind').value,
+    base_url: g('#me-baseurl').value.trim(),
+    model_id: g('#me-modelid').value.trim(),
+    name: g('#me-name').value.trim(),
+    key: g('#me-key').value.trim(),
+    pin: g('#me-pin').value, pout: g('#me-pout').value,
+    tools: g('#me-tools').checked, vision: g('#me-vision').checked,
+    presetKey: ed.dataset.presetKey || '',
+  };
+}
+
+async function _testModelEditor() {
+  const p = _editorPayload();
+  const out = document.getElementById('me-test-result');
+  if (!p.model_id) { out.className='me-test-result err'; out.textContent='Model ID required'; return; }
+  out.className='me-test-result'; out.textContent='Testing…';
+  const res = await api('/api/models/test', { method:'POST', body: {
+    provider_kind: p.provider_kind, base_url: p.base_url, model_id: p.model_id,
+    api_key: p.key, api_key_ref: p.presetKey || undefined,
+  }});
+  if (res && res.ok) {
+    out.className='me-test-result ok';
+    out.textContent = `✓ 200 OK · tools ${res.tools?'✓':'✗'} · ${res.latency_ms||0}ms` + (res.error?` · ${res.error}`:'');
+  } else {
+    out.className='me-test-result err';
+    out.textContent = `✕ ${res?.error || 'failed'}`;
+  }
+}
+
+async function _saveModelEditor(existing) {
+  const p = _editorPayload();
+  if (!p.model_id || !p.name) { toast('Name and Model ID are required', 'error'); return; }
+  const id = existing ? existing.id
+    : (p.presetKey && p.presetKey==='shannon' ? 'kimi-k3-abl'
+       : (p.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || p.model_id));
+  const ref = existing ? (existing.api_key_ref || id) : (p.presetKey || id);
+  const entry = {
+    id, name: p.name, provider_kind: p.provider_kind, base_url: p.base_url,
+    api_key_ref: ref, model_id: p.model_id,
+    pricing: { in: +p.pin||0, out: +p.pout||0 },
+    capabilities: { tools: p.tools, vision: p.vision },
+    context: existing ? (existing.context||0) : 0,
+  };
+  // upsert into the list
+  const idx = _modelsState.models.findIndex(m => m.id === id);
+  if (idx >= 0) _modelsState.models[idx] = { ..._modelsState.models[idx], ...entry };
+  else _modelsState.models.push(entry);
+  // persist key separately by ref (only if provided)
+  const body = { models: _modelsState.models, roles: _modelsState.roles };
+  if (p.key) body.keys = { [ref]: p.key };
+  const res = await api('/api/config', { method:'POST', body });
+  if (!res || res.error) { toast(res?.error||'Save failed','error'); return; }
+  document.getElementById('model-editor').hidden = true;
+  await loadSettings();
+  if (typeof refreshLaunchModels === 'function') { try { await refreshLaunchModels(); } catch(e){} }
+  toast('Model saved', 'success');
 }
 
 async function loadActiveContainers() {

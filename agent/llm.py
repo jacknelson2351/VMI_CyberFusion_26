@@ -13,9 +13,16 @@ from db import update_challenge
 
 class LLMMixin:
 
+    def _rates(self):
+        spec = getattr(self, "solver_spec", None)
+        if spec is not None and spec.pricing:
+            return spec.pricing
+        _, rates = resolve_model_rates(self.model, load_config())
+        return rates
+
     def _emit_cost_live(self, extra_out: int):
         """Emit a running cost estimate during streaming without updating totals or DB."""
-        _, rates = resolve_model_rates(self.model, load_config())
+        rates = self._rates()
         if not rates:
             return
         ir, or_ = rates
@@ -36,7 +43,7 @@ class LLMMixin:
         self.total_out += max(0, int(out_tokens or 0))
         cum_in = self._base_tokens_in + self.total_in
         cum_out = self._base_tokens_out + self.total_out
-        _, rates = resolve_model_rates(self.model, load_config())
+        rates = self._rates()
         if rates:
             ir, or_ = rates
             run_cost = (self.total_in * ir + self.total_out * or_) / 1_000_000
@@ -65,12 +72,20 @@ class LLMMixin:
 
     def _anthropic_messages_from_history(self, messages: list[dict]) -> list[dict]:
         out = []
+        pending_tool_results: list[dict] = []
+
+        def _flush_tools():
+            if pending_tool_results:
+                out.append({"role": "user", "content": list(pending_tool_results)})
+                pending_tool_results.clear()
+
         for m in messages:
             role = m.get("role")
             if role == "user":
+                _flush_tools()
                 out.append({"role": "user", "content": str(m.get("content") or "")})
-                continue
-            if role == "assistant":
+            elif role == "assistant":
+                _flush_tools()
                 blocks = []
                 text = m.get("content")
                 if text:
@@ -95,28 +110,36 @@ class LLMMixin:
                     })
                 if blocks:
                     out.append({"role": "assistant", "content": blocks})
-                continue
-            if role == "tool":
+            elif role == "tool":
                 tcid = m.get("tool_call_id")
-                if not tcid:
-                    continue
-                out.append({
-                    "role": "user",
-                    "content": [{
+                if tcid:
+                    pending_tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": tcid,
                         "content": str(m.get("content") or ""),
-                    }],
-                })
+                    })
+
+        _flush_tools()
         return out
 
-    def _complete_text(self, messages: list[dict], system_prompt: str | None = None, max_tokens: int = 1200) -> str:
-        if self.provider == "anthropic":
-            if not self.anthropic_client:
-                raise RuntimeError("Anthropic model selected but no Anthropic key configured.")
+    def _complete_text(self, messages: list[dict], system_prompt: str | None = None,
+                       max_tokens: int = 1200, model: str | None = None) -> str:
+        # Auxiliary text (summaries) runs on the Aux role and its own client. Fall back to the
+        # solver client if Aux isn't configured. `model` is accepted for back-compat but the
+        # Aux role now determines the endpoint.
+        spec = getattr(self, "aux_spec", None) or getattr(self, "solver_spec", None)
+        client = getattr(self, "aux_client", None) or getattr(self, "solver_client", None)
+        if client is None:
+            client = getattr(self, "solver_client", None)
+            spec = getattr(self, "solver_spec", None)
+        if client is None:
+            raise RuntimeError("No model client configured for auxiliary text.")
+        provider = spec.provider_kind if spec else "openai_compat"
+        use_model = spec.model_id if spec else self.model
+        if provider == "anthropic":
             anthropic_messages = self._anthropic_messages_from_history(messages)
-            resp = self.anthropic_client.messages.create(
-                model=self.model,
+            resp = client.messages.create(
+                model=use_model,
                 max_tokens=max_tokens,
                 system=system_prompt or self._system_prompt(),
                 messages=anthropic_messages,
@@ -138,11 +161,9 @@ class LLMMixin:
                     text_parts.append(getattr(block, "text", "") or "")
             return "".join(text_parts).strip()
 
-        if not self.openai_client:
-            raise RuntimeError("OpenAI model selected but no OpenAI key configured.")
-        resp = self.openai_client.chat.completions.create(
-            model=self.model,
-            **self._token_limit_kw(max_tokens),
+        resp = client.chat.completions.create(
+            model=use_model,
+            **self._token_limit_kw(max_tokens, use_model),
             messages=[{"role": "system", "content": system_prompt or self._system_prompt()}] + messages,
         )
         usage = getattr(resp, "usage", None)
@@ -154,8 +175,8 @@ class LLMMixin:
         return (resp.choices[0].message.content or "").strip()
 
     def _call_openai(self, force_text=False):
-        if not self.openai_client:
-            raise RuntimeError("OpenAI model selected but no OpenAI key configured. Set openai_api_key in config.json or OPENAI_API_KEY.")
+        if not self.solver_client:
+            raise RuntimeError("Solver model has no key/client configured. Set it in Settings → Models.")
         msg_list = self._sanitize_messages(self.messages)
         kwargs = dict(
             model=self.model,
@@ -165,10 +186,10 @@ class LLMMixin:
             stream_options={"include_usage": True},
         )
         if not force_text:
-            kwargs["tools"] = CTF_TOOLS
+            kwargs["tools"] = self._tool_definitions_for_provider(CTF_TOOLS)
             kwargs["tool_choice"] = "auto"
 
-        stream = self.openai_client.chat.completions.create(**kwargs)
+        stream = self.solver_client.chat.completions.create(**kwargs)
         content_parts = []
         tool_calls = {}
         usage = None
@@ -244,11 +265,8 @@ class LLMMixin:
         return SimpleNamespace(content=content, tool_calls=tc_objs, tool_calls_raw=tc_raw)
 
     def _call_anthropic(self, force_text=False):
-        from anthropic import Anthropic
-        if Anthropic is None:
-            raise RuntimeError("Anthropic package is not installed. Run: pip install -r requirements.txt")
-        if not self.anthropic_client:
-            raise RuntimeError("Anthropic model selected but no Anthropic key configured. Set anthropic_api_key in config.json or ANTHROPIC_API_KEY.")
+        if not self.solver_client:
+            raise RuntimeError("Solver model has no key/client configured. Set it in Settings → Models.")
 
         msg_list = self._sanitize_messages(self.messages)
         anthropic_messages = self._anthropic_messages_from_history(msg_list)
@@ -259,7 +277,7 @@ class LLMMixin:
             "messages": anthropic_messages,
         }
         if not force_text:
-            kwargs["tools"] = ANTHROPIC_TOOLS
+            kwargs["tools"] = self._tool_definitions_for_provider(ANTHROPIC_TOOLS)
             kwargs["tool_choice"] = {"type": "auto"}
 
         text_parts = []
@@ -273,7 +291,7 @@ class LLMMixin:
         out_est = 0
         last_cost_emit = 0
 
-        with self.anthropic_client.messages.stream(**kwargs) as stream:
+        with self.solver_client.messages.stream(**kwargs) as stream:
             for event in stream:
                 if not self.running:
                     break
