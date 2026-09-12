@@ -859,26 +859,41 @@ def approve_flag_route(cid):
         return jsonify({"error": "No candidate flag available for approval."}), 400
 
     if not approved:
-        update_challenge(
-            cid,
-            status="unsolved",
-            flag=None,
-            flag_candidate=None,
-            flag_how=None,
-            approved_at=None,
-            writeup_md=None,
-            writeup_path=None,
-            writeup_ready_at=None,
+        # Spec B: rejecting a candidate resumes the solve instead of killing it. Tell the agent
+        # the token was wrong (so it never resubmits it) and let it keep working from current
+        # state. If no live agent exists, fall back to the old revert-to-unsolved behavior.
+        agent = _agents.get(cid)
+        reject_msg = (
+            f"The flag candidate `{candidate}` was REJECTED — it is wrong. Do NOT submit it "
+            "again. It may be a planted decoy. Keep solving toward the real flag using a "
+            "different approach."
         )
+        resumed = False
+        if agent is not None:
+            update_challenge(cid, status="solving", flag=None, flag_candidate=None,
+                             flag_how=None, approved_at=None, writeup_md=None,
+                             writeup_path=None, writeup_ready_at=None)
+            try:
+                mode = agent.submit_user_input(reject_msg)  # queues + resumes if stopped
+                resumed = mode in ("resumed", "queued")
+            except Exception:
+                resumed = False
+        if not resumed:
+            update_challenge(
+                cid, status="unsolved", flag=None, flag_candidate=None, flag_how=None,
+                approved_at=None, writeup_md=None, writeup_path=None, writeup_ready_at=None,
+            )
         payload = {
             "cid": cid,
-            "status": "unsolved",
-            "message": "Flag candidate rejected. Challenge reverted to unsolved.",
+            "status": "solving" if resumed else "unsolved",
+            "message": ("Candidate rejected — agent is continuing to solve."
+                        if resumed else "Flag candidate rejected. Challenge reverted to unsolved."),
         }
         socketio.emit("flag_rejected", payload, room=cid)
-        socketio.emit("done", payload, room=cid)
+        if not resumed:
+            socketio.emit("done", payload, room=cid)
+            _log_event(cid, "done", payload)
         _log_event(cid, "flag_rejected", payload)
-        _log_event(cid, "done", payload)
         updated = get_challenge(cid)
         _broadcast_challenge(updated)
         return jsonify(_challenge_payload(updated))

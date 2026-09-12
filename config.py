@@ -137,6 +137,13 @@ DEFAULT_CONFIG = {
     "strict_auto_submit": True,
     "allow_nonstandard_submit": False,
     "hypothesis_budget": 2,
+    # Flag stop policy (Spec B): when the solve loop halts on a flag.
+    #   "verified_only" (default) — only stop for a model-submitted or format+deterministic flag;
+    #                               scraped/decoy tokens are recorded but the agent keeps solving.
+    #   "first_candidate"          — legacy: stop on the first flag-shaped token found.
+    #   "never"                    — never auto-stop; run to the step budget.
+    "flag_stop_policy": "verified_only",
+    "require_flag_approval": True,
     "allow_runtime_installs": False,
     "max_tool_calls_per_turn": 3,
     "checkpoint_interval": 5,

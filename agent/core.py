@@ -112,6 +112,8 @@ class CTFAgentCore:
         self.allow_runtime_installs = _as_bool(cfg.get("allow_runtime_installs"), default=False)
         self.strict_auto_submit = _as_bool(cfg.get("strict_auto_submit"), default=True)
         self.allow_nonstandard_submit = _as_bool(cfg.get("allow_nonstandard_submit"), default=False)
+        self.flag_stop_policy = (cfg.get("flag_stop_policy") or "verified_only").strip().lower()
+        self.require_flag_approval = _as_bool(cfg.get("require_flag_approval"), default=True)
         self.adaptive_tool_ranking = _as_bool(cfg.get("adaptive_tool_ranking"), default=True)
         self.tool_context_limit = int(cfg.get("tool_context_limit") or 4000)
         self.hypothesis_budget = int(cfg.get("hypothesis_budget") or 2)
@@ -163,6 +165,8 @@ class CTFAgentCore:
         self._running_hint_action = False
 
         self._flag_evidence: dict[str, set] = {}
+        # Spec B candidate ledger: every flag-shaped token we notice, whether or not we halt.
+        self._candidates: list[dict] = []
         self._install_attempted_tools: set[str] = set()
         self._preflight_missing_tools: list[str] = []
         self._tool_preflight_done = False
@@ -529,10 +533,69 @@ class CTFAgentCore:
         if self._no_progress_streak >= 3:
             self._set_phase("analyze", "no-progress pivot")
 
-    def _finalize_flag_candidate(self, flag: str, how: str = "", source: str = "") -> bool:
+    def _should_halt_for(self, flag: str, source: str, how: str, confidence: str) -> bool:
+        """Decide whether a flag candidate is strong enough to STOP the solve loop.
+
+        Under the default 'verified_only' policy, a scraped/decoy token never halts the run —
+        the agent records it and keeps solving. Only a model-submitted flag, or one that both
+        matches the challenge's declared format AND came from a deterministic local solve,
+        halts. This is the core fix for stopping on planted decoys/injections."""
+        from utils import _looks_like_decoy_flag
+        policy = getattr(self, "flag_stop_policy", "verified_only")
+        if policy == "never":
+            return False
+        if policy == "first_candidate":
+            return True
+        # verified_only
+        if _looks_like_decoy_flag(flag):
+            return False
+        if confidence == "verified":
+            return True
+        src_key = (source or "tool").split(":", 1)[0].strip() or "tool"
+        deterministic = self._is_deterministic_flag_source(source, src_key)
+        if self.flag_format and self._flag_matches_format(flag) and deterministic:
+            return True
+        return False
+
+    def _record_candidate(self, flag: str, source: str, how: str, status: str):
+        for c in self._candidates:
+            if c["flag"] == flag:
+                c["status"] = status
+                return c
+        entry = {"flag": flag, "source": source or "agent", "how": how or "",
+                 "status": status, "step": int(self.step or 0)}
+        self._candidates.append(entry)
+        return entry
+
+    def _finalize_flag_candidate(self, flag: str, how: str = "", source: str = "",
+                                 confidence: str = "proposed") -> bool:
+        """Record a flag candidate. Returns True only if the run HALTS for it.
+
+        Non-halting candidates are logged to the ledger and surfaced to the model as 'keep
+        solving' signals — they do not stop the agent."""
         candidate = (flag or "").strip()
         if not candidate:
             return False
+
+        if not self._should_halt_for(candidate, source, how, confidence):
+            self._record_candidate(candidate, source, how, status="proposed")
+            if self.memory:
+                self.memory.add_flag_candidate(candidate, source=source or "agent")
+                self.memory.save()
+            self.emit("thought", {
+                "text": (f"Noted possible flag '{candidate}' from {source or 'tool output'}, "
+                         "but it is unverified (possible decoy/plant). Continuing to solve and "
+                         "verify rather than stopping."),
+                "type": "system",
+            })
+            self.emit("flag", {
+                "flag": candidate, "how": how, "pending_approval": False,
+                "source": source or "agent", "unverified": True,
+            })
+            return False
+
+        # Halting path — a verified/high-confidence flag.
+        self._record_candidate(candidate, source, how, status="submitted")
         update_challenge(
             self.cid,
             status="pending_approval",
@@ -549,7 +612,7 @@ class CTFAgentCore:
         self.memory.save()
         self.running = False
         self.emit("thought", {
-            "text": f"Flag candidate found: {candidate}. Awaiting user approval.",
+            "text": f"Verified flag candidate: {candidate}. Awaiting user approval.",
             "type": "system",
         })
         self.emit("flag", {
@@ -818,11 +881,13 @@ class CTFAgentCore:
                 self.emit("error", {"message": msg, "flag": flag})
                 self._last_tool_progress = False
                 return f"[error] {msg}"
-        if self._finalize_flag_candidate(flag, how=how, source="submit_flag"):
+        if self._finalize_flag_candidate(flag, how=how, source="submit_flag", confidence="verified"):
             self._last_tool_progress = True
             return f"Flag candidate queued for approval: {flag}"
-        self._last_tool_progress = False
-        return "[error] empty flag"
+        # Policy declined to halt (e.g. flag_stop_policy='never'); keep the candidate on record.
+        self._last_tool_progress = True
+        return (f"Recorded candidate '{flag}'. Stop policy is '{self.flag_stop_policy}', so the "
+                "run continues — verify it independently or keep searching.")
 
     def _pre_llm_short_circuit(self) -> bool:
         if not self.solver_client:

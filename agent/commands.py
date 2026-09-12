@@ -7,7 +7,7 @@ from prompts import (
     CATEGORY_TOOL_CHECKS, TOOL_APT_PACKAGES,
     TOOL_INSTALL_COMMANDS, SYSTEM_TOOL_INSTALLERS,
 )
-from utils import _shell_quote
+from utils import _shell_quote, _looks_like_decoy_flag
 from pricing import _infer_pip_package
 
 
@@ -27,6 +27,42 @@ class CommandsMixin:
         if status and status.get("error"):
             return False
         return True
+
+    # Read-only inspection tools that produce a fresh fingerprint on every slightly-different
+    # invocation (sed ranges, objdump windows, grep variants). Re-running these on the SAME
+    # target yields no new information but was scored as "progress", so the no-progress streak
+    # never built and roulette burned 381 events re-slicing the same disassembly.
+    _INSPECTION_TOOLS = {
+        "sed", "awk", "grep", "egrep", "rg", "cat", "head", "tail", "less", "more",
+        "objdump", "readelf", "nm", "xxd", "hexdump", "strings", "file", "ls", "od", "wc",
+    }
+
+    def _inspection_signature(self, cmd: str) -> str:
+        """Signature = inspection tool + the first file/path-like argument, ignoring the
+        specific line ranges/flags that differ between near-duplicate reads."""
+        seg = self._effective_shell_segment(cmd)
+        tool = self._token_from_segment(seg)
+        if tool not in self._INSPECTION_TOOLS:
+            return ""
+        target = ""
+        for tok in seg.split()[1:]:
+            if tok.startswith("-"):
+                continue
+            if "/" in tok or "." in tok or tok.startswith("0x"):
+                target = tok.strip("'\"")
+                break
+        return f"{tool}:{target}" if target else ""
+
+    def _redundant_inspection(self, cmd: str) -> bool:
+        """True once the same file has been inspected with the same tool too many times."""
+        sig = self._inspection_signature(cmd)
+        if not sig:
+            return False
+        counts = getattr(self, "_inspection_sig_counts", None)
+        if counts is None:
+            counts = self._inspection_sig_counts = {}
+        counts[sig] = counts.get(sig, 0) + 1
+        return counts[sig] > 4
 
     def _effective_shell_segment(self, cmd: str) -> str:
         c = (cmd or "").strip()
@@ -104,29 +140,12 @@ class CommandsMixin:
         return t or "unknown"
 
     def _hypothesis_key(self, reasoning: str, family: str, cmd: str) -> str:
-        # For web, bind hypothesis budgets to tactic families to prevent endpoint/param
-        # spray from escaping budget checks via tiny reasoning text changes.
         if self.category == "web":
             return family or self._command_family(cmd)
-        r = re.sub(r"\s+", " ", (reasoning or "").strip().lower())
-        generic = {
-            "",
-            "running command",
-            "running command.",
-            "run command",
-            "run command.",
-            "executing command",
-            "executing command.",
-        }
-        if r in generic:
-            sig = self._normalize_command(cmd).lower()
-            sig = re.sub(r"[^a-z0-9 _./:+-]", "", sig)
-            sig = sig[:80] or "cmd"
-            return f"{family}:{sig}"
-        if r:
-            r = re.sub(r"[^a-z0-9 _-]", "", r)
-            return (r[:80] or family or "unknown")
-        return family or self._command_family(cmd)
+        # Use command signature for all categories — reasoning text varies too freely
+        # to be a reliable budget key and lets the LLM trivially bypass loop detection.
+        sig = re.sub(r"[^a-z0-9 _./:+-]", "", self._normalize_command(cmd).lower())[:60] or "cmd"
+        return f"{family}:{sig}"
 
     def _fingerprint_output(self, text: str) -> str:
         if not text:
@@ -147,8 +166,17 @@ class CommandsMixin:
         out = output or ""
         if not out.strip():
             return False
-        if self._extract_flag_candidates(out):
-            return True
+        # A non-decoy flag-shaped token is real progress — but only the first time we see this
+        # exact output. Re-reading the same file/decoy no longer resets the no-progress streak
+        # (Spec B: this is why the anti-loop counter was stuck at 0 in prior runs).
+        cands = self._extract_flag_candidates(out)
+        if cands and any(not _looks_like_decoy_flag(c) for c in cands):
+            fp = self._fingerprint_output(out)
+            if not fp or fp not in self._seen_fingerprints:
+                if fp:
+                    self._seen_fingerprints.add(fp)
+                return True
+            return False
         if self._is_error_result(out):
             return False
         fp = self._fingerprint_output(out)
@@ -174,11 +202,11 @@ class CommandsMixin:
             # Treat default 404/403 style responses as no progress unless they carry
             # a concrete exploit signal.
             if low_signal_web and not has_high_value_web_signal:
-                self._seen_output_fingerprints.add(fp)
+                self._seen_fingerprints.add(fp)
                 return False
-        if fp in self._seen_output_fingerprints:
+        if fp in self._seen_fingerprints:
             return False
-        self._seen_output_fingerprints.add(fp)
+        self._seen_fingerprints.add(fp)
         return True
 
     def _is_error_result(self, text: str) -> bool:
