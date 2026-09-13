@@ -123,17 +123,18 @@ class LLMMixin:
         return out
 
     def _complete_text(self, messages: list[dict], system_prompt: str | None = None,
-                       max_tokens: int = 1200, model: str | None = None) -> str:
-        # Auxiliary text (summaries) runs on the Aux role and its own client. Fall back to the
-        # solver client if Aux isn't configured. `model` is accepted for back-compat but the
-        # Aux role now determines the endpoint.
-        spec = getattr(self, "aux_spec", None) or getattr(self, "solver_spec", None)
-        client = getattr(self, "aux_client", None) or getattr(self, "solver_client", None)
+                       max_tokens: int = 1200, model: str | None = None, role: str = "aux") -> str:
+        # Non-streaming completion. role="aux" (default) runs cheap summaries on the Aux model;
+        # role="solver" runs strategic reasoning (the Planner) on the strong Solver model. Falls
+        # back to whichever client is configured.
+        if role == "solver":
+            spec = getattr(self, "solver_spec", None) or getattr(self, "aux_spec", None)
+            client = getattr(self, "solver_client", None) or getattr(self, "aux_client", None)
+        else:
+            spec = getattr(self, "aux_spec", None) or getattr(self, "solver_spec", None)
+            client = getattr(self, "aux_client", None) or getattr(self, "solver_client", None)
         if client is None:
-            client = getattr(self, "solver_client", None)
-            spec = getattr(self, "solver_spec", None)
-        if client is None:
-            raise RuntimeError("No model client configured for auxiliary text.")
+            raise RuntimeError("No model client configured for text completion.")
         provider = spec.provider_kind if spec else "openai_compat"
         use_model = spec.model_id if spec else self.model
         if provider == "anthropic":

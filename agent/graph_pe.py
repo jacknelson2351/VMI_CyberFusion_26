@@ -121,7 +121,7 @@ def run_planner_executor(agent, initial_messages: list[dict], max_steps: int, st
         try:
             raw = agent._complete_text(
                 [{"role": "user", "content": _planner_context(agent, brief, executor_summaries, remaining)}],
-                system_prompt=PLANNER_SYSTEM, max_tokens=700,
+                system_prompt=PLANNER_SYSTEM, max_tokens=700, role="solver",
             )
         except Exception as e:
             agent.emit("error", {"message": f"planner error: {e}"})
