@@ -664,6 +664,9 @@ class CTFAgentCore:
         "search_flag":      "_handle_search_flag",
         "submit_flag":      "_handle_submit_flag",
         "check_job":        "_handle_check_job",
+        "shell_session":    "_tool_shell_session",
+        "gdb_session":      "_tool_gdb_session",
+        "remote_session":   "_tool_remote_session",
     }
 
     def _dispatch(self, fn: str, args: dict) -> str:
@@ -925,9 +928,10 @@ class CTFAgentCore:
     def _truncate_for_context(self, text: str) -> str:
         if not text:
             return "(no output)"
-        if len(text) <= self.tool_context_limit:
-            return text
-        return text[:self.tool_context_limit] + "\n...[truncated]..."
+        # ACI: information-dense condensation (head + salient middle + tail) instead of blind
+        # truncation, so a flag/address/error late in the output is never lost.
+        from agent.aci import condense
+        return condense(text, limit=self.tool_context_limit)
 
     def _parse_tool_args(self, raw) -> tuple[dict, str | None]:
         if raw is None:
