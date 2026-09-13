@@ -114,6 +114,7 @@ class CTFAgentCore:
         self.allow_nonstandard_submit = _as_bool(cfg.get("allow_nonstandard_submit"), default=False)
         self.flag_stop_policy = (cfg.get("flag_stop_policy") or "verified_only").strip().lower()
         self.require_flag_approval = _as_bool(cfg.get("require_flag_approval"), default=True)
+        self.agent_architecture = (cfg.get("agent_architecture") or "planner_executor").strip().lower()
         self.adaptive_tool_ranking = _as_bool(cfg.get("adaptive_tool_ranking"), default=True)
         self.tool_context_limit = int(cfg.get("tool_context_limit") or 4000)
         self.hypothesis_budget = int(cfg.get("hypothesis_budget") or 2)
@@ -296,7 +297,12 @@ class CTFAgentCore:
 
         initial_prompt = self._build_initial_prompt(challenge_desc, recon, prior_summary)
         max_steps = STEP_LIMITS.get(self.category, 40)
-        result = run_solver_graph(self, [{"role": "user", "content": initial_prompt}], max_steps=max_steps)
+        messages = [{"role": "user", "content": initial_prompt}]
+        if self.agent_architecture == "planner_executor":
+            from agent.graph_pe import run_planner_executor
+            result = run_planner_executor(self, messages, max_steps=max_steps)
+        else:
+            result = run_solver_graph(self, messages, max_steps=max_steps)
         self._finish_solver_result(result)
 
     def _resume_run(self):

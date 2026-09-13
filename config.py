@@ -137,6 +137,10 @@ DEFAULT_CONFIG = {
     "strict_auto_submit": True,
     "allow_nonstandard_submit": False,
     "hypothesis_budget": 2,
+    # Agent architecture (Spec C): "planner_executor" (Planner delegates focused subtasks to
+    # fresh-context Executors) or "single_loop" (legacy flat model->tools loop).
+    "agent_architecture": "planner_executor",
+    "executor_task_budget": 8,
     # Flag stop policy (Spec B): when the solve loop halts on a flag.
     #   "verified_only" (default) — only stop for a model-submitted or format+deterministic flag;
     #                               scraped/decoy tokens are recorded but the agent keeps solving.
