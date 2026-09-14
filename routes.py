@@ -1907,10 +1907,20 @@ def _docker_status_payload() -> dict:
             pass
         tracked_cids = {cid for cid, conn in _containers.items() if getattr(conn, "running", False)}
         running_containers = len(docker_cids | tracked_cids)
+        # Single source of truth for the UI. The image's actual presence — not stale
+        # process-local memory — decides "ready" vs "required", so a fresh start never
+        # falsely says "Build required" when ctf-kali is already built.
+        if build_in_progress:
+            build_state = "building"
+        elif has_image:
+            build_state = "ready"
+        else:
+            build_state = "required"
         return {
             "running": True,
             "image": has_image,
-            "build_ready": build_ready,
+            "build_state": build_state,
+            "build_ready": has_image,          # back-compat: ready == image present
             "build_in_progress": build_in_progress,
             "active_agents": running_agents,
             "active_containers": running_containers,
@@ -1919,6 +1929,7 @@ def _docker_status_payload() -> dict:
         return {
             "running": False,
             "error": str(e),
+            "build_state": "down",
             "build_ready": False,
             "build_in_progress": False,
             "active_agents": 0,

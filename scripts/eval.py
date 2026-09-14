@@ -112,6 +112,16 @@ def run_one(cid, model, step_timeout):
             worker.join(timeout=30)
     secs = round(time.time() - t0, 1)
     final = get_challenge(cid) or {}
+    # Clean up the challenge container + agent registry so the eval doesn't leak "running"
+    # containers (they'd otherwise show up forever in the dashboard's Docker pill).
+    try:
+        from docker_mgr import _containers
+        conn = _containers.pop(cid, None)
+        if conn is not None:
+            conn.stop()
+        routes._agents.pop(cid, None)
+    except Exception:
+        pass
     return {
         "id": cid,
         "name": final.get("name"),

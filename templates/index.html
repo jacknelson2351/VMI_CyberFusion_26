@@ -178,9 +178,16 @@ html, body {
   display: block;
 }
 .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
-.status-pill.ok .dot   { background: var(--cyan); }
+.status-pill.ok .dot   { background: var(--ok); }
 .status-pill.warn .dot { background: var(--amber); }
-.status-pill.err .dot  { background: var(--amber); }
+.status-pill.err .dot  { background: var(--red); }
+.status-pill.building { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.status-pill .spinner {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 2px solid var(--accent-dim); border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 #docker-menu-wrap { position: relative; }
 #docker-status { cursor: pointer; }
 #docker-menu {
@@ -2768,26 +2775,24 @@ async function checkDockerStatus() {
   try {
     const s = await api(`/api/docker/status?t=${Date.now()}`);
     const el = document.getElementById('docker-status');
-    state.dockerBuildReady = !!s.build_ready;
-    state.dockerBuildInProgress = !!s.build_in_progress;
-    if (!s.running) {
+    // Single derived state from the backend: down | required | building | ready.
+    const st = s.build_state || (!s.running ? 'down' : (s.build_in_progress ? 'building' : (s.image ? 'ready' : 'required')));
+    state.dockerBuildReady = (st === 'ready');
+    state.dockerBuildInProgress = (st === 'building');
+    if (st === 'down') {
       el.className = 'status-pill warn';
-      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>Off</span>`;
-      state.dockerBuildReady = false;
-      state.dockerBuildInProgress = false;
-    } else if (!s.image) {
+      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>Docker off</span>`;
+    } else if (st === 'required') {
       el.className = 'status-pill warn';
       el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>Build image</span>`;
-    } else if (s.build_in_progress) {
-      el.className = 'status-pill warn';
-      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>Building</span>`;
-    } else if (!s.build_ready) {
-      el.className = 'status-pill warn';
-      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>Build required</span>`;
+    } else if (st === 'building') {
+      // Persistent building indicator (spinner) that stays until the build finishes.
+      el.className = 'status-pill building';
+      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="spinner"></div><span>Building…</span>`;
     } else {
       el.className = 'status-pill ok';
       const n = (typeof s.active_containers === 'number') ? s.active_containers : (s.active_agents || 0);
-      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>${n} running</span>`;
+      el.innerHTML = `${DOCKER_STATUS_MARK}<div class="dot"></div><span>${n > 0 ? `${n} running` : 'Ready'}</span>`;
     }
     updateRunningUI();
   } catch {
