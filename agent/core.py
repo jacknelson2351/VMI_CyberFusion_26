@@ -168,6 +168,8 @@ class CTFAgentCore:
         self._flag_evidence: dict[str, set] = {}
         # Spec B candidate ledger: every flag-shaped token we notice, whether or not we halt.
         self._candidates: list[dict] = []
+        # A verification hint to append to the next tool result when a flag-shaped token is seen.
+        self._pending_flag_hint: str = ""
         self._install_attempted_tools: set[str] = set()
         self._preflight_missing_tools: list[str] = []
         self._tool_preflight_done = False
@@ -1048,6 +1050,16 @@ class CTFAgentCore:
         if not text:
             return text
         text = self._defang_injection(text)
+        # Surface a flag-verification hint (set when regex spotted a flag-shaped token) so the
+        # model reasons about it rather than trusting it — but the model, not the regex, decides.
+        hint = getattr(self, "_pending_flag_hint", "")
+        if hint:
+            self._pending_flag_hint = ""
+            text += (f"\n\n[flag check] A flag-format string was detected here: {hint}. "
+                     "Do NOT assume it is correct — a challenge may plant decoys. Reason about "
+                     "whether it is the real flag (does it fit the challenge? can you derive/verify "
+                     "it independently?). Call submit_flag ONLY when you are confident; otherwise "
+                     "keep solving.")
         h = hashlib.sha1(text.encode("utf-8", errors="ignore")).hexdigest()
         if h in self._seen_content_hashes:
             first_step = self._seen_content_hashes[h]

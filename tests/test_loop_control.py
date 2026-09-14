@@ -48,6 +48,33 @@ class ShouldHaltTests(unittest.TestCase):
         self.assertFalse(a._should_halt_for("UMDCTF{abc}", "submit_flag", "", "verified"))
 
 
+class AutoDetectNeverSubmitsTests(unittest.TestCase):
+    def _full_agent(self, flag_format=""):
+        a = _agent(flag_format=flag_format)
+        a.running = True
+        a._pending_flag_hint = ""
+        a.memory = None
+        a._harvest_action_hints = lambda *x, **k: None
+        a.emit = lambda *x, **k: None
+        return a
+
+    def test_regex_hit_surfaces_but_never_halts(self):
+        a = self._full_agent(flag_format="UMDCTF{")
+        # Even a format-matching token from a deterministic source must NOT auto-submit/halt.
+        res = a._maybe_auto_submit_from_output(
+            "solver output: UMDCTF{looks_real}", source="run_command: python solve.py")
+        self.assertFalse(res)                       # never short-circuits / halts
+        self.assertTrue(a.running)                  # run continues
+        self.assertIn("UMDCTF{looks_real}", a._pending_flag_hint)
+        self.assertTrue(any(c["flag"] == "UMDCTF{looks_real}" for c in a._candidates))
+
+    def test_no_candidates_no_hint(self):
+        a = self._full_agent()
+        res = a._maybe_auto_submit_from_output("nothing flaggy here", source="run_command: ls")
+        self.assertFalse(res)
+        self.assertEqual(a._pending_flag_hint, "")
+
+
 class LedgerTests(unittest.TestCase):
     def test_record_and_dedup(self):
         a = _agent()

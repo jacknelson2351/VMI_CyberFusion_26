@@ -6,6 +6,7 @@ import re
 
 from utils import (
     _is_plausible_flag_token, _prefix_looks_ctf_like, _decode_backslash_escapes, _is_picoctf_flag,
+    _looks_like_decoy_flag,
 )
 
 
@@ -47,6 +48,13 @@ class FlagsMixin:
                 return
             if not _is_plausible_flag_token(vv):
                 return
+            if _looks_like_decoy_flag(vv):
+                seen.add(vv)  # remember so we don't reconsider, but never offer it
+                self.emit("thought", {
+                    "text": f"Ignoring planted decoy/placeholder flag: {vv}",
+                    "type": "system",
+                })
+                return
             seen.add(vv)
             candidates.append(vv)
 
@@ -84,15 +92,36 @@ class FlagsMixin:
                 return True
         return False
 
-    def _has_strong_auto_submit_evidence(self, token: str, text: str, src_key: str) -> bool:
+    def _is_deterministic_flag_source(self, source: str, src_key: str) -> bool:
+        if src_key in {"search_flag", "run_gdb", "extract_artifact", "extract_artifact_scan"}:
+            return True
+        if src_key != "run_command":
+            return False
+        cmd = (source or "").split(":", 1)[1].strip().lower() if ":" in (source or "") else ""
+        if not cmd:
+            return False
+        noisy_network = r"\b(?:curl|wget|httpie|sqlmap|ffuf|gobuster|feroxbuster|wfuzz|nc|ncat|socat)\b|https?://"
+        if re.search(noisy_network, cmd):
+            return False
+        deterministic_local = (
+            r"^(?:/ctf/\.venv/bin/)?python(?:3(?:\.\d+)?)?\b|"
+            r"^(?:sage|node|ruby|perl)\b|"
+            r"^(?:\./|/ctf/)[A-Za-z0-9_./+-]+"
+        )
+        return bool(re.search(deterministic_local, cmd))
+
+    def _has_strong_auto_submit_evidence(self, token: str, text: str, src_key: str, source: str = "") -> bool:
         evidence_sources = self._flag_evidence.get(token, set())
+        # Deterministic local tools/scripts don't need corroboration. Broad web and
+        # network output still requires repetition or a second source.
+        is_deterministic = self._is_deterministic_flag_source(source, src_key)
         return (
-            src_key == "search_flag"
+            is_deterministic
             or (text or "").count(token) >= 2
             or len(evidence_sources) >= 2
         )
 
-    def _choose_auto_submit_candidate(self, candidates: list[str], text: str, src_key: str) -> str | None:
+    def _choose_auto_submit_candidate(self, candidates: list[str], text: str, src_key: str, source: str = "") -> str | None:
         if not candidates:
             return None
         if self.flag_format:
@@ -113,7 +142,7 @@ class FlagsMixin:
             prefix = c.split("{", 1)[0]
             if not _prefix_looks_ctf_like(prefix):
                 continue
-            if self._has_strong_auto_submit_evidence(c, text, src_key):
+            if self._has_strong_auto_submit_evidence(c, text, src_key, source=source):
                 return c
         return None
 
@@ -167,6 +196,11 @@ class FlagsMixin:
         return out
 
     def _maybe_auto_submit_from_output(self, output: str, source: str = "") -> bool:
+        """Regex never DECIDES a flag. It only surfaces a flag-shaped lead to the model, which
+        must reason about whether it's the real flag and, if confident, call submit_flag itself.
+        This method never auto-submits and never halts the run — it always returns False so the
+        tool's real output (which contains the token) is returned to the model to reason over.
+        A verification hint is appended to that output via _compact_tool_result_for_context."""
         if not self.running:
             return False
         self._harvest_action_hints(output or "")
@@ -175,19 +209,25 @@ class FlagsMixin:
             return False
 
         src_key = (source or "tool").split(":", 1)[0].strip() or "tool"
-        text = output or ""
         for c in candidates:
             self._flag_evidence.setdefault(c, set()).add(src_key)
+            self._record_candidate(c, source, "", status="proposed")
 
-        chosen = self._choose_auto_submit_candidate(candidates, text, src_key)
-        if not chosen:
-            preview = ", ".join(candidates[:3])
-            self.emit("thought", {
-                "text": f"Low-confidence flag-like token(s) detected, not auto-submitting: {preview}",
-                "type": "system",
-            })
-            return False
-
-        how = f"Auto-detected in {source or 'tool output'}"
-        self.emit("thought", {"text": f"Auto-detected flag candidate: {chosen}", "type": "system"})
-        return self._finalize_flag_candidate(chosen, how=how, source=source or "auto-detect")
+        # Prefer format/ctf-like tokens for the visible hint, but never act on them automatically.
+        reportable = [
+            c for c in candidates
+            if (self.flag_format and self._flag_matches_format(c))
+            or _prefix_looks_ctf_like(c.split("{", 1)[0])
+        ] or candidates
+        preview = ", ".join(reportable[:3])
+        self._pending_flag_hint = preview
+        self.emit("thought", {
+            "text": (f"Flag-shaped token(s) detected in {source or 'tool output'}: {preview}. "
+                     "NOT auto-submitting — verify by reasoning whether it is the real flag, "
+                     "then call submit_flag only if confident."),
+            "type": "system",
+        })
+        for c in reportable[:3]:
+            self.emit("flag", {"flag": c, "pending_approval": False,
+                               "source": source or "auto-detect", "unverified": True})
+        return False
