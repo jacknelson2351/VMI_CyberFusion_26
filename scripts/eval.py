@@ -46,14 +46,18 @@ def budget_exhausted(spent, budget):
 
 def summarize(results):
     total = len(results)
+    # A verified flag halts to pending_approval (Spec B); with no ground-truth flags loaded we
+    # count "found a confident flag" (solved OR pending_approval) as the success signal.
+    found = sum(1 for r in results if r["status"] in ("solved", "pending_approval"))
     solved = sum(1 for r in results if r["status"] == "solved")
     pending = sum(1 for r in results if r["status"] == "pending_approval")
     cost = round(sum(r.get("cost_usd") or 0.0 for r in results), 4)
     return {
         "total": total,
+        "found": found,
         "solved": solved,
         "pending_approval": pending,
-        "solve_rate": round(solved / total, 4) if total else 0.0,
+        "found_rate": round(found / total, 4) if total else 0.0,
         "total_cost_usd": cost,
     }
 
@@ -64,9 +68,10 @@ def format_markdown(meta, results, totals):
         "",
         f"- set: `{meta['set']}`  model: `{meta['model']}`  arch: `{meta['arch']}`  "
         f"budget: ${meta['budget']}  max_steps: {meta['max_steps']}",
-        f"- **solved {totals['solved']}/{totals['total']}** "
-        f"(rate {totals['solve_rate']:.0%}), pending {totals['pending_approval']}, "
-        f"cost **${totals['total_cost_usd']:.4f}**",
+        f"- **flag found {totals['found']}/{totals['total']}** "
+        f"(rate {totals['found_rate']:.0%}) — of which auto-solved {totals['solved']}, "
+        f"awaiting approval {totals['pending_approval']}; cost **${totals['total_cost_usd']:.4f}**",
+        "- note: no ground-truth flags loaded, so this measures *confident flag reached*, not verified-correct.",
         "",
         "| challenge | category | status | flag | cost | steps | secs |",
         "|---|---|---|---|---|---|---|",

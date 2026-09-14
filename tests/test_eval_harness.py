@@ -53,7 +53,8 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(s["total"], 4)
         self.assertEqual(s["solved"], 2)
         self.assertEqual(s["pending_approval"], 1)
-        self.assertEqual(s["solve_rate"], 0.5)
+        self.assertEqual(s["found"], 3)          # solved + pending_approval
+        self.assertEqual(s["found_rate"], 0.75)
         self.assertAlmostEqual(s["total_cost_usd"], 0.50, places=4)
 
     def test_markdown_contains_totals_and_rows(self):
@@ -64,7 +65,7 @@ class SummaryTests(unittest.TestCase):
                 "budget": 5.0, "max_steps": 20, "stopped_for_budget": False}
         md = ev.format_markdown(meta, results, totals)
         self.assertIn("Alpha", md)
-        self.assertIn("solved 1/1", md)
+        self.assertIn("flag found 1/1", md)
 
 
 if __name__ == "__main__":
