@@ -1,48 +1,103 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CTF Copilot</title>
+<title>Big Stein</title>
+<script>
+  // Set theme before paint to avoid a flash. Default light (Claude cream); remember the toggle.
+  (function(){try{var t=localStorage.getItem('ctf-theme');if(t==='light'||t==='dark')
+    document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
 <style>
 /*  Reset & Base  */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root {
-  --bg:       #1a1a1a;
-  --bg1:      #212121;
-  --bg2:      #2a2a2a;
-  --bg3:      #333333;
-  --border:   #363636;
-  --border2:  #454545;
-  --accent:   #d97357;
-  --accent-dim:#7a3d2e;
-  --amber:    #e8a04c;
-  --red:      #e05c6b;
-  --blue:     #5b9cf6;
-  --cyan:     #2dd4bf;
-  --purple:   #a78bfa;
-  --text:     #e8e8e8;
-  --text-dim: #a0a0a0;
-  --text-muted: #606060;
+/* ── Claude / Anthropic identity ───────────────────────────────────────────
+   Light (primary): warm cream canvas, ivory cards, near-black warm ink, clay accent.
+   Dark: warm charcoal, same clay. One accent (clay), soft hairline borders, editorial
+   serif for display, clean sans for UI. Palette drawn from Anthropic's own look. */
+:root, :root[data-theme="light"] {
+  --bg:       #faf9f5;   /* cream canvas */
+  --bg1:      #ffffff;   /* ivory cards / topbar */
+  --bg2:      #f3f1ea;   /* insets */
+  --bg3:      #ece8dd;   /* raised / tracks */
+  --border:   #e7e2d6;   /* hairline */
+  --border2:  #d9d3c4;   /* stronger hairline */
+  --accent:      #cc785c;   /* Claude clay */
+  --accent-hover:#bd6a4f;
+  --accent-dim:  #d9b3a3;
+  --accent-soft: rgba(204,120,92,0.11);
+  --accent-glow: rgba(204,120,92,0.22);
+  --amber:    #b7811a;
+  --red:      #bc4331;
+  --blue:     #4a6f9c;
+  --cyan:     #3a8a7d;
+  --purple:   #8a6db5;
+  --ok:       #5a8a54;
+  --text:     #191817;   /* warm near-black ink */
+  --text-dim: #6b6862;
+  --text-muted: #97928a;
+  --on-accent: #ffffff;
 
-  --cat-pwn:      #e05c6b;
-  --cat-web:      #2dd4bf;
-  --cat-crypto:   #e8c44c;
-  --cat-forensics:#7ed56f;
-  --cat-rev:      #f09cb4;
-  --cat-misc:     #a78bfa;
-  --cat-osint:    #ffd700;
-  --cat-network:  #5b9cf6;
+  /* Category encodings — muted, harmonized to the earthy palette. */
+  --cat-pwn:      #bc4331;
+  --cat-web:      #3a8a7d;
+  --cat-crypto:   #b7811a;
+  --cat-forensics:#5a8a54;
+  --cat-rev:      #b06a86;
+  --cat-misc:     #8a6db5;
+  --cat-osint:    #a67c1e;
+  --cat-network:  #4a6f9c;
 
-  --font-mono: ui-monospace, 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --shadow-sm: 0 1px 3px rgba(60,50,40,0.06);
+  --shadow-lg: 0 20px 48px rgba(60,50,40,0.12);
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Fira Code', monospace;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --radius:   8px;
-  --radius-lg:12px;
+  --font-display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --radius:   10px;
+  --radius-lg:16px;
+}
+
+:root[data-theme="dark"] {
+  --bg:       #201f1d;   /* warm charcoal */
+  --bg1:      #2a2825;
+  --bg2:      #323029;
+  --bg3:      #3a372f;
+  --border:   #3c3931;
+  --border2:  #4c483d;
+  --accent:      #d97757;   /* Claude clay, brighter on dark */
+  --accent-hover:#e08a6b;
+  --accent-dim:  #8a5240;
+  --accent-soft: rgba(217,119,87,0.14);
+  --accent-glow: rgba(217,119,87,0.30);
+  --amber:    #d9a441;
+  --red:      #e0685a;
+  --blue:     #7fa3cc;
+  --cyan:     #5cbfae;
+  --purple:   #b39ddb;
+  --ok:       #82ab6e;
+  --text:     #f0ede4;   /* warm ivory text */
+  --text-dim: #b8b2a4;
+  --text-muted: #8a857a;
+  --on-accent: #ffffff;
+
+  --cat-pwn:      #e0685a;
+  --cat-web:      #5cbfae;
+  --cat-crypto:   #d9a441;
+  --cat-forensics:#82ab6e;
+  --cat-rev:      #d19bb3;
+  --cat-misc:     #b39ddb;
+  --cat-osint:    #d0a44a;
+  --cat-network:  #7fa3cc;
+
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.35);
+  --shadow-lg: 0 20px 48px rgba(0,0,0,0.45);
 }
 
 html, body {
@@ -86,17 +141,19 @@ html, body {
   gap: 8px;
 }
 #topbar-logo .brand-mark {
-  height: 38px;
-  width: auto;
+  height: 34px;
+  width: 34px;
   display: block;
   flex-shrink: 0;
 }
 #topbar-logo .brand-name {
-  font-family: var(--font-sans);
-  font-size: 14px;
+  font-family: var(--font-display);
+  font-size: 21px;
   font-weight: 600;
+  letter-spacing: -0.015em;
   line-height: 1;
   white-space: nowrap;
+  color: var(--text);
 }
 #topbar-logo .sep { color: var(--border2); }
 #topbar-title { color: var(--text-dim); font-size: 13px; font-weight: 400; }
@@ -111,7 +168,7 @@ html, body {
   font-size: 11px;
   border: 1px solid var(--border2);
   background: var(--bg2);
-  color: #fff;
+  color: var(--text);
 }
 .status-pill .mark {
   width: 14px;
@@ -165,14 +222,20 @@ html, body {
 }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.btn-primary   { background: var(--accent); color: #fff; }
-.btn-primary:hover:not(:disabled) { background: #e8845f; box-shadow: 0 2px 8px rgba(217,115,87,0.3); }
+.btn-primary   { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 2px 10px var(--accent-glow); }
 
-.btn-amber     { background: var(--amber); color: #000; }
-.btn-amber:hover:not(:disabled) { background: #f0b060; }
+.btn-amber     { background: var(--amber); color: #1a1206; }
+.btn-amber:hover:not(:disabled) { background: var(--amber); filter: brightness(1.08); }
 
 .btn-ghost     { background: var(--bg3); color: var(--text); border: 1px solid var(--border2); }
 .btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+.btn-icon { padding: 7px 9px; }
+.theme-icon-dark { display: none; }
+.theme-icon-light { display: inline-block; }
+:root[data-theme="light"] .theme-icon-dark { display: inline-block; }
+:root[data-theme="light"] .theme-icon-light { display: none; }
 
 .btn-danger    { background: rgba(255,77,109,0.15); color: var(--red); border: 1px solid rgba(255,77,109,0.3); }
 .btn-danger:hover:not(:disabled) { background: rgba(255,77,109,0.25); }
@@ -200,13 +263,13 @@ html, body {
 }
 
 #dash-header h1 {
-  font-family: var(--font-mono);
-  font-size: 18px;
+  font-family: var(--font-display);
+  font-size: 22px;
   font-weight: 700;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
   font-stretch: 100%;
   text-transform: none;
-  color: #fff;
+  color: var(--text);
 }
 
 .dash-cost {
@@ -243,7 +306,7 @@ html, body {
   letter-spacing: 0.04em;
 }
 .filter-tab:hover { border-color: var(--border2); color: var(--text); }
-.filter-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(217,115,87,0.08); }
+.filter-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(204,120,92,0.08); }
 .filter-toggle {
   margin-left: 8px;
   padding: 5px 13px;
@@ -323,10 +386,10 @@ html, body {
   pointer-events: none;
 }
 .donut-fraction {
-  font-family: var(--font-mono);
-  font-size: 22px;
-  font-weight: 700;
-  color: #fff;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text);
   line-height: 1;
 }
 .donut-sublabel {
@@ -369,7 +432,7 @@ html, body {
 .cost-bar-fill {
   height: 100%;
   border-radius: 99px;
-  background: var(--purple);
+  background: var(--accent);
   transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
 }
 .cost-bars-empty {
@@ -536,7 +599,7 @@ html, body {
 .card-name {
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   margin-bottom: 8px;
   line-height: 1.3;
 }
@@ -631,7 +694,7 @@ html, body {
   display: flex; align-items: center; justify-content: center;
   transition: all 0.15s;
 }
-.modal-close:hover { color: #fff; border-color: var(--text-dim); }
+.modal-close:hover { color: var(--text); border-color: var(--text-dim); }
 
 .modal-body { padding: 20px 24px; }
 .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
@@ -661,7 +724,7 @@ html, body {
 }
 .field input:focus, .field select:focus, .field textarea:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(217,115,87,0.12);
+  box-shadow: 0 0 0 3px rgba(204,120,92,0.12);
 }
 .field textarea { min-height: 120px; resize: vertical; font-size: 13px; line-height: 1.6; }
 .field select option { background: var(--bg2); }
@@ -715,7 +778,7 @@ html, body {
 .ch-title {
   font-size: 14px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -779,9 +842,9 @@ html, body {
 }
 .ch-menu-item:hover { background: var(--bg3); }
 .ch-menu-item-danger { color: var(--red); }
-.ch-menu-item-danger:hover { background: rgba(224,92,107,0.1); }
+.ch-menu-item-danger:hover { background: rgba(240,84,76,0.1); }
 .ch-menu-item-accent { color: var(--accent); }
-.ch-menu-item-accent:hover { background: rgba(217,115,87,0.1); }
+.ch-menu-item-accent:hover { background: rgba(204,120,92,0.1); }
 .ch-menu-divider { border-top: 1px solid var(--border); margin: 5px 0; }
 
 /* Filter popout */
@@ -829,7 +892,7 @@ html, body {
   text-align: center;
 }
 .filter-cat-btn:hover { border-color: var(--border2); color: var(--text); }
-.filter-cat-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(217,115,87,0.08); }
+.filter-cat-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(204,120,92,0.08); }
 .filter-hide-row {
   border-top: 1px solid var(--border);
   padding-top: 10px;
@@ -851,7 +914,7 @@ html, body {
 }
 .badge-unsolved { border-color: var(--border2); color: var(--text-dim); }
 .badge-solving  { border-color: var(--amber); color: var(--amber); background: rgba(232,160,76,0.08); }
-.badge-running  { border-color: var(--accent); color: var(--accent); background: rgba(217,115,87,0.08); }
+.badge-running  { border-color: var(--accent); color: var(--accent); background: rgba(204,120,92,0.08); }
 .badge-waiting  { border-color: var(--text-muted); color: var(--text-muted); background: rgba(255,255,255,0.03); }
 .badge-idle     { border-color: var(--text-muted); color: var(--text-muted); background: rgba(255,255,255,0.03); }
 .badge-solved   { border-color: var(--cyan); color: var(--cyan); background: rgba(45,212,191,0.08); }
@@ -931,7 +994,7 @@ html, body {
 .memory-file-btn.active {
   border-color: var(--accent);
   color: var(--text);
-  background: rgba(217,115,87,0.09);
+  background: rgba(204,120,92,0.09);
 }
 .memory-file-btn-name {
   display: block;
@@ -1035,7 +1098,7 @@ html, body {
 }
 #upload-zone:hover, #upload-zone.drag-over {
   border-color: var(--accent);
-  background: rgba(217,115,87,0.05);
+  background: rgba(204,120,92,0.05);
 }
 #upload-zone .upload-icon { font-size: 24px; margin-bottom: 6px; }
 #upload-zone .upload-text { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
@@ -1087,7 +1150,7 @@ html, body {
   border: 1px solid var(--border2);
   border-radius: var(--radius);
   background:
-    linear-gradient(180deg, rgba(217,115,87,0.08), rgba(217,115,87,0.03)),
+    linear-gradient(180deg, rgba(204,120,92,0.08), rgba(204,120,92,0.03)),
     var(--bg2);
 }
 .writeup-inline.visible { display: flex; }
@@ -1127,12 +1190,12 @@ html, body {
   font-size: 11px;
   color: var(--accent);
   text-decoration: none;
-  border: 1px solid rgba(217,115,87,0.35);
-  background: rgba(217,115,87,0.08);
+  border: 1px solid rgba(204,120,92,0.35);
+  background: rgba(204,120,92,0.08);
   border-radius: 6px;
   padding: 6px 9px;
 }
-.writeup-link:hover { background: rgba(217,115,87,0.16); }
+.writeup-link:hover { background: rgba(204,120,92,0.16); }
 
 #writeup-content {
   background: var(--bg);
@@ -1262,7 +1325,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   white-space: pre-wrap;
   word-break: break-word;
   padding: 10px 14px;
-  background: rgba(217,115,87,0.05);
+  background: rgba(204,120,92,0.05);
   border-left: 2px solid var(--accent);
   border-radius: 0 6px 6px 0;
   margin: 4px 0;
@@ -1293,7 +1356,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   padding: 7px 12px;
   word-break: break-all;
 }
-.chat-banner.command { background: rgba(217,115,87,0.06); border: 1px solid rgba(217,115,87,0.18); color: var(--accent); }
+.chat-banner.command { background: rgba(204,120,92,0.06); border: 1px solid rgba(204,120,92,0.18); color: var(--accent); }
 .chat-banner.command::before { content: '$ '; opacity: 0.5; }
 .chat-banner.gdb-command { background: rgba(167,139,250,0.06); border: 1px solid rgba(167,139,250,0.18); color: var(--purple); }
 .chat-banner.gdb-command::before { content: ' '; }
@@ -1324,7 +1387,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 }
 #chat-input-wrap:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(217,115,87,0.1);
+  box-shadow: 0 0 0 3px rgba(204,120,92,0.1);
 }
 #prompt-input {
   display: block;
@@ -1359,7 +1422,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 .agent-activity .activity-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--text-muted);
-  box-shadow: 0 0 0 0 rgba(217,115,87,0.0);
+  box-shadow: 0 0 0 0 rgba(204,120,92,0.0);
 }
 .agent-activity.running .activity-dot { background: var(--accent); animation: pulse 1.2s infinite; }
 .agent-activity .activity-label { color: var(--text-muted); font-weight: 700; }
@@ -1371,7 +1434,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   gap: 10px;
   align-items: stretch;
   padding: 10px 28px;
-  background: linear-gradient(90deg, rgba(217,115,87,0.08), rgba(91,156,246,0.04));
+  background: linear-gradient(90deg, rgba(204,120,92,0.08), rgba(91,156,246,0.04));
   border-bottom: 1px solid var(--border);
 }
 .agent-status-card {
@@ -1418,8 +1481,8 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 
 /* Flag banner */
 #flag-banner {
-  background: rgba(217,115,87,0.08);
-  border-bottom: 1px solid rgba(217,115,87,0.35);
+  background: rgba(204,120,92,0.08);
+  border-bottom: 1px solid rgba(204,120,92,0.35);
   padding: 10px 28px;
   display: none;
   align-items: center;
@@ -1430,9 +1493,9 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 #flag-banner.visible { display: flex; }
 @keyframes flag-in { from { opacity:0; transform:scale(0.98); } }
 .flag-label { font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-weight: 700; letter-spacing: 0.08em; }
-.flag-value { font-family: var(--font-mono); font-size: 14px; color: #fff; font-weight: 600; flex: 1; word-break: break-all; }
-.flag-copy  { background: rgba(217,115,87,0.15); border: 1px solid rgba(217,115,87,0.3); color: var(--accent); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: var(--font-mono); transition: all 0.15s; }
-.flag-copy:hover { background: rgba(217,115,87,0.25); }
+.flag-value { font-family: var(--font-mono); font-size: 14px; color: var(--text); font-weight: 600; flex: 1; word-break: break-all; }
+.flag-copy  { background: rgba(204,120,92,0.15); border: 1px solid rgba(204,120,92,0.3); color: var(--accent); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: var(--font-mono); transition: all 0.15s; }
+.flag-copy:hover { background: rgba(204,120,92,0.25); }
 
 
 /*  Manual solve  */
@@ -1486,8 +1549,8 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 .key-masked { color: var(--text-muted); font-size: 11px; font-family: var(--font-mono); }
 .key-remove-btn {
   align-self: flex-start;
-  background: rgba(224,92,107,0.1);
-  border: 1px solid rgba(224,92,107,0.25);
+  background: rgba(240,84,76,0.1);
+  border: 1px solid rgba(240,84,76,0.25);
   color: var(--red);
   font-size: 11px;
   font-family: var(--font-mono);
@@ -1497,7 +1560,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   transition: background 0.15s;
   display: none;
 }
-.key-remove-btn:hover { background: rgba(224,92,107,0.2); }
+.key-remove-btn:hover { background: rgba(240,84,76,0.2); }
 .key-remove-btn.visible { display: inline-flex; }
 .security-row {
   margin-top: 8px;
@@ -1583,9 +1646,9 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   font-size: 11px;
 }
 .container-kill {
-  background: rgba(224,92,107,0.12);
+  background: rgba(240,84,76,0.12);
   color: var(--red);
-  border: 1px solid rgba(224,92,107,0.28);
+  border: 1px solid rgba(240,84,76,0.28);
   border-radius: 6px;
   padding: 5px 8px;
   cursor: pointer;
@@ -1631,8 +1694,8 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   pointer-events: auto;
 }
 @keyframes toast-in { from { opacity:0; transform:translateY(10px); } }
-.toast.success { border-color: rgba(217,115,87,0.4); }
-.toast.error   { border-color: rgba(224,92,107,0.4); }
+.toast.success { border-color: rgba(204,120,92,0.4); }
+.toast.error   { border-color: rgba(240,84,76,0.4); }
 
 </style>
 </head>
@@ -1642,8 +1705,19 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   <!--  Topbar  -->
   <div id="topbar">
     <div id="topbar-logo">
-      <img class="brand-mark" src="/static/jmu-whale-logo.svg" alt="Beer mug logo">
-      <span class="brand-name">CTF Copilot</span>
+      <svg class="brand-mark" viewBox="0 0 36 36" fill="none" role="img" aria-label="Big Stein logo">
+        <circle cx="18" cy="18" r="17" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>
+        <!-- island mound -->
+        <path d="M7 25 Q18 20.5 29 25 L29 27 Q18 24 7 27 Z" fill="var(--accent)"/>
+        <!-- palm trunk -->
+        <path d="M18.4 24 C17.3 20 17.6 16.5 18.6 13.4" stroke="var(--text)" stroke-width="1.7" stroke-linecap="round"/>
+        <!-- palm fronds -->
+        <path d="M18.6 13 C15.6 11.4 12.9 11.6 10.8 13.4" stroke="var(--accent)" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M18.6 13 C21.6 11.4 24.3 11.6 26.4 13.4" stroke="var(--accent)" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M18.6 12.6 C17.4 10.2 15.3 8.7 12.9 8.4" stroke="var(--accent)" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M18.6 12.6 C19.8 10.2 21.9 8.7 24.3 8.4" stroke="var(--accent)" stroke-width="1.7" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">Big Stein</span>
     </div>
     <div id="topbar-right">
       <select id="set-select" title="Active competition / challenge set"
@@ -1663,6 +1737,10 @@ details:not([open]) .accordion-icon::before { content: '+'; }
           </div>
         </div>
       </div>
+      <button class="btn btn-ghost btn-sm btn-icon" id="btn-theme-toggle" title="Toggle light / dark" aria-label="Toggle theme">
+        <svg class="theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
       <button class="btn btn-ghost btn-sm" id="btn-settings-open" title="API keys & settings">Settings</button>
       <button class="btn btn-ghost btn-sm" id="btn-lock-app" title="Lock workspace now" style="display:none">Lock</button>
     </div>
@@ -2147,18 +2225,18 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 <div class="modal-overlay" id="modal-about">
   <div class="modal" style="width:640px">
     <div class="modal-header">
-      <div class="modal-title">About CTF Copilot</div>
+      <div class="modal-title">About Big Stein</div>
       <button class="modal-close" data-close="modal-about">X</button>
     </div>
     <div class="modal-body">
       <p style="font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:12px;">
-        CTF Copilot began as a one-night build sprint by Jack Nelson, designed to turn chaotic challenge workflows into one clean, repeatable solving interface. The idea was simple: keep all challenge context, tools, uploads, and solve state in one place so execution stays focused from first recon to final flag.
+        Big Stein began as a one-night build sprint by Jack Nelson, designed to turn chaotic challenge workflows into one clean, repeatable solving interface. The idea was simple: keep all challenge context, tools, uploads, and solve state in one place so execution stays focused from first recon to final flag.
       </p>
       <p style="font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:12px;">
         The first working version was built in a hotel room marathon, with development running deep into the session until 3:30 PM. Jack orchestrated Claude Code and Codex in parallel while he stepped back to meditate and direct the architecture, turning rapid iterations into a polished CTF workflow engine in a single push.
       </p>
       <p style="font-size:13px;color:var(--text-dim);line-height:1.7;margin-bottom:0;">
-        That same momentum carried into competition, where Jack Nelson took first place at the Microsoft Observer CTF during VMI Cyber Fusion 2026, the morning after he built it. Jack also credits his work with Enzo Hins during the CTF, whose awesome collaboration and support helped inspire key parts of the build. CTF Copilot is the product of that mindset: precise tooling, disciplined execution, and relentless focus on winning.
+        That same momentum carried into competition, where Jack Nelson took first place at the Microsoft Observer CTF during VMI Cyber Fusion 2026, the morning after he built it. Jack also credits his work with Enzo Hins during the CTF, whose awesome collaboration and support helped inspire key parts of the build. Big Stein is the product of that mindset: precise tooling, disciplined execution, and relentless focus on winning.
       </p>
       <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-top:12px;margin-bottom:0;">
         Note: I recommend meditating, and this app helps. Students can get a free scholarship here:
@@ -3636,6 +3714,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (setSelect) {
     setSelect.addEventListener('change', e => activateChallengeSet(e.target.value));
   }
+  const themeBtn = document.getElementById('btn-theme-toggle');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('ctf-theme', next); } catch (e) {}
+    });
+  }
   const topbarLogo = document.getElementById('topbar-logo');
   if (topbarLogo) {
     topbarLogo.addEventListener('click', () => {
@@ -3726,7 +3813,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderNewStagedFiles();
       newUploadInput.value = '';
     });
-    newUploadZone.addEventListener('dragover', e => { e.preventDefault(); newUploadZone.style.borderColor = 'var(--accent)'; newUploadZone.style.background = 'rgba(217,115,87,0.05)'; });
+    newUploadZone.addEventListener('dragover', e => { e.preventDefault(); newUploadZone.style.borderColor = 'var(--accent)'; newUploadZone.style.background = 'rgba(204,120,92,0.05)'; });
     newUploadZone.addEventListener('dragleave', () => { newUploadZone.style.borderColor = ''; newUploadZone.style.background = ''; });
     newUploadZone.addEventListener('drop', e => {
       e.preventDefault();
@@ -3794,7 +3881,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderEditStagedFiles();
       editUploadInput.value = '';
     });
-    editUploadZone.addEventListener('dragover', e => { e.preventDefault(); editUploadZone.style.borderColor = 'var(--accent)'; editUploadZone.style.background = 'rgba(217,115,87,0.05)'; });
+    editUploadZone.addEventListener('dragover', e => { e.preventDefault(); editUploadZone.style.borderColor = 'var(--accent)'; editUploadZone.style.background = 'rgba(204,120,92,0.05)'; });
     editUploadZone.addEventListener('dragleave', () => { editUploadZone.style.borderColor = ''; editUploadZone.style.background = ''; });
     editUploadZone.addEventListener('drop', e => {
       e.preventDefault();
