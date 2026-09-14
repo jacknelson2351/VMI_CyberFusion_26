@@ -1646,6 +1646,10 @@ details:not([open]) .accordion-icon::before { content: '+'; }
       <span class="brand-name">CTF Copilot</span>
     </div>
     <div id="topbar-right">
+      <select id="set-select" title="Active competition / challenge set"
+              style="background:#141416;color:#ececf1;border:1px solid #26262b;border-radius:8px;
+                     padding:6px 10px;font-size:12px;font-family:ui-monospace,Menlo,monospace;
+                     max-width:240px;cursor:pointer"></select>
       <div id="docker-menu-wrap">
         <button id="docker-status" class="status-pill" type="button" aria-haspopup="menu" aria-expanded="false">
           <img class="mark" src="/static/docker-logo.png" alt="" aria-hidden="true">
@@ -2721,6 +2725,28 @@ checkDockerStatus();
 setInterval(checkDockerStatus, 15000);
 
 //  Challenges
+async function loadChallengeSets() {
+  const sel = document.getElementById('set-select');
+  if (!sel) return;
+  try {
+    const { sets } = await api('/api/challenge-sets');
+    sel.innerHTML = '';
+    for (const s of sets) {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = `${s.name} (${s.solved}/${s.count})`;
+      opt.selected = s.active;
+      sel.appendChild(opt);
+    }
+  } catch (e) { /* sets are optional; ignore */ }
+}
+
+async function activateChallengeSet(sid) {
+  await api(`/api/challenge-sets/${encodeURIComponent(sid)}/activate`, { method: 'POST' });
+  await loadChallengeSets();
+  await loadChallenges();
+}
+
 async function loadChallenges() {
   state.challenges = await api('/api/challenges');
   renderCards();
@@ -3603,8 +3629,13 @@ async function sendAgentInput() {
 //  Event Listeners 
 document.addEventListener('DOMContentLoaded', () => {
   setupUpload();
+  loadChallengeSets();
   loadChallenges();
   refreshLockUI();
+  const setSelect = document.getElementById('set-select');
+  if (setSelect) {
+    setSelect.addEventListener('change', e => activateChallengeSet(e.target.value));
+  }
   const topbarLogo = document.getElementById('topbar-logo');
   if (topbarLogo) {
     topbarLogo.addEventListener('click', () => {

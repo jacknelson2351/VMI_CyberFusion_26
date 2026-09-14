@@ -11,9 +11,35 @@ DB_PATH     = BASE_DIR / "challenges.json"
 UPLOAD_DIR  = BASE_DIR / "uploads"
 WORKSPACES_DIR = BASE_DIR / "workspaces"
 RUNS_DIR       = BASE_DIR / "runs"
+CHALLENGE_SETS_DIR = BASE_DIR / "challenge_sets"
+SETS_INDEX_PATH    = CHALLENGE_SETS_DIR / "index.json"
 UPLOAD_DIR.mkdir(exist_ok=True)
 WORKSPACES_DIR.mkdir(exist_ok=True)
 RUNS_DIR.mkdir(exist_ok=True)
+
+
+def _read_sets_index() -> dict:
+    """Read the challenge-sets index; returns {} if absent/unreadable. Import-safe."""
+    try:
+        if SETS_INDEX_PATH.exists():
+            with open(SETS_INDEX_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
+
+
+def current_db_path() -> Path:
+    """The challenges file backing the ACTIVE challenge set, or the legacy file as fallback."""
+    idx = _read_sets_index()
+    active = (idx.get("active") or "").strip()
+    if active:
+        p = CHALLENGE_SETS_DIR / f"{active}.json"
+        if p.exists():
+            return p
+    return DB_PATH
 
 CATEGORIES = ["pwn", "web", "crypto", "forensics", "rev", "misc", "osint", "network"]
 
@@ -137,9 +163,12 @@ DEFAULT_CONFIG = {
     "strict_auto_submit": True,
     "allow_nonstandard_submit": False,
     "hypothesis_budget": 2,
-    # Agent architecture (Spec C): "planner_executor" (Planner delegates focused subtasks to
-    # fresh-context Executors) or "single_loop" (legacy flat model->tools loop).
-    "agent_architecture": "planner_executor",
+    # Agent architecture (Spec C). Default is the LEAN single-agent loop (Claude Code / DeepSeek
+    # harness style: one capable loop + strong tools + smart stop policy) — no orchestration
+    # overhead for the many simple challenges. "planner_executor" (Planner delegates focused
+    # subtasks to fresh-context Executors) is an OPT-IN for genuinely hard, multi-stage
+    # challenges; do not force it on everything.
+    "agent_architecture": "single_loop",
     "executor_task_budget": 8,
     # Flag stop policy (Spec B): when the solve loop halts on a flag.
     #   "verified_only" (default) — only stop for a model-submitted or format+deterministic flag;

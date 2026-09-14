@@ -31,6 +31,8 @@ from agent.graph import StateGraph
 from db import (
     load_challenges, get_challenge, update_challenge, build_capability_report,
     save_challenges, _db_lock, _load_challenges_unlocked, _save_challenges_unlocked,
+    list_challenge_sets, activate_challenge_set, create_challenge_set,
+    rename_challenge_set, delete_challenge_set,
 )
 from docker_mgr import (
     get_container, sync_challenge_uploads, image_exists, get_docker,
@@ -535,6 +537,48 @@ def bootstrap_api():
         "docker": _docker_status_payload(),
         "challenges": [_challenge_payload(c) for c in load_challenges()],
     })
+
+
+@app.route("/api/challenge-sets", methods=["GET"])
+def challenge_sets_api():
+    return jsonify({"sets": list_challenge_sets()})
+
+
+@app.route("/api/challenge-sets", methods=["POST"])
+def create_challenge_set_api():
+    data = request.get_json(force=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+    sid = create_challenge_set(name, (data.get("competition") or "").strip(),
+                               data.get("challenges") or [])
+    if data.get("activate"):
+        activate_challenge_set(sid)
+    return jsonify({"ok": True, "id": sid, "sets": list_challenge_sets()})
+
+
+@app.route("/api/challenge-sets/<sid>/activate", methods=["POST"])
+def activate_challenge_set_api(sid):
+    if not activate_challenge_set(sid):
+        return jsonify({"error": "set not found"}), 404
+    return jsonify({"ok": True, "sets": list_challenge_sets(),
+                    "challenges": [_challenge_payload(c) for c in load_challenges()]})
+
+
+@app.route("/api/challenge-sets/<sid>", methods=["PUT"])
+def rename_challenge_set_api(sid):
+    data = request.get_json(force=True) or {}
+    if not rename_challenge_set(sid, data.get("name"), data.get("competition")):
+        return jsonify({"error": "set not found"}), 404
+    return jsonify({"ok": True, "sets": list_challenge_sets()})
+
+
+@app.route("/api/challenge-sets/<sid>", methods=["DELETE"])
+def delete_challenge_set_api(sid):
+    ok, info = delete_challenge_set(sid)
+    if not ok:
+        return jsonify({"error": info}), 400
+    return jsonify({"ok": True, "active": info, "sets": list_challenge_sets()})
 
 
 @app.route("/manual/<cid>")
@@ -1196,10 +1240,11 @@ def launch_agent(cid):
     data  = request.json or {}
     retry = data.get("retry", False)
     model = _canonical_launch_model(data.get("model"))
-    if model and model not in LAUNCH_MODEL_IDS:
-        return jsonify({
-            "error": f"Unsupported model: {model}. Choose one of: {', '.join(m['label'] for m in LAUNCH_MODEL_CHOICES)}"
-        }), 400
+    if model:
+        registry_ids = {m["id"] for m in _registry_launch_models()}
+        if model not in LAUNCH_MODEL_IDS and model not in registry_ids:
+            choices = ", ".join(m["id"] for m in _registry_launch_models())
+            return jsonify({"error": f"Unknown model: {model}. Registered: {choices}"}), 400
     chal  = get_challenge(cid)
     if not chal:
         return jsonify({"error": "Not found"}), 404
