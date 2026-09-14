@@ -955,6 +955,37 @@ CTF_TOOLS = [
             "wait":    {"type": "number", "description": "Seconds to wait for a reply after send (default 1.0)"},
         }},
     }},
+    {"type": "function", "function": {
+        "name": "web_recon",
+        "description": "One-call web target fingerprint: response headers, whatweb tech detection, robots.txt, and a probe of common interesting paths (/admin, /.git/HEAD, /flag, /.env, /api, /backup ...). Returns a compact parsed summary. Use this first on any web challenge instead of ad-hoc curl.",
+        "parameters": {"type": "object", "properties": {
+            "url": {"type": "string", "description": "Target URL. Optional — defaults to the challenge target."},
+        }},
+    }},
+    {"type": "function", "function": {
+        "name": "web_fuzz",
+        "description": "Content/parameter/vhost discovery via ffuf, returning PARSED hits (status, length, words) — not the raw progress bar. mode=dir brute-forces paths (URL/FUZZ), mode=param fuzzes a query param (URL?FUZZ=1), mode=vhost fuzzes the Host header. Auto-calibrates to filter noise.",
+        "parameters": {"type": "object", "properties": {
+            "url":         {"type": "string", "description": "Target URL. Optional — defaults to the challenge target."},
+            "mode":        {"type": "string", "description": "dir (default) | param | vhost"},
+            "wordlist":    {"type": "string", "description": "Optional wordlist path; sensible default per mode."},
+            "match_codes": {"type": "string", "description": "Comma status codes to keep, default 200,204,301,302,307,401,403"},
+            "timeout":     {"type": "integer", "description": "Max seconds, default 120"},
+        }},
+    }},
+    {"type": "function", "function": {
+        "name": "sql_test",
+        "description": "Test a URL/endpoint for SQL injection with sqlmap (--batch) and return a distilled verdict: injectable? which parameter/technique? plus databases/tables/dump when requested. action=detect|dbs|tables|dump. Provide data=... for POST bodies.",
+        "parameters": {"type": "object", "properties": {
+            "url":    {"type": "string", "description": "Target URL (with a query param for GET). Optional — defaults to the challenge target."},
+            "action": {"type": "string", "description": "detect (default) | dbs | tables | dump"},
+            "data":   {"type": "string", "description": "POST body, e.g. 'user=1&pass=2'"},
+            "param":  {"type": "string", "description": "Pin a specific parameter to test"},
+            "level":  {"type": "integer", "description": "sqlmap --level 1-5 (default 2)"},
+            "risk":   {"type": "integer", "description": "sqlmap --risk 1-3 (default 2)"},
+            "timeout":{"type": "integer", "description": "Max seconds, default 240"},
+        }},
+    }},
 ]
 
 # Anthropic tool format (converted from OpenAI schema)

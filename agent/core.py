@@ -673,6 +673,9 @@ class CTFAgentCore:
         "shell_session":    "_tool_shell_session",
         "gdb_session":      "_tool_gdb_session",
         "remote_session":   "_tool_remote_session",
+        "web_recon":        "_tool_web_recon",
+        "web_fuzz":         "_tool_web_fuzz",
+        "sql_test":         "_tool_sql_test",
     }
 
     def _dispatch(self, fn: str, args: dict) -> str:
