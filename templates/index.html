@@ -3232,7 +3232,9 @@ async function clearAllMemoryFiles() {
 function statusInfo(c) {
   if (c.running) return { key: 'running', label: 'RUNNING', color: 'var(--accent)' };
   if (c.status === 'pending_approval') return { key: 'pending', label: 'PENDING APPROVAL', color: 'var(--amber)' };
-  if (c.status === 'solving') return { key: 'solving', label: 'SOLVING', color: 'var(--amber)' };
+  // "solving" only means something while an agent is actually running (handled above). If we
+  // reach here the run is not live — show it as unsolved rather than a stuck SOLVING badge.
+  if (c.status === 'solving') return { key: 'unsolved', label: 'UNSOLVED', color: 'var(--text-muted)' };
   if (c.status === 'solved') return { key: 'solved', label: 'SOLVED', color: 'var(--cyan)' };
   if (c.status === 'unsolved') return { key: 'unsolved', label: 'UNSOLVED', color: 'var(--text-muted)' };
   return { key: 'idle', label: 'IDLE', color: 'var(--text-muted)' };

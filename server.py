@@ -12,6 +12,15 @@ import routes  # noqa: F401 — registers all @app.route and @socketio.on handle
 
 if __name__ == "__main__":
     cfg = load_config()
+    # Clean up any stale "solving" statuses left by a previous run/crash so the dashboard
+    # doesn't show challenges stuck mid-solve when nothing is actually running.
+    try:
+        from routes import _reconcile_orphaned_solving
+        _n = _reconcile_orphaned_solving()
+        if _n:
+            print(f"  reconciled {_n} stale 'solving' challenge(s) -> unsolved")
+    except Exception:
+        pass
     auto_open_browser = _as_bool(cfg.get("auto_open_browser"), default=True)
     if auto_open_browser:
         def _open_browser():

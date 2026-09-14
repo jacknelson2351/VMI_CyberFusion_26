@@ -504,17 +504,39 @@ def _with_runtime(chal: dict) -> dict:
         return chal
     running = False
     paused = False
-    if chal["id"] in _agents:
+    agent = _agents.get(chal["id"])
+    if agent is not None:
         try:
-            running = bool(_agents[chal["id"]].running)
+            running = bool(agent.running)
             paused = not running
         except Exception:
             running = False
             paused = False
     out = dict(chal)
     out["running"] = running
+    # Reconcile a stale "solving" with reality: a challenge is only "solving" if an agent is
+    # actually running for it in THIS process. After a restart, a crash, or an out-of-process
+    # eval, the DB can say "solving" while nothing runs here — show it as unsolved instead of a
+    # stuck spinner. (pending_approval/solved/error are terminal and left untouched.)
+    if out.get("status") == "solving" and not running:
+        out["status"] = "unsolved"
+        paused = False
     out["agent_paused"] = paused
     return out
+
+
+def _reconcile_orphaned_solving() -> int:
+    """One-time cleanup: reset any persisted 'solving' with no live agent to 'unsolved'.
+    Called at web-server startup, when no agents are running yet."""
+    n = 0
+    try:
+        for chal in load_challenges():
+            if chal.get("status") == "solving" and chal.get("id") not in _agents:
+                update_challenge(chal["id"], status="unsolved")
+                n += 1
+    except Exception:
+        pass
+    return n
 
 
 # ── Index ──────────────────────────────────────────────────────────────────────
