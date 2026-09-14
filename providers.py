@@ -159,8 +159,12 @@ def _legacy_spec(cfg: dict) -> ModelSpec | None:
     )
 
 
-def build_client(spec: ModelSpec | None):
-    """Return (client, provider_kind). Raises nothing here; callers check for a None client."""
+def build_client(spec: ModelSpec | None, timeout: float = 180.0, max_retries: int = 2):
+    """Return (client, provider_kind). Raises nothing here; callers check for a None client.
+
+    `timeout` is a per-request deadline (seconds). Critically, for streaming it bounds the read
+    wait, so a stalled response raises instead of hanging the whole solve forever (this was the
+    root cause of a 23-minute stuck run). `max_retries` retries transient failures."""
     if spec is None:
         return None, "openai_compat"
     if spec.provider_kind == "anthropic":
@@ -170,7 +174,7 @@ def build_client(spec: ModelSpec | None):
             return None, "anthropic"
         if not spec.api_key:
             return None, "anthropic"
-        kwargs = {"api_key": spec.api_key}
+        kwargs = {"api_key": spec.api_key, "timeout": timeout, "max_retries": max_retries}
         if spec.base_url:
             kwargs["base_url"] = spec.base_url
         return Anthropic(**kwargs), "anthropic"
@@ -178,7 +182,7 @@ def build_client(spec: ModelSpec | None):
     from openai import OpenAI
     if not spec.api_key:
         return None, "openai_compat"
-    kwargs = {"api_key": spec.api_key}
+    kwargs = {"api_key": spec.api_key, "timeout": timeout, "max_retries": max_retries}
     if spec.base_url:
         kwargs["base_url"] = spec.base_url
     return OpenAI(**kwargs), "openai_compat"

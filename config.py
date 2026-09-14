@@ -171,6 +171,9 @@ DEFAULT_CONFIG = {
     # challenges; do not force it on everything.
     "agent_architecture": "single_loop",
     "executor_task_budget": 8,
+    # Per-request API deadline (seconds). Bounds streaming reads so a stalled model response
+    # can't hang a solve indefinitely (root cause of a prior 23-min stuck run).
+    "request_timeout": 180,
     # Flag stop policy (Spec B): when the solve loop halts on a flag.
     #   "verified_only" (default) — only stop for a model-submitted or format+deterministic flag;
     #                               scraped/decoy tokens are recorded but the agent keeps solving.

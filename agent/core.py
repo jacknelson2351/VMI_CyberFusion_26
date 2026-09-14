@@ -89,8 +89,9 @@ class CTFAgentCore:
         self.solver_spec = (resolve_model(cfg, _canonical_launch_model(model)) if model else None) \
             or resolve_role(cfg, "solver")
         self.aux_spec = resolve_role(cfg, "aux") or self.solver_spec
-        self.solver_client, solver_kind = build_client(self.solver_spec)
-        self.aux_client, aux_kind = build_client(self.aux_spec)
+        _req_timeout = float(cfg.get("request_timeout") or 180.0)
+        self.solver_client, solver_kind = build_client(self.solver_spec, timeout=_req_timeout)
+        self.aux_client, aux_kind = build_client(self.aux_spec, timeout=_req_timeout)
 
         # Back-compat surface used across llm.py / tooling.py.
         self.model = self.solver_spec.model_id if self.solver_spec else "gpt-4o"
