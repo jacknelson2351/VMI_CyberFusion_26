@@ -3,6 +3,7 @@ Application configuration: paths, model lists, config-file helpers.
 No local imports — safe for everything else to import.
 """
 import json
+import os
 from pathlib import Path
 
 BASE_DIR    = Path(__file__).parent
@@ -260,14 +261,33 @@ def migrate_config(cfg: dict) -> dict:
     return cfg
 
 
+_ENV_OVERRIDES = {
+    # env var -> (config key, caster). Lets the eval harness override without mutating config.json.
+    "CTF_AGENT_ARCH":       ("agent_architecture", str),
+    "CTF_FLAG_STOP_POLICY": ("flag_stop_policy", str),
+    "CTF_MAX_STEPS":        ("max_steps_override", int),
+}
+
+
+def _apply_env_overrides(cfg: dict) -> dict:
+    for env_var, (key, cast) in _ENV_OVERRIDES.items():
+        raw = os.environ.get(env_var)
+        if raw is not None and str(raw).strip():
+            try:
+                cfg[key] = cast(raw)
+            except Exception:
+                pass
+    return cfg
+
+
 def load_config() -> dict:
     if not CONFIG_PATH.exists():
-        return migrate_config(dict(DEFAULT_CONFIG))
+        return _apply_env_overrides(migrate_config(dict(DEFAULT_CONFIG)))
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         cfg = json.load(f)
     merged = dict(DEFAULT_CONFIG)
     merged.update(cfg)
-    return migrate_config(merged)
+    return _apply_env_overrides(migrate_config(merged))
 
 
 def _as_bool(value, default=False) -> bool:

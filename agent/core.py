@@ -297,6 +297,9 @@ class CTFAgentCore:
 
         initial_prompt = self._build_initial_prompt(challenge_desc, recon, prior_summary)
         max_steps = STEP_LIMITS.get(self.category, 40)
+        override = int(self.cfg.get("max_steps_override") or 0)
+        if override > 0:
+            max_steps = min(max_steps, override)
         messages = [{"role": "user", "content": initial_prompt}]
         if self.agent_architecture == "planner_executor":
             from agent.graph_pe import run_planner_executor
