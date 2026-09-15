@@ -1316,6 +1316,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   flex-direction: column;
   gap: 4px;
 }
+#chat-feed > * { flex-shrink: 0; }   /* fixed-height flex column must scroll, not squash children */
 .chat-msg { max-width: 720px; width: 100%; }
 .chat-msg.reasoning {
   font-size: 14px;
@@ -1326,20 +1327,64 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   padding: 2px 0;
 }
 .chat-msg.plan {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.7;
-  color: var(--text-dim);
+  color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
-  padding: 10px 14px;
-  background: rgba(204,120,92,0.05);
-  border-left: 2px solid var(--accent);
-  border-radius: 0 6px 6px 0;
-  margin: 4px 0;
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--border2);
+  margin: 6px 0;
 }
-.chat-msg.replan { border-left-color: var(--amber); background: rgba(232,160,76,0.05); }
-.chat-msg.system { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 2px 0; }
-.chat-msg.error  { font-size: 13px; color: var(--red); }
+.chat-msg.replan { border-left-color: var(--amber); }
+.chat-msg.system { font-size: 12px; color: var(--text-muted); padding: 1px 0 1px 14px; }
+.chat-msg.error  { font-size: 13px; color: var(--red); padding-left: 14px; border-left: 2px solid var(--red); }
+
+/* Tool-call card — groups a tool invocation with its output (frontier-agent style). */
+.tool-call {
+  max-width: 760px; width: 100%;
+  flex-shrink: 0;               /* chat-feed is a fixed-height flex column — don't collapse */
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg1);
+  margin: 6px 0;
+  overflow: hidden;
+}
+.tool-call-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  user-select: none;
+}
+.tool-call-head:hover { background: var(--bg2); }
+.tc-tag {
+  flex-shrink: 0;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: lowercase;
+  padding: 2px 8px; border-radius: 6px;
+  color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-dim);
+}
+.tc-tag.gdb { color: var(--purple); background: rgba(138,109,181,0.10); border-color: var(--purple); }
+.tc-tag.web { color: var(--cyan); background: rgba(58,138,125,0.10); border-color: var(--cyan); }
+.tc-tag.net { color: var(--blue); background: rgba(74,111,156,0.10); border-color: var(--blue); }
+.tc-cmd { flex: 1; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tool-call.open .tc-cmd { white-space: pre-wrap; word-break: break-all; }
+.tc-chevron { flex-shrink: 0; color: var(--text-muted); font-size: 10px; transition: transform 0.15s; }
+.tool-call.open .tc-chevron { transform: rotate(90deg); }
+.tool-call-body {
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  max-height: 300px; overflow: auto;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px; line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap; word-break: break-word;
+}
+.tool-call:not(.open) .tool-call-body { display: none; }
+.tool-call-body:empty { display: none; }
+.chat-banner.notice-command { font-family: var(--font-mono); color: var(--text-muted); font-size: 10px; padding: 1px 2px; opacity: 0.55; word-break: break-word; max-width: 760px; }
 .chat-msg.user {
   align-self: flex-end;
   width: auto;
@@ -3301,6 +3346,7 @@ function formatTs(t) {
 
 function appendPlan(text, replan = false, t = null) {
   const feed = document.getElementById('chat-feed');
+  resetToolCard();
   const el = document.createElement('div');
   el.className = `chat-msg plan${replan ? ' replan' : ''}`;
   el.textContent = sanitizeText(text);
@@ -3308,15 +3354,85 @@ function appendPlan(text, replan = false, t = null) {
   feed.scrollTop = feed.scrollHeight;
 }
 
+// Which emitted command string maps to which tool + tag color family.
+const TOOL_TAGS = {
+  shell_session: ['shell', ''], run_command: ['bash', ''], write_file: ['write', ''],
+  list_files: ['ls', ''], extract_artifact: ['extract', ''], save_note: ['note', ''],
+  search_flag: ['search', ''], submit_flag: ['flag', ''], check_job: ['job', ''],
+  gdb_session: ['gdb', 'gdb'], run_gdb: ['gdb', 'gdb'],
+  web_recon: ['web_recon', 'web'], web_fuzz: ['web_fuzz', 'web'], sql_test: ['sql_test', 'web'],
+  http_request: ['http', 'web'],
+  remote_session: ['remote', 'net'], remote_interact: ['remote', 'net'],
+};
+function parseToolCmd(raw, kind) {
+  raw = (raw || '').trim();
+  const m = raw.match(/^([a-z_]+)(?:\[[^\]]*\])?\s*:?\s*([\s\S]*)$/i);
+  if (m && TOOL_TAGS[m[1]]) {
+    const [label, family] = TOOL_TAGS[m[1]];
+    return { label, family, cmd: (m[2] || '').trim() || raw };
+  }
+  if (kind === 'gdb-command') return { label: 'gdb', family: 'gdb', cmd: raw };
+  return { label: 'bash', family: '', cmd: raw };
+}
+
+let lastToolCard = null;
+function resetToolCard() { lastToolCard = null; }
+
+function appendToolCall(rawCmd, kind) {
+  const feed = document.getElementById('chat-feed');
+  const { label, family, cmd } = parseToolCmd(rawCmd, kind);
+  const card = document.createElement('div');
+  card.className = 'tool-call open';
+  const head = document.createElement('div');
+  head.className = 'tool-call-head';
+  head.onclick = () => card.classList.toggle('open');
+  const tag = document.createElement('span');
+  tag.className = 'tc-tag' + (family ? ' ' + family : '');
+  tag.textContent = label;
+  const cmdEl = document.createElement('span');
+  cmdEl.className = 'tc-cmd';
+  cmdEl.textContent = sanitizeText(cmd);
+  const chev = document.createElement('span');
+  chev.className = 'tc-chevron';
+  chev.textContent = '›';
+  head.append(tag, cmdEl, chev);
+  const body = document.createElement('div');
+  body.className = 'tool-call-body';
+  card.append(head, body);
+  feed.appendChild(card);
+  lastToolCard = body;
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function attachToolOutput(text) {
+  const feed = document.getElementById('chat-feed');
+  if (lastToolCard) {
+    lastToolCard.textContent += (lastToolCard.textContent ? '\n' : '') + sanitizeText(text);
+  } else {
+    // Output with no preceding tool call (e.g. auto-recon) — standalone card.
+    const card = document.createElement('div');
+    card.className = 'tool-call open';
+    const body = document.createElement('div');
+    body.className = 'tool-call-body';
+    body.style.borderTop = 'none';
+    body.textContent = sanitizeText(text);
+    card.appendChild(body);
+    feed.appendChild(card);
+  }
+  feed.scrollTop = feed.scrollHeight;
+}
+
 function appendAgent(text, type = 'reasoning') {
   const feed = document.getElementById('chat-feed');
+  if (type === 'command' || type === 'gdb-command') { appendToolCall(text, type); return; }
   const el = document.createElement('div');
-  if (type === 'command' || type === 'gdb-command' || type === 'notice-command') {
-    el.className = `chat-banner ${type}`;
+  if (type === 'notice-command') {
+    el.className = 'chat-banner notice-command';
   } else if (type === 'system' || type === 'error') {
     el.className = `chat-msg ${type}`;
   } else {
     el.className = 'chat-msg reasoning';
+    resetToolCard();
   }
   el.textContent = sanitizeText(text);
   feed.appendChild(el);
@@ -3325,6 +3441,7 @@ function appendAgent(text, type = 'reasoning') {
 
 function appendUser(text, t = null) {
   const feed = document.getElementById('chat-feed');
+  resetToolCard();
   const el = document.createElement('div');
   el.className = 'chat-msg user';
   el.textContent = sanitizeText(text);
@@ -3336,6 +3453,7 @@ const agentStreams = new Map();
 const planStreams = new Map();
 function startPlanStream(id) {
   const feed = document.getElementById('chat-feed');
+  resetToolCard();
   const el = document.createElement('div');
   el.className = 'chat-msg plan';
   el.dataset.streamId = id;
@@ -3386,12 +3504,7 @@ function endAgentStream(id) {
 }
 
 function appendOutput(text, t = null) {
-  const feed = document.getElementById('chat-feed');
-  const el = document.createElement('div');
-  el.className = 'chat-banner output';
-  el.textContent = sanitizeText(text);
-  feed.appendChild(el);
-  feed.scrollTop = feed.scrollHeight;
+  attachToolOutput(text);
 }
 
 function updateSolveButtons(status) {
