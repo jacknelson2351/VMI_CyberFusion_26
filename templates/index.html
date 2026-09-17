@@ -1533,10 +1533,10 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 .model-trigger .mt-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .model-trigger .mt-caret { color: var(--text-muted); font-size: 9px; flex-shrink: 0; }
 .model-panel {
-  position: absolute; bottom: calc(100% + 8px); left: 0;
+  position: fixed;               /* fixed so the input-wrap's overflow:hidden can't clip it */
   width: 340px; max-width: 78vw;
   background: var(--bg1); border: 1px solid var(--border2); border-radius: 12px;
-  box-shadow: var(--shadow-lg); padding: 8px; z-index: 500;
+  box-shadow: var(--shadow-lg); padding: 8px; z-index: 1200;
 }
 #model-search {
   width: 100%; background: var(--bg2); border: 1px solid var(--border);
@@ -3440,6 +3440,14 @@ function openModelPanel() {
   const p = document.getElementById('model-picker-panel'); if (!p) return;
   renderModelOptions('');
   p.hidden = false;
+  // Position (fixed) above the trigger, clamped to the viewport.
+  const trig = document.getElementById('model-picker-trigger');
+  const r = trig.getBoundingClientRect();
+  const w = p.offsetWidth || 340;
+  let left = Math.min(r.left, window.innerWidth - w - 8);
+  p.style.left = Math.max(8, left) + 'px';
+  p.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+  p.style.top = 'auto';
   const s = document.getElementById('model-search'); s.value = ''; s.focus();
 }
 function closeModelPanel() { const p = document.getElementById('model-picker-panel'); if (p) p.hidden = true; }
