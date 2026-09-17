@@ -2607,37 +2607,41 @@ def _import_base_from(url: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}" if parsed.netloc else raw
 
 
+# Captured session, kept for the whole app session so imports never reopen the login browser.
+_import_captured = {"base": "", "url": "", "cookie": ""}
+
+
+@app.route("/api/import/session", methods=["GET"])
+def import_session_state():
+    """What the modal shows on open: is a session already captured (→ straight to chat), or not
+    (→ show the Log-in button)?"""
+    import browser_session
+    cap = bool(_import_captured.get("cookie") or (browser_session.get_session() and _import_captured.get("base")))
+    return jsonify({"captured": cap, "base": _import_captured.get("base", ""),
+                    "url": _import_captured.get("url", "")})
+
+
 @app.route("/api/import/browser/open", methods=["POST"])
 def import_browser_open():
+    """Open the streamed login browser. `sid` is the caller's socket id — frames are streamed to it."""
     import browser_session
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
+    sid = data.get("sid") or ""
     if not url:
         return jsonify({"error": "Enter a platform URL."}), 400
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
-    _sess, ok, err = browser_session.open_session(url)
+    _sess, ok, err = browser_session.open_session(url, sid=sid)
     if not ok:
         return jsonify({"error": err or "Failed to open browser."}), 500
     return jsonify({"ok": True})
 
 
-@app.route("/api/import/browser/status", methods=["POST"])
-def import_browser_status():
-    """Is the login window still open, and where is it? (Used to show the current URL while the
-    operator logs in.) Session capture is explicit — the operator clicks 'I'm logged in'."""
-    import browser_session
-    sess = browser_session.get_session()
-    if not sess:
-        return jsonify({"open": False})
-    return jsonify({"open": True, "url": sess.current_url()})
-
-
 @app.route("/api/import/browser/grab", methods=["POST"])
 def import_browser_grab():
-    """The operator says they're logged in. Capture the session token (all cookies) and keep the
-    browser alive so the agent can browse the site. Works for ANY website — no platform-specific
-    detection. If it happens to be CTFd we also hand back the challenge listing as a head start."""
+    """Operator is logged in. Capture the session (all cookies), STOP streaming (the login view
+    closes), and keep the context alive so imports reuse it with no further browser window."""
     import browser_session, importer
     data = request.get_json(silent=True) or {}
     sess = browser_session.get_session()
@@ -2646,8 +2650,9 @@ def import_browser_grab():
     cur = sess.current_url()
     base = _import_base_from(data.get("base") or data.get("url") or cur)
     cookie = sess.cookie_header(base)
+    sess.stop_streaming()
+    _import_captured.update({"base": base, "url": cur, "cookie": cookie})
     out = {"ok": True, "base": base, "url": cur, "cookie": cookie, "challenges": []}
-    # Opportunistic CTFd head-start (never required).
     try:
         conn = importer.connect_via_fetch(base, sess.fetch_json)
         out["platform"] = conn.get("platform")
@@ -2659,9 +2664,42 @@ def import_browser_grab():
 
 @app.route("/api/import/browser/close", methods=["POST"])
 def import_browser_close():
+    """Fully close the browser context (e.g. 'switch site'). Clears the captured session."""
     import browser_session
     browser_session.close_session()
+    _import_captured.update({"base": "", "url": "", "cookie": ""})
     return jsonify({"ok": True})
+
+
+@socketio.on("import_browser_input")
+def on_import_browser_input(data):
+    import browser_session
+    sess = browser_session.get_session()
+    if not sess:
+        return
+    p = data or {}
+    t = p.get("type")
+    try:
+        if t == "click":     sess.click(p.get("x", 0), p.get("y", 0))
+        elif t == "move":    sess.move(p.get("x", 0), p.get("y", 0))
+        elif t == "scroll":  sess.scroll(p.get("dy", 0))
+        elif t == "type":    sess.type_text(p.get("text", ""))
+        elif t == "insert":  sess.insert(p.get("text", ""))
+        elif t == "key":     sess.key(p.get("key", ""))
+        elif t == "nav":     sess.navigate(p.get("url", ""))
+        elif t == "back":    sess.back()
+        elif t == "frame":   sess.refresh_frame()
+    except Exception:
+        pass
+
+
+@socketio.on("import_browser_setsid")
+def on_import_browser_setsid(_data=None):
+    """Bind the live browser session's frame stream to this socket (after a reconnect)."""
+    import browser_session
+    sess = browser_session.get_session()
+    if sess:
+        sess.set_sid(request.sid)
 
 
 @socketio.on("disconnect")

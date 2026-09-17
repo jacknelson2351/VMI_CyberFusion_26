@@ -1695,8 +1695,11 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 #import-chat-input:focus { outline: none; }
 .import-chat-foot { display: flex; align-items: center; gap: 8px; padding: 4px 4px 2px; }
 #import-activity { display: inline-flex; align-items: center; gap: 7px; }
-#import-activity .activity-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; color: var(--text-muted); }
-#import-activity.running .activity-label { color: var(--accent); }
+/* The rapidly-changing state text is removed (kept the orb) so the footer/stop button
+   doesn't jump as the agent changes state. Applies to the solve chat too. */
+#import-activity .activity-label,
+#agent-activity .activity-label,
+#agent-activity .activity-time { display: none !important; }
 .import-chat-foot .ic-send { margin-left: auto; }
 #import-chat-stop { margin-left: auto; }
 #import-chat-stop + .ic-send { margin-left: 8px; }
@@ -1711,15 +1714,36 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 .import-advanced summary:hover { color: var(--text-dim); }
 .import-advanced input { width: 100%; }
 
-/* Login-browser waiting state */
-.import-wait {
-  display: flex; align-items: center; gap: 16px;
-  padding: 22px 20px; border-radius: 14px;
-  background: var(--bg2); border: 1px solid var(--border2);
-}
-.import-wait-main { min-width: 0; }
-.import-wait-title { font-size: 14px; font-weight: 600; color: var(--text); }
-.import-wait-sub { font-size: 12.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.5; }
+/* Streamed login browser */
+.ibx-toolbar { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--bg2);
+  border: 1px solid var(--border2); border-bottom: none; border-radius: 12px 12px 0 0; }
+.ibx-tbtn { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 7px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; transition: all .13s; }
+.ibx-tbtn:hover { background: var(--bg3); color: var(--text); }
+.ibx-url { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11.5px; padding: 7px 13px;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--bg1); color: var(--text-dim); }
+.ibx-url:focus { color: var(--text); border-color: var(--accent-dim); outline: none; }
+#ibx-grab { flex-shrink: 0; margin-left: 2px; }
+.ibx-stage { position: relative; width: 100%; aspect-ratio: 1180 / 760; background: #fff;
+  border: 1px solid var(--border2); border-radius: 0 0 12px 12px; overflow: hidden; outline: none; cursor: default; }
+#ibx-frame { display: block; width: 100%; height: 100%; object-fit: fill; user-select: none; -webkit-user-drag: none; }
+.ibx-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); background: var(--bg3); pointer-events: none; text-align: center; padding: 0 20px; }
+.ibx-loading[hidden] { display: none; }
+.ibx-hint { margin-top: 10px; font-size: 12px; color: var(--text-dim); overflow: hidden; }
+.ibx-hint b { color: var(--text); }
+
+/* Session status strip above the import chat */
+.import-session-strip { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 10px;
+  padding: 8px 12px; border-radius: 10px; background: var(--bg2); border: 1px solid var(--border2); color: var(--text-dim); }
+.import-session-strip.ok { border-color: var(--accent-dim); }
+.import-session-strip .iss-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+.import-session-strip .iss-site { color: var(--text); font-family: var(--font-mono); font-size: 11px; }
+.import-session-strip .iss-relogin { margin-left: auto; background: none; border: none; color: var(--text-muted);
+  font-size: 11px; cursor: pointer; text-decoration: underline; }
+.import-session-strip .iss-relogin:hover { color: var(--accent); }
+/* Center + cap the chat column now the modal is wide enough for the login browser. */
+#import-select-step .import-chat-col { max-width: 680px; margin: 0 auto; width: 100%; }
 
 /* Searchable model picker */
 #model-picker { position: relative; }
@@ -2378,14 +2402,14 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
 
 <!--  New Challenge Modal  -->
 <div class="modal-overlay" id="modal-import">
-  <div class="modal" id="import-modal-box" style="width:min(640px,95vw);max-width:640px">
+  <div class="modal" id="import-modal-box" style="width:min(1000px,96vw);max-width:1000px">
     <div class="modal-header">
       <div class="modal-title">Import from a CTF platform</div>
       <button class="modal-close" data-close="modal-import">X</button>
     </div>
     <div class="modal-body">
       <div id="import-connect-step">
-        <div class="import-help">Enter the CTF site — a Chromium window opens, you log in, and the moment your session is captured the window closes and you’re handed to an import agent. Tell it what to grab in plain English; it imports the challenges (files, description, target, flag link) into <b id="import-target-comp">the active competition</b>.</div>
+        <div class="import-help">Enter the CTF site, log in in the browser that opens here, and the moment your session is captured you’re handed to an import agent — just tell it what to grab. The session is reused after, so you only log in once.</div>
         <div class="field"><label>PLATFORM URL</label><input type="text" id="import-url" placeholder="https://ctf.example.com" autocomplete="off"></div>
         <div style="display:flex;gap:8px;align-items:center;">
           <button id="import-open-browser" class="btn btn-sm btn-primary">Open login browser</button>
@@ -2398,22 +2422,30 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
         </details>
       </div>
 
-      <div id="import-waiting-step" hidden>
-        <div class="import-wait">
-          <thinking-orb class="agent-orb" size="34" state="searching" theme="auto" aria-label="Waiting for login"></thinking-orb>
-          <div class="import-wait-main">
-            <div class="import-wait-title">A Chromium window opened — log into the site there.</div>
-            <div class="import-wait-sub" id="import-wait-sub">Once you can see the challenges (fully logged in), click <b>I’m logged in</b> and I’ll capture the session.</div>
-          </div>
+      <div id="import-browser-step" hidden>
+        <div class="ibx-toolbar">
+          <button class="ibx-tbtn" id="ibx-back" title="Back" aria-label="Back">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <button class="ibx-tbtn" id="ibx-reload" title="Reload" aria-label="Reload">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+          </button>
+          <input type="text" id="ibx-url" class="ibx-url" spellcheck="false" autocomplete="off">
+          <button class="btn btn-sm btn-primary btn-ico" id="ibx-grab">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            <span>I’m logged in</span>
+          </button>
         </div>
-        <div class="import-actions" style="border-top:none;padding-top:4px;margin-top:8px">
-          <button class="btn btn-sm btn-ghost" id="import-wait-cancel">Cancel</button>
-          <span style="margin-right:auto"></span>
-          <button class="btn btn-sm btn-primary" id="import-wait-grab">I’m logged in →</button>
+        <div class="ibx-stage" id="ibx-stage" tabindex="0">
+          <img id="ibx-frame" alt="login browser" draggable="false">
+          <div class="ibx-loading" id="ibx-loading">Starting browser… (this runs on the server and streams here)</div>
         </div>
+        <div class="ibx-hint">Log in normally — paste works (⌘/Ctrl-V). When you’re in, click <b>I’m logged in</b>. <span id="ibx-status" class="import-status"></span>
+          <button class="btn btn-sm btn-ghost" id="ibx-cancel" style="float:right">Cancel</button></div>
       </div>
 
       <div id="import-select-step" hidden>
+        <div class="import-session-strip" id="import-session-strip"></div>
         <div class="import-chat-col">
           <div class="import-chat" id="import-chat"></div>
           <div class="import-chat-bar" id="import-chat-wrap">
@@ -3475,88 +3507,128 @@ const _importSel = new Set();     // selected remote ids (as strings)
 const _importDone = new Set();    // ids already imported this session
 
 let _importBase = '';
-let _importPoll = null;
+let _ibxVP = { w: 1180, h: 760 };
+let _ibxMoveTs = 0;
 
-function openImport() {
+function _importShowStep(which) {  // 'connect' | 'browser' | 'chat'
+  document.getElementById('import-connect-step').hidden = which !== 'connect';
+  document.getElementById('import-browser-step').hidden = which !== 'browser';
+  document.getElementById('import-select-step').hidden = which !== 'chat';
+}
+
+async function openImport() {
   const active = _compSets.find(s => s.active) || _compSets[0];
   const tgt = document.getElementById('import-target-comp');
   if (tgt) tgt.textContent = active ? `“${active.name}”` : 'the active competition';
-  _importConn = null; _importSel.clear(); _importBase = '';
-  stopImportPoll();
-  document.getElementById('import-connect-step').hidden = false;
-  document.getElementById('import-waiting-step').hidden = true;
-  document.getElementById('import-select-step').hidden = true;
+  _importSel.clear();
   setImportStatus('import-connect-status', '');
   setImportStatus('import-run-status', '');
   openModal('modal-import');
-  setTimeout(() => document.getElementById('import-url')?.focus(), 60);
+  // If a session was already captured this app-session, go straight to the chat.
+  let sess = null;
+  try { sess = await api('/api/import/session'); } catch (e) {}
+  if (sess && sess.captured) {
+    _importConn = { base: sess.base, url: sess.url || sess.base, challenges: [] };
+    _importShowStep('chat');
+    renderSessionStrip();
+    startImportChat();
+  } else {
+    _importConn = null;
+    _importShowStep('connect');
+    setTimeout(() => document.getElementById('import-url')?.focus(), 60);
+  }
 }
 
-/* ─── Login browser: open a real Chromium window, poll until logged in ─────── */
+/* ─── Streamed login browser (runs on the server, streamed here — works remotely) ─── */
 async function importOpenBrowser() {
   let url = (document.getElementById('import-url').value || '').trim();
   if (!url) { setImportStatus('import-connect-status', 'Enter the platform URL.', 'err'); document.getElementById('import-url').focus(); return; }
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
   _importBase = url;
   setImportStatus('import-connect-status', 'Opening browser…');
+  const frame = document.getElementById('ibx-frame'); if (frame) frame.removeAttribute('src');
+  const load = document.getElementById('ibx-loading'); if (load) load.hidden = false;
+  document.getElementById('ibx-url').value = url;
+  setImportStatus('ibx-status', '');
+  _importShowStep('browser');
   let res;
-  try { res = await api('/api/import/browser/open', { method: 'POST', body: { url } }); }
+  try { res = await api('/api/import/browser/open', { method: 'POST', body: { url, sid: socket.id } }); }
   catch (e) { res = { error: (e && e.message) || 'failed' }; }
-  if (!res || res.error) { setImportStatus('import-connect-status', (res && res.error) || 'Could not open the browser.', 'err'); return; }
-  setImportStatus('import-connect-status', '');
-  document.getElementById('import-connect-step').hidden = true;
-  document.getElementById('import-waiting-step').hidden = false;
-  document.getElementById('import-select-step').hidden = true;
-  startImportPoll();
+  if (!res || res.error) { _importShowStep('connect'); setImportStatus('import-connect-status', (res && res.error) || 'Could not open the browser.', 'err'); return; }
+  setTimeout(() => document.getElementById('ibx-stage')?.focus(), 80);
 }
 
-function startImportPoll() {
-  stopImportPoll();
-  const tick = async () => {
-    let res;
-    try { res = await api('/api/import/browser/status', { method: 'POST', body: { base: _importBase } }); }
-    catch (e) { return; }
-    if (!res) return;
-    if (!res.open) { stopImportPoll(); backToImportConnect('Browser closed before login. Try again.'); return; }
-    if (res.url) _importBase = res.url;   // track where they navigated
-  };
-  _importPoll = setInterval(tick, 2500);
-  tick();
+function _ibxCoords(e) {
+  const img = document.getElementById('ibx-frame');
+  const r = img.getBoundingClientRect();
+  const x = Math.max(0, Math.min(_ibxVP.w, (e.clientX - r.left) / r.width * _ibxVP.w));
+  const y = Math.max(0, Math.min(_ibxVP.h, (e.clientY - r.top) / r.height * _ibxVP.h));
+  return { x: Math.round(x), y: Math.round(y) };
 }
-function stopImportPoll() { if (_importPoll) { clearInterval(_importPoll); _importPoll = null; } }
+
+function setupInlineBrowser() {
+  const stage = document.getElementById('ibx-stage');
+  if (!stage || stage._wired) return;
+  stage._wired = true;
+  socket.on('import_browser_frame', (d) => {
+    if (!d || !d.img) return;
+    _ibxVP = { w: d.w || 1180, h: d.h || 760 };
+    const img = document.getElementById('ibx-frame');
+    if (img) img.src = 'data:image/jpeg;base64,' + d.img;
+    const load = document.getElementById('ibx-loading'); if (load) load.hidden = true;
+    const u = document.getElementById('ibx-url');
+    if (u && document.activeElement !== u && d.url) u.value = d.url;
+  });
+  stage.addEventListener('mousedown', (e) => { e.preventDefault(); stage.focus(); socket.emit('import_browser_input', { type: 'click', ..._ibxCoords(e) }); });
+  stage.addEventListener('mousemove', (e) => { const n = Date.now(); if (n - _ibxMoveTs < 90) return; _ibxMoveTs = n; socket.emit('import_browser_input', { type: 'move', ..._ibxCoords(e) }); });
+  stage.addEventListener('wheel', (e) => { e.preventDefault(); socket.emit('import_browser_input', { type: 'scroll', dy: e.deltaY }); }, { passive: false });
+  stage.addEventListener('keydown', (e) => {
+    const named = { Enter:'Enter', Backspace:'Backspace', Tab:'Tab', Delete:'Delete', Escape:'Escape', ArrowLeft:'ArrowLeft', ArrowRight:'ArrowRight', ArrowUp:'ArrowUp', ArrowDown:'ArrowDown', Home:'Home', End:'End' };
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'v' || e.key === 'V')) return;      // let paste event fire
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); socket.emit('import_browser_input', { type: 'key', key: navigator.platform.includes('Mac') ? 'Meta+a' : 'Control+a' }); return; }
+    if (e.key in named) { e.preventDefault(); socket.emit('import_browser_input', { type: 'key', key: named[e.key] }); }
+    else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) { e.preventDefault(); socket.emit('import_browser_input', { type: 'type', text: e.key }); }
+  });
+  stage.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const t = ((e.clipboardData || window.clipboardData) || {}).getData ? (e.clipboardData || window.clipboardData).getData('text') : '';
+    if (t) socket.emit('import_browser_input', { type: 'insert', text: t });
+  });
+  document.getElementById('ibx-back').addEventListener('click', () => socket.emit('import_browser_input', { type: 'back' }));
+  document.getElementById('ibx-reload').addEventListener('click', () => socket.emit('import_browser_input', { type: 'nav', url: document.getElementById('ibx-url').value }));
+  document.getElementById('ibx-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); socket.emit('import_browser_input', { type: 'nav', url: e.target.value }); stage.focus(); } });
+  document.getElementById('ibx-grab').addEventListener('click', importGrabSession);
+  document.getElementById('ibx-cancel').addEventListener('click', () => { closeInlineBrowser(); _importShowStep('connect'); });
+}
 
 async function importGrabSession() {
-  const btn = document.getElementById('import-wait-grab');
-  if (btn) btn.disabled = true;
-  const sub = document.getElementById('import-wait-sub');
-  if (sub) sub.innerHTML = 'Capturing your session…';
-  const orb = document.querySelector('#import-waiting-step thinking-orb');
-  if (orb) orb.setAttribute('state', 'solving');
+  const btn = document.getElementById('ibx-grab'); if (btn) btn.disabled = true;
+  setImportStatus('ibx-status', 'Capturing session…');
   let res;
   try { res = await api('/api/import/browser/grab', { method: 'POST', body: { base: _importBase } }); }
   catch (e) { res = { error: (e && e.message) || 'failed' }; }
   if (btn) btn.disabled = false;
-  if (!res || res.error) {
-    if (sub) sub.textContent = (res && res.error) || 'Could not capture the session.';
-    if (orb) orb.setAttribute('state', 'searching');
-    return;
-  }
-  stopImportPoll();
-  _importConn = res;                 // { base, url, cookie, challenges? }
-  document.getElementById('import-waiting-step').hidden = true;
-  document.getElementById('import-select-step').hidden = false;
+  if (!res || res.error) { setImportStatus('ibx-status', (res && res.error) || 'Could not capture the session.', 'err'); return; }
+  _importConn = res;                    // { base, url, cookie, challenges? }
+  _importShowStep('chat');
+  renderSessionStrip();
   startImportChat();
 }
 
-function backToImportConnect(msg) {
-  document.getElementById('import-waiting-step').hidden = true;
-  document.getElementById('import-select-step').hidden = true;
-  document.getElementById('import-connect-step').hidden = false;
-  if (msg) setImportStatus('import-connect-status', msg, 'err');
+function renderSessionStrip() {
+  const strip = document.getElementById('import-session-strip');
+  if (!strip) return;
+  let host = _importConn && _importConn.base || '';
+  try { host = new URL(_importConn.url || _importConn.base).host; } catch (e) {}
+  strip.className = 'import-session-strip ok';
+  strip.innerHTML = `<span class="iss-dot"></span><span>Session captured</span>
+    <span class="iss-site">${escHtml(host)}</span>
+    <button class="iss-relogin" id="iss-relogin">use a different site / re-login</button>`;
+  const rl = document.getElementById('iss-relogin');
+  if (rl) rl.addEventListener('click', async () => { closeInlineBrowser(); _importConn = null; _importShowStep('connect'); setTimeout(() => document.getElementById('import-url')?.focus(), 60); });
 }
 
 function closeInlineBrowser() {
-  stopImportPoll();
   try { api('/api/import/browser/close', { method: 'POST', body: {} }); } catch (e) {}
 }
 
@@ -3588,12 +3660,11 @@ async function importConnect() {
   }
   if (!res || res.error) { setImportStatus('import-connect-status', (res && res.error) || 'Connection failed.', 'err'); return; }
   _importConn = res;
+  _importConn.url = _importConn.url || _importConn.base;
   const n = (res.challenges || []).length;
   setImportStatus('import-connect-status', `Connected — ${n} challenge${n === 1 ? '' : 's'}.`, 'ok');
-  document.getElementById('import-connect-step').hidden = true;
-  document.getElementById('import-waiting-step').hidden = true;
-  document.getElementById('import-select-step').hidden = false;
-  renderImportList('');
+  _importShowStep('chat');
+  renderSessionStrip();
   startImportChat();
 }
 
@@ -5083,10 +5154,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (importUrl) importUrl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); importOpenBrowser(); } });
   const importAuth = document.getElementById('import-auth');
   if (importAuth) importAuth.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); importConnect(); } });
-  const importWaitCancel = document.getElementById('import-wait-cancel');
-  if (importWaitCancel) importWaitCancel.addEventListener('click', () => { closeInlineBrowser(); backToImportConnect(''); });
-  const importWaitGrab = document.getElementById('import-wait-grab');
-  if (importWaitGrab) importWaitGrab.addEventListener('click', importGrabSession);
+  setupInlineBrowser();
   setupImportAgentStream();
   const importSearch = document.getElementById('import-search');
   if (importSearch) importSearch.addEventListener('input', () => renderImportList(importSearch.value));
@@ -5844,7 +5912,12 @@ function switchView(id) {
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
-  if (id === 'modal-import' && typeof closeInlineBrowser === 'function') closeInlineBrowser();
+  // Closing the import modal keeps a CAPTURED session alive (so reopening skips login and reuses
+  // the token); only tear the browser down if we're still mid-login (no session captured yet).
+  if (id === 'modal-import' && typeof closeInlineBrowser === 'function') {
+    const captured = document.getElementById('import-select-step') && !document.getElementById('import-select-step').hidden;
+    if (!captured) closeInlineBrowser();
+  }
 }
 
 // Styled in-app confirm (replaces the ugly native confirm()). Returns a Promise<boolean>.
