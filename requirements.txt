@@ -4,3 +4,6 @@ openai>=1.30.0
 anthropic>=0.34.0
 docker>=7.0.0
 werkzeug>=3.0.0
+langgraph>=1.0.0
+langchain-core>=1.0.0
+psutil>=5.9.0

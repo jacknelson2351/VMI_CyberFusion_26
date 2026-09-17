@@ -2017,6 +2017,38 @@ def docker_status():
     return jsonify(_docker_status_payload())
 
 
+@app.route("/api/system/stats", methods=["GET"])
+def system_stats():
+    """Fast host resource snapshot: CPU %, RAM, and running ctf-agent container count.
+    Kept cheap (no per-container docker stats stream) so the dashboard can poll it often."""
+    out = {"ok": True}
+    try:
+        import psutil
+        out["cpu_percent"] = round(psutil.cpu_percent(interval=None), 1)
+        out["cpu_count"] = psutil.cpu_count() or 0
+        vm = psutil.virtual_memory()
+        out["mem_percent"] = round(vm.percent, 1)
+        out["mem_used"] = int(vm.used)
+        out["mem_total"] = int(vm.total)
+        try:
+            out["load1"] = round(psutil.getloadavg()[0], 2)
+        except Exception:
+            out["load1"] = None
+    except Exception as e:
+        out["ok"] = False
+        out["error"] = str(e)
+    # Container count is cheap via the docker client.
+    count = 0
+    try:
+        for c in get_docker().containers.list(all=False, filters={"name": CONTAINER_PREFIX}):
+            if (getattr(c, "name", "") or "").startswith(CONTAINER_PREFIX):
+                count += 1
+    except Exception:
+        pass
+    out["containers"] = count
+    return jsonify(out)
+
+
 @app.route("/api/docker/containers", methods=["GET"])
 def docker_containers():
     try:

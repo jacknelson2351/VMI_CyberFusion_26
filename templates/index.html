@@ -491,6 +491,19 @@ html, body {
   padding: 8px 0;
 }
 
+/* System resource panel */
+.sys-row { margin-bottom: 12px; }
+.sys-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.sys-label { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--text-dim); letter-spacing: 0.04em; }
+.sys-val { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.sys-track { height: 4px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
+.sys-fill { height: 100%; width: 0%; border-radius: 99px; background: var(--accent);
+  transition: width 0.5s ease, background 0.3s ease; }
+.sys-fill.warn { background: var(--amber); }
+.sys-fill.hot { background: var(--red); }
+.sys-containers { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+.sys-container-count { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text); }
+
 /* Challenge list panel */
 #dash-list {
   flex: 1;
@@ -1589,7 +1602,9 @@ thinking-orb.agent-orb, thinking-orb#orb-preview, .orb-anim-opt thinking-orb {
   --orb-color-light: var(--user-orb-light, #cc785c);
 }
 thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
-.agent-orb.inline { vertical-align: middle; display: inline-block; }
+/* Render the inline orb bigger visually while keeping its 20px layout box (transform doesn't
+   affect layout), so the chat footer height never changes. */
+.agent-orb.inline { vertical-align: middle; display: inline-block; transform: scale(1.45); transform-origin: center; margin: 0 6px; }
 .ass-phase {
   color: var(--accent); font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0;
@@ -1933,6 +1948,21 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
         <div class="stat-panel" id="stat-cost">
           <div class="stat-panel-title">COST BY MODEL</div>
           <div id="cost-bars-list"><div class="cost-bars-empty">No cost data yet</div></div>
+        </div>
+        <div class="stat-panel" id="stat-system">
+          <div class="stat-panel-title">SYSTEM</div>
+          <div class="sys-row">
+            <div class="sys-head"><span class="sys-label">CPU</span><span class="sys-val" id="sys-cpu-val">—</span></div>
+            <div class="sys-track"><div class="sys-fill" id="sys-cpu-fill"></div></div>
+          </div>
+          <div class="sys-row">
+            <div class="sys-head"><span class="sys-label">RAM</span><span class="sys-val" id="sys-mem-val">—</span></div>
+            <div class="sys-track"><div class="sys-fill" id="sys-mem-fill"></div></div>
+          </div>
+          <div class="sys-containers">
+            <span class="sys-label">Containers</span>
+            <span class="sys-container-count" id="sys-containers">0</span>
+          </div>
         </div>
       </div>
       <div id="dash-list">
@@ -2301,12 +2331,12 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
       <!-- APPEARANCE TAB -->
       <div data-spanel="appearance" hidden>
         <div class="models-title">Thinking orb</div>
-        <div class="models-sub">The orb reflects what the agent is doing, live. Choose its color and its resting animation.</div>
+        <div class="models-sub">The orb shows what the agent is doing, live. Pick your orb and its color.</div>
         <div class="orb-appearance">
           <div class="orb-appearance-controls">
             <label class="orb-field-label">Color</label>
             <div id="orb-color-swatches" class="orb-swatches"></div>
-            <label class="orb-field-label" style="margin-top:16px;">Resting animation</label>
+            <label class="orb-field-label" style="margin-top:16px;">Orb</label>
             <div id="orb-anim-grid" class="orb-anim-grid"></div>
           </div>
           <div class="orb-preview-card">
@@ -3506,6 +3536,37 @@ function buildOrbSettings() {
   applyOrbAnim(savedAnim);
 }
 
+// ── System resources (CPU / RAM / containers) — fast dashboard poll ──────────
+let sysStatsTimer = null;
+function _gb(x) { return (x / 1073741824).toFixed(1); }
+function _sysFillClass(pct, warn, hot) { return 'sys-fill' + (pct >= hot ? ' hot' : pct >= warn ? ' warn' : ''); }
+async function refreshSystemStats() {
+  let s;
+  try { s = await api('/api/system/stats'); } catch (e) { return; }
+  if (!s) return;
+  if (typeof s.cpu_percent === 'number') {
+    const c = Math.min(100, s.cpu_percent);
+    const f = document.getElementById('sys-cpu-fill');
+    if (f) { f.style.width = c + '%'; f.className = _sysFillClass(c, 70, 90); }
+    const v = document.getElementById('sys-cpu-val');
+    if (v) v.textContent = `${c}%` + (s.load1 != null ? ` · load ${s.load1}` : '');
+  }
+  if (typeof s.mem_percent === 'number') {
+    const m = Math.min(100, s.mem_percent);
+    const f = document.getElementById('sys-mem-fill');
+    if (f) { f.style.width = m + '%'; f.className = _sysFillClass(m, 75, 90); }
+    const v = document.getElementById('sys-mem-val');
+    if (v) v.textContent = `${m}% · ${_gb(s.mem_used)}/${_gb(s.mem_total)} GB`;
+  }
+  const cc = document.getElementById('sys-containers');
+  if (cc) cc.textContent = (s.containers != null ? s.containers : 0);
+}
+function startSystemStats() {
+  if (sysStatsTimer) return;
+  refreshSystemStats();
+  sysStatsTimer = setInterval(refreshSystemStats, 2500);
+}
+
 function formatMemorySize(bytes) {
   const n = Number(bytes || 0);
   if (!Number.isFinite(n) || n <= 0) return '0 B';
@@ -4181,6 +4242,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Model picker + orb appearance
   updateModelTrigger();
   buildOrbSettings();
+  startSystemStats();
   // Border beam around the chat input.
   function attachInputBeam() {
     if (!window.attachBorderBeam) return;
