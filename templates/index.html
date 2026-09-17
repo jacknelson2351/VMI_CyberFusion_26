@@ -1683,24 +1683,23 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
 @keyframes metal-sheen { 0% { background-position: 150% 0; } 100% { background-position: -150% 0; } }
 @media (prefers-reduced-motion: reduce) { #btn-launch, #btn-launch::after { animation: none; } }
 
-/* Silver liquid-metal Run All button. */
+/* Silver metal Run All — static shine, one slow subtle sheen (toned down). */
 #btn-run-all {
   position: relative; overflow: hidden; isolation: isolate; border: none;
   color: #2b2b2e; font-weight: 700;
-  background: linear-gradient(135deg, #e9e9ec 0%, #ffffff 18%, #c6c8ce 40%, #f4f4f7 60%, #b6b8bf 82%, #dedee3 100%);
-  background-size: 260% 260%; animation: metal-flow 5s linear infinite;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -2px 3px rgba(120,122,132,0.45), 0 2px 6px rgba(40,40,50,0.16);
+  background: linear-gradient(135deg, #e9e9ec 0%, #ffffff 20%, #cdcfd4 46%, #f2f2f5 64%, #c2c4ca 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -2px 3px rgba(120,122,132,0.35), 0 2px 6px rgba(40,40,50,0.14);
   text-shadow: 0 1px 0 rgba(255,255,255,0.55);
 }
 #btn-run-all::after {
   content: ''; position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none;
-  background: linear-gradient(115deg, transparent 32%, rgba(255,255,255,0.75) 48%, transparent 60%);
-  background-size: 250% 100%; animation: metal-sheen 3.4s linear infinite;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.5) 50%, transparent 60%);
+  background-size: 250% 100%; animation: metal-sheen 7s linear infinite;
 }
 #btn-run-all:hover:not(:disabled) { transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -2px 3px rgba(120,122,132,0.45), 0 5px 14px rgba(40,40,50,0.22); }
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -2px 3px rgba(120,122,132,0.35), 0 4px 12px rgba(40,40,50,0.2); }
 #btn-run-all:active:not(:disabled) { transform: translateY(0) scale(0.98); }
-@media (prefers-reduced-motion: reduce) { #btn-run-all, #btn-run-all::after { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #btn-run-all::after { animation: none; } }
 
 /* Flag banner */
 #flag-banner {
@@ -1836,24 +1835,30 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
   font-family: var(--font-mono);
 }
 .container-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
-  gap: 8px;
-  align-items: center;
-  padding: 10px;
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--border);
 }
 .container-row:last-child { border-bottom: none; }
-.container-meta { min-width: 0; }
-.container-res { display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
+.container-name {
+  font-size: 12.5px; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.container-line { display: flex; align-items: center; gap: 7px; }
+.container-line .container-sub {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 96px; flex-shrink: 1;
+}
+.container-line .crun { color: var(--accent); }
+.container-spacer { flex: 1; min-width: 4px; }
 .cres {
-  font-family: var(--font-mono); font-size: 10px; font-weight: 700; white-space: nowrap;
-  padding: 2px 6px; border-radius: 5px; color: var(--text-dim);
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700; white-space: nowrap; flex-shrink: 0;
+  padding: 2px 7px; border-radius: 6px; color: var(--text-dim);
   background: var(--bg2); border: 1px solid var(--border);
 }
 .cres.warn { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
-.cres.hot  { color: var(--red);   border-color: color-mix(in srgb, var(--red) 45%, transparent);
-             background: color-mix(in srgb, var(--red) 10%, var(--bg2)); }
+.cres.hot  { color: var(--red); border-color: color-mix(in srgb, var(--red) 45%, transparent);
+             background: color-mix(in srgb, var(--red) 12%, var(--bg2)); }
 .container-name {
   font-size: 12px;
   font-weight: 700;
@@ -4947,7 +4952,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const menu = document.getElementById('docker-menu');
     const opening = !menu.classList.contains('open');
     closeAllPopouts();
-    if (opening) { await loadActiveContainers(); setDockerMenuOpen(true); }
+    if (opening) { setDockerMenuOpen(true); loadActiveContainers(); }
   });
   document.getElementById('docker-menu').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -5199,8 +5204,8 @@ async function toggleDockerMenu() {
   const menu = document.getElementById('docker-menu');
   if (!menu) return;
   const opening = !menu.classList.contains('open');
-  if (opening) await loadActiveContainers();
-  setDockerMenuOpen(opening);
+  setDockerMenuOpen(opening);       // open instantly …
+  if (opening) loadActiveContainers();  // … then fill it in (list first, stats after)
 }
 
 async function refreshLockUI() {
@@ -5589,38 +5594,43 @@ async function _saveModelEditor(existing) {
   toast('Model saved', 'success');
 }
 
+const _cresHeat = (v, warn, hot) => (v == null ? '' : v >= hot ? ' hot' : v >= warn ? ' warn' : '');
+const _memLabel = (mb) => (mb == null ? '—' : (mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`));
+
+function _applyContainerStats(rows) {
+  for (const c of rows) {
+    const cpuEl = document.getElementById(`cres-cpu-${c.cid}`);
+    const memEl = document.getElementById(`cres-mem-${c.cid}`);
+    if (cpuEl) { cpuEl.textContent = `CPU ${c.cpu_pct == null ? '—' : c.cpu_pct + '%'}`; cpuEl.className = 'cres' + _cresHeat(c.cpu_pct, 50, 85); }
+    if (memEl) { memEl.textContent = _memLabel(c.mem_mb); memEl.className = 'cres' + _cresHeat(c.mem_mb, 800, 1800); }
+  }
+}
+
 async function loadActiveContainers() {
   const list = document.getElementById('active-containers-list');
   if (!list) return;
-  list.innerHTML = `<div class="containers-empty">Loading...</div>`;
+  list.innerHTML = `<div class="containers-empty">Loading…</div>`;
+  // Phase 1: fast list (no stats) — renders instantly.
   const res = await api('/api/docker/containers');
-  if (!res || res.error) {
-    list.innerHTML = `<div class="containers-empty">Failed to load containers.</div>`;
-    return;
-  }
+  if (!res || res.error) { list.innerHTML = `<div class="containers-empty">Failed to load containers.</div>`; return; }
   const rows = Array.isArray(res.containers) ? res.containers : [];
-  if (!rows.length) {
-    list.innerHTML = `<div class="containers-empty">No active challenge containers.</div>`;
-    return;
-  }
-  const heat = (v, warn, hot) => (v == null ? '' : v >= hot ? ' hot' : v >= warn ? ' warn' : '');
-  list.innerHTML = rows.map(c => {
-    const cpu = c.cpu_pct == null ? '—' : `${c.cpu_pct}%`;
-    const mem = c.mem_mb == null ? '—' : (c.mem_mb >= 1024 ? `${(c.mem_mb / 1024).toFixed(1)} GB` : `${Math.round(c.mem_mb)} MB`);
-    return `
+  if (!rows.length) { list.innerHTML = `<div class="containers-empty">No active challenge containers.</div>`; return; }
+  list.innerHTML = rows.map(c => `
     <div class="container-row">
-      <div class="container-meta">
-        <div class="container-name">${escHtml(c.challenge_name || '(unknown)')}</div>
-        <div class="container-sub">${escHtml(c.cid)} · ${escHtml((c.status || '').toUpperCase())}${c.agent_running ? ' · <span style="color:var(--accent)">running</span>' : ''}</div>
+      <div class="container-name" title="${escHtml(c.challenge_name || '')}">${escHtml(c.challenge_name || '(unknown)')}</div>
+      <div class="container-line">
+        <span class="container-sub">${escHtml(c.cid)} · ${escHtml((c.status || '').toUpperCase())}${c.agent_running ? ' · <span class="crun">running</span>' : ''}</span>
+        <span class="cres" id="cres-cpu-${escHtml(c.cid)}">CPU …</span>
+        <span class="cres" id="cres-mem-${escHtml(c.cid)}">…</span>
+        <span class="container-spacer"></span>
+        <button class="container-open" data-open-cid="${escHtml(c.cid)}" data-open-manual="${c.manual_session ? '1' : '0'}">Open</button>
+        <button class="container-kill" data-kill-cid="${escHtml(c.cid)}">Kill</button>
       </div>
-      <div class="container-res">
-        <span class="cres${heat(c.cpu_pct, 50, 85)}">CPU ${cpu}</span>
-        <span class="cres${heat(c.mem_mb, 800, 1800)}">${mem}</span>
-      </div>
-      <button class="container-open" data-open-cid="${escHtml(c.cid)}" data-open-manual="${c.manual_session ? '1' : '0'}">Open</button>
-      <button class="container-kill" data-kill-cid="${escHtml(c.cid)}">Kill</button>
-    </div>`;
-  }).join('');
+    </div>`).join('');
+  // Phase 2: fetch the slow per-container stats and fill the chips in place.
+  api('/api/docker/containers?stats=1').then(r2 => {
+    if (r2 && Array.isArray(r2.containers)) _applyContainerStats(r2.containers);
+  }).catch(() => {});
 }
 
 async function openChallengeFromContainerList(cid, isManual = false) {

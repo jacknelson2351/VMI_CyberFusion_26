@@ -2084,9 +2084,10 @@ def docker_containers():
             c for c in get_docker().containers.list(all=False, filters={"name": CONTAINER_PREFIX})
             if (getattr(c, "name", "") or "").startswith(CONTAINER_PREFIX)
         ]
-        # Per-container stats in parallel so the menu stays snappy even with several containers.
+        # Per-container docker stats are slow (~1s each), so only compute them when asked
+        # (?stats=1). The menu loads the list instantly, then fetches stats in a second call.
         stats_by_name = {}
-        if conts:
+        if conts and request.args.get("stats"):
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=min(8, len(conts))) as ex:
                 for c, st in zip(conts, ex.map(_container_live_stats, conts)):
