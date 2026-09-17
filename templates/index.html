@@ -922,6 +922,13 @@ html, body {
   margin-bottom: 10px;
   text-transform: uppercase;
 }
+.ch-submit-link {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; padding: 9px; margin-bottom: 8px; border-radius: 8px;
+  background: var(--accent); color: var(--on-accent); text-decoration: none;
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 700; transition: background 0.15s;
+}
+.ch-submit-link:hover { background: var(--accent-hover); }
 .ch-menu-item {
   display: block;
   width: 100%;
@@ -1687,39 +1694,23 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
 }
 .ass-checkpoint::before { content: '·'; color: var(--border2); margin-right: 8px; }
 .ass-step { color: var(--text-dim); flex-shrink: 0; }
-/* Liquid-metal launch button (CSS take on the metal-fx look: a molten clay-metal
-   surface with a sweeping specular sheen and a beveled rim). */
+/* Launch button — orange fill with a metal-outline (border-beam) ring applied in JS. */
 #btn-launch {
   margin-left: auto;
-  position: relative; overflow: hidden; isolation: isolate;
+  position: relative; isolation: isolate;
   display: inline-flex; align-items: center; justify-content: center;
   width: 32px; height: 32px;
   border-radius: 9px;
   color: #fff; border: none; cursor: pointer;
   font-size: 16px; line-height: 1; flex-shrink: 0;
-  background: linear-gradient(135deg, #b5563a 0%, #e79070 22%, #d97757 42%, #f0a986 60%, #c2664a 82%, #d97757 100%);
-  background-size: 260% 260%;
-  animation: metal-flow 4.5s linear infinite;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 3px rgba(90,30,12,0.5),
-              0 2px 6px rgba(120,50,30,0.35);
-  transition: transform 0.12s, box-shadow 0.2s;
+  background: var(--accent);
+  transition: transform 0.12s, box-shadow 0.2s, background 0.15s;
 }
-/* sweeping specular highlight */
-#btn-launch::after {
-  content: ''; position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none;
-  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 62%);
-  background-size: 250% 100%;
-  animation: metal-sheen 3.2s linear infinite;
-}
-#btn-launch > * { position: relative; z-index: 2; }
-#btn-launch:hover:not(:disabled) { transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -2px 3px rgba(90,30,12,0.5), 0 4px 12px var(--accent-glow); }
+#btn-launch:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 12px var(--accent-glow); }
 #btn-launch:active:not(:disabled) { transform: translateY(0) scale(0.96); }
-#btn-launch:disabled { opacity: 0.35; cursor: not-allowed; animation: none; }
-#btn-launch:disabled::after { animation: none; }
+#btn-launch:disabled { opacity: 0.35; cursor: not-allowed; }
 @keyframes metal-flow { 0% { background-position: 0% 50%; } 100% { background-position: 260% 50%; } }
 @keyframes metal-sheen { 0% { background-position: 150% 0; } 100% { background-position: -150% 0; } }
-@media (prefers-reduced-motion: reduce) { #btn-launch, #btn-launch::after { animation: none; } }
 
 /* Silver metal Run All — static shine, one slow subtle sheen (toned down). */
 #btn-run-all {
@@ -2158,6 +2149,10 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
         <button class="btn btn-ghost btn-sm" id="btn-solve-toggle">Solve</button>
         <div class="ch-popout" id="ch-solve-menu">
           <div class="ch-popout-title">Solve</div>
+          <a id="ch-submit-flag-link" class="ch-submit-link" href="#" target="_blank" rel="noopener" style="display:none;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
+            Submit flag on platform
+          </a>
           <input type="text" id="manual-flag-input" placeholder="flag{...}" style="margin-bottom:6px;">
           <button class="btn btn-sm" id="btn-mark-solved" style="width:100%;margin-bottom:5px;background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.35);color:var(--cyan);">Mark Solved</button>
           <button class="btn btn-sm" id="btn-mark-unsolved" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border2);color:var(--text-muted);display:none;">Unmark Solved</button>
@@ -2404,6 +2399,10 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
       <div class="field">
         <label>TARGET URL <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
         <input type="text" id="edit-target-url" placeholder="e.g.  http://challenge.ctf.local:1337  or  nc host port">
+      </div>
+      <div class="field">
+        <label>FLAG SUBMISSION URL <span style="color:var(--text-muted);font-weight:400">(optional - link to the platform's flag entry)</span></label>
+        <input type="text" id="edit-flag-url" placeholder="e.g.  https://ctf.example.com/challenges#Baby-Stack-42">
       </div>
       <div class="field">
         <label>DESCRIPTION <span style="color:var(--text-muted);font-weight:400">(paste the full challenge text here)</span></label>
@@ -3493,6 +3492,14 @@ function openChallenge(cid) {
     _turlWrap.style.display = 'none';
   }
 
+  // Flag-submission link (platform) in the Solve window.
+  const _flagLink = document.getElementById('ch-submit-flag-link');
+  if (_flagLink) {
+    const fu = (c.flag_url || '').trim();
+    if (fu && fu.startsWith('http')) { _flagLink.href = fu; _flagLink.style.display = ''; }
+    else { _flagLink.style.display = 'none'; }
+  }
+
   renderFileList(c.files || []);
   renderMemoryFiles(c.memory_files || []);
   syncModelSelect(c);
@@ -4014,6 +4021,14 @@ async function refreshCurrentChallenge() {
   } else if (_turlWrap) {
     _turlWrap.style.display = 'none';
   }
+  // Flag-submission link (platform) in the Solve window.
+  const _flagLink = document.getElementById('ch-submit-flag-link');
+  if (_flagLink) {
+    const fu = (c.flag_url || '').trim();
+    if (fu && fu.startsWith('http')) { _flagLink.href = fu; _flagLink.style.display = ''; }
+    else { _flagLink.style.display = 'none'; }
+  }
+
   renderFileList(c.files || []);
   renderMemoryFiles(c.memory_files || []);
   syncModelSelect(c);
@@ -4350,6 +4365,7 @@ function openEditChallengeModal() {
   document.getElementById('edit-cat').value = c.category || 'misc';
   document.getElementById('edit-flagfmt').value = c.flag_format || '';
   document.getElementById('edit-target-url').value = (c.target && c.target.url) ? c.target.url.trim() : '';
+  document.getElementById('edit-flag-url').value = c.flag_url || '';
   document.getElementById('edit-desc').value = c.description || '';
   openModal('modal-edit-challenge');
 }
@@ -4552,10 +4568,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function attachInputBeam() {
     if (!window.attachBorderBeam) return;
     const el = document.getElementById('chat-input-wrap');
-    if (!el || el.__beam) return;
-    el.__beam = window.attachBorderBeam(el, {
-      size: 'md', colorVariant: 'sunset', theme: 'auto', borderWidth: 1.6, duration: 3.4, active: true,
-    });
+    if (el && !el.__beam) {
+      el.__beam = window.attachBorderBeam(el, {
+        size: 'md', colorVariant: 'sunset', theme: 'auto', borderWidth: 1.6, duration: 3.4, active: true,
+      });
+    }
+    // Orange metal-outline ring on the launch/Enter button.
+    const lb = document.getElementById('btn-launch');
+    if (lb && !lb.__beam) {
+      lb.__beam = window.attachBorderBeam(lb, {
+        size: 'sm', colorVariant: 'sunset', theme: 'auto', borderWidth: 2, duration: 2.6, active: true,
+      });
+    }
   }
   window.addEventListener('beam-ready', attachInputBeam);
   attachInputBeam();
@@ -4761,6 +4785,7 @@ document.addEventListener('DOMContentLoaded', () => {
       name,
       category: document.getElementById('edit-cat').value,
       flag_format: document.getElementById('edit-flagfmt').value.trim(),
+      flag_url: document.getElementById('edit-flag-url').value.trim(),
       description: document.getElementById('edit-desc').value.trim(),
       target: { ...existingTarget, url: document.getElementById('edit-target-url').value.trim() },
     };

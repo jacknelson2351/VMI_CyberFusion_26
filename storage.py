@@ -4,6 +4,7 @@ Persistent challenge storage helpers: workspace paths, run logs, notes, and sche
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -61,38 +62,74 @@ DEFAULT_CHALLENGE_FIELDS = {
     "credentials": [],
     "target": deepcopy(DEFAULT_TARGET),
     "source_meta": deepcopy(DEFAULT_SOURCE),
+    "flag_url": "",
     "last_activity_at": None,
 }
 
 MEMORY_FILE_DEFAULTS = {
-    "overview.md": "# Agent Overview\n\nNo agent memory saved yet.\n",
-    "state.json": json.dumps({
+    "memory.json": json.dumps({
         "status": "idle",
         "phase": "idle",
         "step": 0,
         "run_id": None,
-        "active_hypothesis_id": None,
-        "last_updated_at": None,
-    }, indent=2) + "\n",
-    "hypotheses.json": "[]\n",
-    "facts.json": json.dumps({
+        "hypotheses": [],
         "confirmed": [],
         "ruled_out": [],
+        "artifacts": [],
+        "dead_ends": [],
         "flag_candidates": [],
+        "phase_history": [],
+        "tool_stats": {},
+        "next_best_action": "",
+        "checkpoint_summary": "",
+        "repeated_failure_count": 0,
+        "planner_summary": "",
         "updated_at": None,
     }, indent=2) + "\n",
-    "artifacts.json": "[]\n",
-    "dead_ends.json": "[]\n",
-    "candidates.json": json.dumps({
-        "flags": [],
-        "other": [],
-        "updated_at": None,
-    }, indent=2) + "\n",
+    "overview.md": "# Agent Memory\n\nNo agent runs yet.\n",
 }
 
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def parse_endpoints(text: str) -> dict[str, str]:
+    """Pull remote targets out of free-text (challenge descriptions/notes).
+    Many UMDCTF challenges only stated `nc challs.umdctf.io 30301` or a URL in prose and
+    never populated the structured target{} fields, so the agent got no connectivity."""
+    text = str(text or "")
+    out = {"url": "", "host": "", "port": "", "protocol": ""}
+    # `nc host port` (netcat) — most common CTF remote form.
+    m = re.search(r"\bn(?:c|cat)\s+(?:-\w+\s+)*([A-Za-z0-9][A-Za-z0-9.\-]+)\s+(\d{2,5})\b", text)
+    if m:
+        out["host"], out["port"], out["protocol"] = m.group(1), m.group(2), "tcp"
+    # ws:// / wss:// / http:// / https:// URLs.
+    um = re.search(r"\b(wss?|https?)://[^\s\"'<>)\]]+", text)
+    if um:
+        out["url"] = um.group(0).rstrip(".,);:")
+        scheme = um.group(1)
+        out["protocol"] = out["protocol"] or scheme
+    # Bare host:port (e.g. challs.umdctf.io:30301) when no nc/url matched a host.
+    if not out["host"]:
+        hm = re.search(
+            r"\b([a-z0-9](?:[a-z0-9\-]*[a-z0-9])?(?:\.[a-z0-9\-]+)+):(\d{2,5})\b",
+            text, re.IGNORECASE,
+        )
+        if hm:
+            out["host"], out["port"] = hm.group(1), hm.group(2)
+    return out
+
+
+def enrich_target(target: Any, *texts: str) -> dict[str, str]:
+    """Return a target dict with empty url/host/port/protocol filled from free text.
+    Non-destructive: only fills blanks, never overrides operator-set structured values."""
+    target = dict(target or {})
+    parsed = parse_endpoints(" \n ".join(str(t or "") for t in texts))
+    for key in ("url", "host", "port", "protocol"):
+        if not str(target.get(key) or "").strip() and parsed.get(key):
+            target[key] = parsed[key]
+    return target
 
 
 def challenge_workspace_dir(cid: str) -> Path:
@@ -195,6 +232,7 @@ def apply_challenge_defaults(raw: dict[str, Any]) -> dict[str, Any]:
     chal["name"] = str(chal.get("name") or "Untitled").strip() or "Untitled"
     chal["category"] = str(chal.get("category") or "misc").strip().lower() or "misc"
     chal["flag_format"] = str(chal.get("flag_format") or "").strip()
+    chal["flag_url"] = str(chal.get("flag_url") or "").strip()
     chal["description"] = str(chal.get("description") or "").strip()
     chal["notes"] = str(chal.get("notes") or "").strip()
     chal["id"] = str(chal.get("id") or "").strip()
@@ -327,6 +365,9 @@ def clear_memory_files(cid: str):
 
 def build_challenge_environment(chal: dict[str, Any]) -> dict[str, str]:
     target = normalize_target(chal.get("target"))
+    # Backfill host/port/url from the description/notes so remote-only challenges that stated
+    # their endpoint in prose still export CTF_TARGET_* into the container.
+    target = enrich_target(target, chal.get("description"), chal.get("notes"))
     env = {}
     field_map = {
         "url": "CTF_TARGET_URL",
