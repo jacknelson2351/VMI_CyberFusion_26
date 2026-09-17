@@ -298,6 +298,7 @@ html, body {
   display: flex; align-items: center; gap: 12px; z-index: 3;
   background: var(--bg2); border-radius: 8px; padding: 0 10px; pointer-events: none;
 }
+#voice-overlay[hidden] { display: none; }  /* ID selector beats UA [hidden]{display:none}, so restate it */
 .vo-bars { display: flex; align-items: center; gap: 3px; height: 20px; }
 .vo-bars i {
   display: block; width: 3px; border-radius: 3px; background: var(--accent);
@@ -527,9 +528,12 @@ html, body {
   transition: width 1.1s cubic-bezier(.33,0,.2,1), background 0.5s ease; }
 .sys-fill.warn { background: var(--amber); }
 .sys-fill.hot { background: var(--red); }
-.sys-docker { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
-/* The docker menu now lives in the sidebar panel — open it upward + left-aligned so it stays on-screen. */
-#stat-system #docker-menu { top: auto; bottom: calc(100% + 8px); left: 0; right: auto; width: min(320px, 78vw); }
+/* SYSTEM panel title row: label left, Docker pill top-right. */
+.sys-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.sys-title #docker-menu-wrap { position: relative; }
+.sys-title #docker-status { text-transform: none; letter-spacing: 0; }
+/* Docker menu lives in the sidebar panel now — open it downward, right-aligned, on-screen. */
+#stat-system #docker-menu { top: calc(100% + 8px); bottom: auto; right: 0; left: auto; width: min(320px, 78vw); }
 
 /* Challenge list panel */
 #dash-list {
@@ -1642,18 +1646,39 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
 }
 .ass-checkpoint::before { content: '·'; color: var(--border2); margin-right: 8px; }
 .ass-step { color: var(--text-dim); flex-shrink: 0; }
+/* Liquid-metal launch button (CSS take on the metal-fx look: a molten clay-metal
+   surface with a sweeping specular sheen and a beveled rim). */
 #btn-launch {
   margin-left: auto;
+  position: relative; overflow: hidden; isolation: isolate;
   display: inline-flex; align-items: center; justify-content: center;
   width: 32px; height: 32px;
-  border-radius: 8px;
-  background: var(--accent);
+  border-radius: 9px;
   color: #fff; border: none; cursor: pointer;
-  font-size: 16px; line-height: 1;
-  transition: background 0.15s; flex-shrink: 0;
+  font-size: 16px; line-height: 1; flex-shrink: 0;
+  background: linear-gradient(135deg, #b5563a 0%, #e79070 22%, #d97757 42%, #f0a986 60%, #c2664a 82%, #d97757 100%);
+  background-size: 260% 260%;
+  animation: metal-flow 4.5s linear infinite;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 3px rgba(90,30,12,0.5),
+              0 2px 6px rgba(120,50,30,0.35);
+  transition: transform 0.12s, box-shadow 0.2s;
 }
-#btn-launch:hover:not(:disabled) { background: #e8845f; }
-#btn-launch:disabled { opacity: 0.35; cursor: not-allowed; }
+/* sweeping specular highlight */
+#btn-launch::after {
+  content: ''; position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 62%);
+  background-size: 250% 100%;
+  animation: metal-sheen 3.2s linear infinite;
+}
+#btn-launch > * { position: relative; z-index: 2; }
+#btn-launch:hover:not(:disabled) { transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -2px 3px rgba(90,30,12,0.5), 0 4px 12px var(--accent-glow); }
+#btn-launch:active:not(:disabled) { transform: translateY(0) scale(0.96); }
+#btn-launch:disabled { opacity: 0.35; cursor: not-allowed; animation: none; }
+#btn-launch:disabled::after { animation: none; }
+@keyframes metal-flow { 0% { background-position: 0% 50%; } 100% { background-position: 260% 50%; } }
+@keyframes metal-sheen { 0% { background-position: 150% 0; } 100% { background-position: -150% 0; } }
+@media (prefers-reduced-motion: reduce) { #btn-launch, #btn-launch::after { animation: none; } }
 
 /* Flag banner */
 #flag-banner {
@@ -1964,17 +1989,8 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
           <div id="cost-bars-list"><div class="cost-bars-empty">No cost data yet</div></div>
         </div>
         <div class="stat-panel" id="stat-system">
-          <div class="stat-panel-title">SYSTEM</div>
-          <div class="sys-row">
-            <div class="sys-head"><span class="sys-label">CPU</span><span class="sys-val" id="sys-cpu-val">—</span></div>
-            <div class="sys-track"><div class="sys-fill" id="sys-cpu-fill"></div></div>
-          </div>
-          <div class="sys-row">
-            <div class="sys-head"><span class="sys-label">RAM</span><span class="sys-val" id="sys-mem-val">—</span></div>
-            <div class="sys-track"><div class="sys-fill" id="sys-mem-fill"></div></div>
-          </div>
-          <div class="sys-docker">
-            <span class="sys-label">Docker</span>
+          <div class="stat-panel-title sys-title">
+            <span>SYSTEM</span>
             <div id="docker-menu-wrap">
               <button id="docker-status" class="status-pill" type="button" aria-haspopup="menu" aria-expanded="false">
                 <img class="mark" src="/static/docker-mark.svg" alt="" aria-hidden="true">
@@ -1988,6 +2004,14 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
                 </div>
               </div>
             </div>
+          </div>
+          <div class="sys-row">
+            <div class="sys-head"><span class="sys-label">CPU</span><span class="sys-val" id="sys-cpu-val">—</span></div>
+            <div class="sys-track"><div class="sys-fill" id="sys-cpu-fill"></div></div>
+          </div>
+          <div class="sys-row">
+            <div class="sys-head"><span class="sys-label">RAM</span><span class="sys-val" id="sys-mem-val">—</span></div>
+            <div class="sys-track"><div class="sys-fill" id="sys-mem-fill"></div></div>
           </div>
         </div>
       </div>
@@ -2152,6 +2176,21 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
 </div>
 
 <!--  New Challenge Modal  -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="width:min(440px,92vw)">
+    <div class="modal-header">
+      <div class="modal-title" id="confirm-title">Confirm</div>
+    </div>
+    <div class="modal-body">
+      <div id="confirm-message" style="font-size:14px;color:var(--text-dim);line-height:1.6;margin-bottom:20px;white-space:pre-wrap;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-sm btn-ghost" id="confirm-cancel">Cancel</button>
+        <button class="btn btn-sm btn-danger" id="confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-file-viewer">
   <div class="modal" style="width:min(940px,95vw);max-width:940px;">
     <div class="modal-header">
@@ -3337,6 +3376,9 @@ function openChallenge(cid) {
   updateRunningUI();
   loadMemoryIndex();
   // Focus the prompt box so you can type / hold-space-to-talk immediately.
+  if (typeof stopVoice === 'function') stopVoice();
+  if (voiceHoldTimer) { clearTimeout(voiceHoldTimer); voiceHoldTimer = null; }
+  _voiceOverlay(false);
   setTimeout(() => { const el = document.getElementById('prompt-input'); if (el) el.focus(); }, 60);
 
   // Load persisted logs for this challenge
@@ -3763,7 +3805,7 @@ async function saveCurrentMemoryFile() {
 
 async function deleteCurrentMemoryFile() {
   if (!state.currentCid || !state.currentMemoryFile) return;
-  if (!confirm(`Delete ${state.currentMemoryFile}?`)) return;
+  if (!(await uiConfirm(`Delete ${state.currentMemoryFile}?`))) return;
   const res = await api(`/api/challenges/${state.currentCid}/memory/${encodeURIComponent(state.currentMemoryFile)}`, {
     method: 'DELETE',
   });
@@ -3778,7 +3820,7 @@ async function deleteCurrentMemoryFile() {
 
 async function clearAllMemoryFiles() {
   if (!state.currentCid) return;
-  if (!confirm('Clear all saved agent memory for this challenge?')) return;
+  if (!(await uiConfirm('Clear all saved agent memory for this challenge?'))) return;
   const res = await api(`/api/challenges/${state.currentCid}/memory/clear`, { method: 'POST' });
   if (!res || res.error) {
     toast(res?.error || 'Failed to clear memory.', 'error');
@@ -4454,7 +4496,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnRunAll = document.getElementById('btn-run-all');
   if (btnRunAll) {
     btnRunAll.addEventListener('click', async () => {
-      if (!confirm('Launch the agent on all unsolved challenges, one at a time, unattended? This uses API tokens.')) return;
+      if (!(await uiConfirm('Launch the agent on all unsolved challenges, one at a time, unattended? This uses API tokens.'))) return;
       btnRunAll.disabled = true;
       const res = await api('/api/challenges/launch-all', { method: 'POST', body: { only_never_run: false } });
       btnRunAll.disabled = false;
@@ -4789,7 +4831,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Reset & Delete
   document.getElementById('btn-reset').addEventListener('click', async () => {
-    if (!confirm('Reset container? This kills the Docker container, clears the run transcript, and keeps challenge files.')) return;
+    if (!(await uiConfirm('Reset container? This kills the Docker container, clears the run transcript, and keeps challenge files.'))) return;
     await api(`/api/challenges/${state.currentCid}/reset`, { method: 'POST' });
     state.agentRunning = false;
     updateRunningUI();
@@ -4806,7 +4848,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btn-delete').addEventListener('click', async () => {
     const c = state.challenges.find(ch => ch.id === state.currentCid);
-    if (!confirm(`Delete "${c?.name}"? This cannot be undone.`)) return;
+    if (!(await uiConfirm(`Delete "${c?.name}"? This cannot be undone.`))) return;
     await api(`/api/challenges/${state.currentCid}`, { method: 'DELETE' });
     state.currentCid = null;
     switchView('view-dashboard');
@@ -4935,7 +4977,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const delBtn = e.target.closest('[data-del-for]');
       if (delBtn) {
         const id = delBtn.getAttribute('data-del-for');
-        if (!confirm(`Remove model "${id}"?`)) return;
+        if (!(await uiConfirm(`Remove model "${id}"?`))) return;
         _modelsState.models = _modelsState.models.filter(m => m.id !== id);
         if (_modelsState.roles.solver === id) _modelsState.roles.solver = '';
         if (_modelsState.roles.aux === id) _modelsState.roles.aux = '';
@@ -5010,7 +5052,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Global reset
   document.getElementById('btn-reset-all').addEventListener('click', async () => {
-    if (!confirm('Reset ALL challenges and uploads? This permanently deletes every challenge, upload, and log.')) return;
+    if (!(await uiConfirm('Reset ALL challenges and uploads? This permanently deletes every challenge, upload, and log.'))) return;
     let res = null;
     try {
       res = await api('/api/reset-all', { method: 'POST' });
@@ -5064,6 +5106,34 @@ function switchView(id) {
 
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Styled in-app confirm (replaces the ugly native confirm()). Returns a Promise<boolean>.
+function uiConfirm(message, opts = {}) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modal-confirm');
+    document.getElementById('confirm-title').textContent = opts.title || 'Are you sure?';
+    document.getElementById('confirm-message').textContent = message || '';
+    const ok = document.getElementById('confirm-ok');
+    const cancel = document.getElementById('confirm-cancel');
+    ok.textContent = opts.confirmText || 'Confirm';
+    ok.className = 'btn btn-sm ' + (opts.danger === false ? 'btn-primary' : 'btn-danger');
+    const done = (val) => {
+      modal.classList.remove('open');
+      ok.onclick = null; cancel.onclick = null;
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); done(false); }
+      else if (e.key === 'Enter') { e.preventDefault(); done(true); }
+    };
+    ok.onclick = () => done(true);
+    cancel.onclick = () => done(false);
+    document.addEventListener('keydown', onKey);
+    modal.classList.add('open');
+    setTimeout(() => ok.focus(), 30);
+  });
+}
 
 function ts() {
   return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -5526,7 +5596,7 @@ async function killContainerFromContainerList(cid) {
   if (!cid) return;
   const chal = state.challenges.find(c => c.id === cid);
   const label = chal?.name ? `"${chal.name}"` : cid;
-  if (!confirm(`Kill container for ${label}?`)) return;
+  if (!(await uiConfirm(`Kill container for ${label}?`))) return;
   const res = await api(`/api/challenges/${cid}/kill-container`, { method: 'POST', body: {} });
   if (!res || res.error) {
     toast(res?.error || 'Failed to kill container', 'error');
