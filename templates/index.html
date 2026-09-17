@@ -1567,6 +1567,42 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   outline: none;
   min-width: 150px;
 }
+/* Competition / challenge-set picker (topbar) */
+#comp-picker { position: relative; }
+.comp-trigger {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--bg2); border: 1px solid var(--border2); border-radius: 10px;
+  padding: 7px 12px; color: var(--text); font-family: var(--font-mono); font-size: 12.5px;
+  cursor: pointer; max-width: 260px; transition: border-color 0.15s;
+}
+.comp-trigger:hover { border-color: var(--accent); }
+.comp-trigger svg { color: var(--accent); flex-shrink: 0; }
+.comp-trigger .comp-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comp-trigger .comp-count { color: var(--text-muted); flex-shrink: 0; }
+.comp-trigger .comp-caret { color: var(--text-muted); font-size: 9px; flex-shrink: 0; }
+.comp-panel {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 500;
+  width: 280px; max-width: 84vw;
+  background: var(--bg1); border: 1px solid var(--border2); border-radius: 12px;
+  box-shadow: var(--shadow-lg); padding: 6px;
+}
+.comp-list { display: flex; flex-direction: column; gap: 2px; max-height: 340px; overflow-y: auto; }
+.comp-opt {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer;
+}
+.comp-opt:hover { background: var(--bg2); }
+.comp-opt.active { background: var(--accent-soft); }
+.comp-opt .comp-opt-main { flex: 1; min-width: 0; }
+.comp-opt .comp-opt-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.comp-opt .comp-opt-sub { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+.comp-opt .comp-opt-check { color: var(--accent); flex-shrink: 0; font-size: 13px; }
+.comp-add {
+  width: 100%; margin-top: 6px; padding: 9px; border-radius: 8px;
+  background: none; border: 1px dashed var(--border2); color: var(--accent);
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.comp-add:hover { background: var(--accent-soft); border-color: var(--accent); }
+
 /* Searchable model picker */
 #model-picker { position: relative; }
 .model-trigger {
@@ -1965,10 +2001,18 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
       <span class="brand-name">Big Stein</span>
     </div>
     <div id="topbar-right">
-      <select id="set-select" title="Active competition / challenge set"
-              style="background:#141416;color:#ececf1;border:1px solid #26262b;border-radius:8px;
-                     padding:6px 10px;font-size:12px;font-family:ui-monospace,Menlo,monospace;
-                     max-width:240px;cursor:pointer"></select>
+      <div id="comp-picker">
+        <button type="button" id="comp-trigger" class="comp-trigger" title="Competition / challenge set">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v4a6 6 0 0 1-12 0z"/><path d="M6 5H3v2a3 3 0 0 0 3 3M18 5h3v2a3 3 0 0 1-3 3M9 17h6M12 13v4M8 21h8"/></svg>
+          <span class="comp-name" id="comp-name">Loading…</span>
+          <span class="comp-count" id="comp-count"></span>
+          <span class="comp-caret">▾</span>
+        </button>
+        <div id="comp-panel" class="comp-panel" hidden>
+          <div class="comp-list" id="comp-list"></div>
+          <button type="button" id="comp-add" class="comp-add">＋ New competition</button>
+        </div>
+      </div>
       <button class="btn btn-ghost btn-sm btn-icon" id="btn-theme-toggle" title="Toggle light / dark" aria-label="Toggle theme">
         <svg class="theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         <svg class="theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -2220,6 +2264,25 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
 </div>
 
 <!--  New Challenge Modal  -->
+<div class="modal-overlay" id="modal-new-comp">
+  <div class="modal" style="width:min(440px,92vw)">
+    <div class="modal-header">
+      <div class="modal-title">New competition</div>
+      <button class="modal-close" data-close="modal-new-comp">X</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>NAME</label>
+        <input type="text" id="new-comp-name" placeholder="e.g. PicoCTF 2026, Local Practice" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+        <button class="btn btn-sm btn-ghost" data-close="modal-new-comp">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="new-comp-create">Create &amp; switch</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-confirm">
   <div class="modal" style="width:min(440px,92vw)">
     <div class="modal-header">
@@ -3173,26 +3236,53 @@ checkDockerStatus();
 setInterval(checkDockerStatus, 15000);
 
 //  Challenges
+let _compSets = [];
 async function loadChallengeSets() {
-  const sel = document.getElementById('set-select');
-  if (!sel) return;
   try {
     const { sets } = await api('/api/challenge-sets');
-    sel.innerHTML = '';
-    for (const s of sets) {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = `${s.name} (${s.solved}/${s.count})`;
-      opt.selected = s.active;
-      sel.appendChild(opt);
-    }
-  } catch (e) { /* sets are optional; ignore */ }
+    _compSets = sets || [];
+  } catch (e) { _compSets = []; return; }
+  const active = _compSets.find(s => s.active) || _compSets[0];
+  const nameEl = document.getElementById('comp-name');
+  const countEl = document.getElementById('comp-count');
+  if (nameEl) nameEl.textContent = active ? active.name : 'No set';
+  if (countEl) countEl.textContent = active ? `${active.solved}/${active.count}` : '';
+  renderCompList();
 }
+function renderCompList() {
+  const list = document.getElementById('comp-list');
+  if (!list) return;
+  list.innerHTML = _compSets.map(s => `
+    <div class="comp-opt${s.active ? ' active' : ''}" data-set="${escHtml(s.id)}">
+      <div class="comp-opt-main">
+        <div class="comp-opt-name">${escHtml(s.name)}</div>
+        <div class="comp-opt-sub">${s.solved}/${s.count} solved${s.competition ? ' · ' + escHtml(s.competition) : ''}</div>
+      </div>
+      ${s.active ? '<span class="comp-opt-check">✓</span>' : ''}
+    </div>`).join('');
+  list.querySelectorAll('.comp-opt').forEach(el =>
+    el.addEventListener('click', () => { closeCompPanel(); activateChallengeSet(el.getAttribute('data-set')); }));
+}
+function openCompPanel() { const p = document.getElementById('comp-panel'); if (p) p.hidden = false; }
+function closeCompPanel() { const p = document.getElementById('comp-panel'); if (p) p.hidden = true; }
+function toggleCompPanel() { const p = document.getElementById('comp-panel'); if (!p) return; p.hidden ? openCompPanel() : closeCompPanel(); }
 
 async function activateChallengeSet(sid) {
   await api(`/api/challenge-sets/${encodeURIComponent(sid)}/activate`, { method: 'POST' });
   await loadChallengeSets();
   await loadChallenges();
+}
+async function createCompetition() {
+  const input = document.getElementById('new-comp-name');
+  const name = (input.value || '').trim();
+  if (!name) { toast('Enter a competition name', 'error'); input.focus(); return; }
+  const res = await api('/api/challenge-sets', { method: 'POST', body: { name, activate: true } });
+  if (!res || res.error) { toast((res && res.error) || 'Failed to create competition', 'error'); return; }
+  closeModal('modal-new-comp');
+  input.value = '';
+  await loadChallengeSets();
+  await loadChallenges();
+  toast(`Created "${name}" — new challenges will go here.`, 'success');
 }
 
 async function loadChallenges() {
@@ -4440,10 +4530,19 @@ document.addEventListener('DOMContentLoaded', () => {
   loadChallengeSets();
   loadChallenges();
   refreshLockUI();
-  const setSelect = document.getElementById('set-select');
-  if (setSelect) {
-    setSelect.addEventListener('change', e => activateChallengeSet(e.target.value));
-  }
+  // Competition picker
+  const compTrigger = document.getElementById('comp-trigger');
+  if (compTrigger) compTrigger.addEventListener('click', (e) => { e.stopPropagation(); toggleCompPanel(); });
+  const compAdd = document.getElementById('comp-add');
+  if (compAdd) compAdd.addEventListener('click', () => {
+    closeCompPanel(); openModal('modal-new-comp');
+    setTimeout(() => { const i = document.getElementById('new-comp-name'); if (i) i.focus(); }, 40);
+  });
+  const compCreate = document.getElementById('new-comp-create');
+  if (compCreate) compCreate.addEventListener('click', createCompetition);
+  const compNameInput = document.getElementById('new-comp-name');
+  if (compNameInput) compNameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') createCompetition(); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('#comp-picker')) closeCompPanel(); });
   // Model picker + orb appearance
   updateModelTrigger();
   buildOrbSettings();
