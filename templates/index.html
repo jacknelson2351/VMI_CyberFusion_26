@@ -18,6 +18,10 @@
   import { registerThinkingOrbElement } from '/static/thinking-orbs.mjs';
   registerThinkingOrbElement();
   window.__orbReady = true;
+  // Border beam (vendored) for the chat input.
+  import { attachBorderBeam } from '/static/border-beam.mjs';
+  window.attachBorderBeam = attachBorderBeam;
+  window.dispatchEvent(new Event('beam-ready'));
 </script>
 <script>window.LAUNCH_MODELS = {{ launch_models|tojson }};</script>
 
@@ -233,8 +237,29 @@ html, body {
   border: none;
   transition: all 0.15s;
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
 }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Liquid "gooey" hover — a currentColor blob wells up behind crisp text (no text blur).
+   The elastic overshoot gives the gooey feel; works on every button variant. */
+.btn::before, .btn-icon-goo::before {
+  content: ''; position: absolute; z-index: -1;
+  left: 50%; top: 100%;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: currentColor; opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.42s cubic-bezier(.16,1.1,.3,1.3), opacity 0.34s ease;
+  pointer-events: none;
+}
+.btn:hover:not(:disabled)::before { opacity: 0.14; transform: translate(-50%, -140%) scale(34); }
+.btn:active:not(:disabled)::before { opacity: 0.2; transition-duration: 0.12s; }
+@media (prefers-reduced-motion: reduce) {
+  .btn::before { transition: opacity 0.15s ease; }
+  .btn:hover:not(:disabled)::before { transform: translate(-50%, -50%) scale(34); }
+}
 
 .btn-primary   { background: var(--accent); color: var(--on-accent); }
 .btn-primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 2px 10px var(--accent-glow); }
@@ -4148,6 +4173,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // Model picker + orb appearance
   updateModelTrigger();
   buildOrbSettings();
+  // Border beam around the chat input.
+  function attachInputBeam() {
+    if (!window.attachBorderBeam) return;
+    const el = document.getElementById('chat-input-wrap');
+    if (!el || el.__beam) return;
+    el.__beam = window.attachBorderBeam(el, {
+      size: 'md', colorVariant: 'sunset', theme: 'auto', borderWidth: 1.6, duration: 3.4, active: true,
+    });
+  }
+  window.addEventListener('beam-ready', attachInputBeam);
+  attachInputBeam();
   const modelTrigger = document.getElementById('model-picker-trigger');
   const modelSearch = document.getElementById('model-search');
   if (modelTrigger) modelTrigger.addEventListener('click', (e) => { e.stopPropagation(); toggleModelPanel(); });
