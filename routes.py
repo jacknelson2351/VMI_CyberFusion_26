@@ -2028,7 +2028,9 @@ def system_stats():
         out["cpu_count"] = psutil.cpu_count() or 0
         vm = psutil.virtual_memory()
         out["mem_percent"] = round(vm.percent, 1)
-        out["mem_used"] = int(vm.used)
+        # Use (total - available) so the GB shown matches the percent (psutil.percent is
+        # available-based on macOS; vm.used excludes cache/inactive and looked contradictory).
+        out["mem_used"] = int(vm.total - vm.available)
         out["mem_total"] = int(vm.total)
         try:
             out["load1"] = round(psutil.getloadavg()[0], 2)

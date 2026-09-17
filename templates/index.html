@@ -498,7 +498,7 @@ html, body {
 .sys-val { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
 .sys-track { height: 4px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
 .sys-fill { height: 100%; width: 0%; border-radius: 99px; background: var(--accent);
-  transition: width 0.5s ease, background 0.3s ease; }
+  transition: width 1.1s cubic-bezier(.33,0,.2,1), background 0.5s ease; }
 .sys-fill.warn { background: var(--amber); }
 .sys-fill.hot { background: var(--red); }
 .sys-containers { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
@@ -3538,25 +3538,33 @@ function buildOrbSettings() {
 
 // ── System resources (CPU / RAM / containers) — fast dashboard poll ──────────
 let sysStatsTimer = null;
+const sysSmooth = { cpu: null, mem: null, load: null };
+const SYS_EMA = 0.28; // lower = smoother/slower
 function _gb(x) { return (x / 1073741824).toFixed(1); }
 function _sysFillClass(pct, warn, hot) { return 'sys-fill' + (pct >= hot ? ' hot' : pct >= warn ? ' warn' : ''); }
+function _ema(prev, next) { return prev == null ? next : prev + SYS_EMA * (next - prev); }
 async function refreshSystemStats() {
   let s;
   try { s = await api('/api/system/stats'); } catch (e) { return; }
   if (!s) return;
   if (typeof s.cpu_percent === 'number') {
-    const c = Math.min(100, s.cpu_percent);
+    sysSmooth.cpu = _ema(sysSmooth.cpu, Math.min(100, s.cpu_percent));
+    if (s.load1 != null) sysSmooth.load = _ema(sysSmooth.load, s.load1);
+    const c = sysSmooth.cpu;
     const f = document.getElementById('sys-cpu-fill');
-    if (f) { f.style.width = c + '%'; f.className = _sysFillClass(c, 70, 90); }
+    if (f) { f.style.width = c.toFixed(1) + '%'; f.className = _sysFillClass(c, 70, 90); }
     const v = document.getElementById('sys-cpu-val');
-    if (v) v.textContent = `${c}%` + (s.load1 != null ? ` · load ${s.load1}` : '');
+    if (v) v.textContent = `${c.toFixed(0)}%` + (sysSmooth.load != null ? ` · load ${sysSmooth.load.toFixed(2)}` : '');
   }
   if (typeof s.mem_percent === 'number') {
-    const m = Math.min(100, s.mem_percent);
+    sysSmooth.mem = _ema(sysSmooth.mem, Math.min(100, s.mem_percent));
+    const m = sysSmooth.mem;
     const f = document.getElementById('sys-mem-fill');
-    if (f) { f.style.width = m + '%'; f.className = _sysFillClass(m, 75, 90); }
+    if (f) { f.style.width = m.toFixed(1) + '%'; f.className = _sysFillClass(m, 75, 90); }
     const v = document.getElementById('sys-mem-val');
-    if (v) v.textContent = `${m}% · ${_gb(s.mem_used)}/${_gb(s.mem_total)} GB`;
+    // Derive GB from the smoothed percent so the number and the bar always agree.
+    const usedGb = (m / 100) * (s.mem_total / 1073741824);
+    if (v) v.textContent = `${m.toFixed(0)}% · ${usedGb.toFixed(1)}/${_gb(s.mem_total)} GB`;
   }
   const cc = document.getElementById('sys-containers');
   if (cc) cc.textContent = (s.containers != null ? s.containers : 0);
@@ -3564,7 +3572,7 @@ async function refreshSystemStats() {
 function startSystemStats() {
   if (sysStatsTimer) return;
   refreshSystemStats();
-  sysStatsTimer = setInterval(refreshSystemStats, 2500);
+  sysStatsTimer = setInterval(refreshSystemStats, 2000);
 }
 
 function formatMemorySize(bytes) {
