@@ -2051,19 +2051,53 @@ def system_stats():
     return jsonify(out)
 
 
+def _container_live_stats(c) -> dict:
+    """One-shot CPU% + memory for a container (docker stats). Best-effort; may return Nones."""
+    try:
+        s = c.stats(stream=False)
+        cpu = s.get("cpu_stats", {}) or {}
+        pre = s.get("precpu_stats", {}) or {}
+        cd = (cpu.get("cpu_usage", {}) or {}).get("total_usage", 0) - (pre.get("cpu_usage", {}) or {}).get("total_usage", 0)
+        sd = cpu.get("system_cpu_usage", 0) - pre.get("system_cpu_usage", 0)
+        ncpu = cpu.get("online_cpus") or len((cpu.get("cpu_usage", {}) or {}).get("percpu_usage") or []) or 1
+        cpu_pct = round((cd / sd) * ncpu * 100, 1) if sd > 0 and cd > 0 else 0.0
+        mem = s.get("memory_stats", {}) or {}
+        usage = mem.get("usage", 0) or 0
+        mstats = mem.get("stats", {}) or {}
+        cache = mstats.get("inactive_file", 0) or mstats.get("cache", 0) or 0
+        mem_used = max(0, usage - cache)
+        return {
+            "cpu_pct": cpu_pct,
+            "mem_mb": round(mem_used / 1048576, 1),
+            "mem_limit_mb": round((mem.get("limit", 0) or 0) / 1048576),
+        }
+    except Exception:
+        return {"cpu_pct": None, "mem_mb": None, "mem_limit_mb": None}
+
+
 @app.route("/api/docker/containers", methods=["GET"])
 def docker_containers():
     try:
         get_docker().ping()
         all_challenges = {c["id"]: c for c in load_challenges()}
+        conts = [
+            c for c in get_docker().containers.list(all=False, filters={"name": CONTAINER_PREFIX})
+            if (getattr(c, "name", "") or "").startswith(CONTAINER_PREFIX)
+        ]
+        # Per-container stats in parallel so the menu stays snappy even with several containers.
+        stats_by_name = {}
+        if conts:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=min(8, len(conts))) as ex:
+                for c, st in zip(conts, ex.map(_container_live_stats, conts)):
+                    stats_by_name[c.name] = st
         rows = []
-        for c in get_docker().containers.list(all=False, filters={"name": CONTAINER_PREFIX}):
-            name = getattr(c, "name", "") or ""
-            if not name.startswith(CONTAINER_PREFIX):
-                continue
+        for c in conts:
+            name = c.name
             cid = name[len(CONTAINER_PREFIX):]
             chal = all_challenges.get(cid, {})
             agent_running = bool(cid in _agents and getattr(_agents[cid], "running", False))
+            st = stats_by_name.get(name, {})
             rows.append({
                 "cid": cid,
                 "container_name": name,
@@ -2073,8 +2107,12 @@ def docker_containers():
                 "challenge_status": chal.get("status") or "unknown",
                 "agent_running": agent_running,
                 "manual_session": cid in _manual_mode_cids,
+                "cpu_pct": st.get("cpu_pct"),
+                "mem_mb": st.get("mem_mb"),
+                "mem_limit_mb": st.get("mem_limit_mb"),
             })
-        rows.sort(key=lambda r: (0 if r["status"] == "running" else 1, r["challenge_name"].lower(), r["cid"]))
+        # Heaviest (by memory) first so hogs are obvious.
+        rows.sort(key=lambda r: (0 if r["status"] == "running" else 1, -(r.get("mem_mb") or 0), r["challenge_name"].lower()))
         return jsonify({"containers": rows})
     except Exception as e:
         return jsonify({"error": str(e), "containers": []}), 500
