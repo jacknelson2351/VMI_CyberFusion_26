@@ -94,6 +94,8 @@ class BrowserSession:
 
     # ── streamed login input (enqueue onto the worker) ───────────────────────
     def click(self, x, y):   self._q.put(("click", {"x": x, "y": y}))
+    def down(self, x, y):    self._q.put(("down", {"x": x, "y": y}))
+    def up(self, x, y):      self._q.put(("up", {"x": x, "y": y}))
     def move(self, x, y):    self._q.put(("move", {"x": x, "y": y}))
     def scroll(self, dy):    self._q.put(("scroll", {"dy": dy}))
     def type_text(self, t):  self._q.put(("type", {"text": t}))
@@ -140,6 +142,14 @@ class BrowserSession:
         except Exception:
             return ""
 
+    def login_probe(self) -> dict:
+        """Best-effort generic 'is the operator logged in?' check — looks for a logout affordance
+        on the live login page. Returns {url, logged_in}."""
+        try:
+            return self._call(("probe", None), timeout=6) or {}
+        except Exception:
+            return {}
+
     def cookie_header(self, base_url: str) -> str:
         from urllib.parse import urlparse
         host = urlparse(base_url).hostname or ""
@@ -152,14 +162,15 @@ class BrowserSession:
 
     # ── worker thread ────────────────────────────────────────────────────────
     def _launch(self, pw):
-        """ALWAYS headless — Big Stein runs on a (possibly remote) server, so it must never pop a
-        Chromium window on that machine. We stream the page via CDP instead. Chromium's new headless
-        mode renders a real browser (far less bot-detectable than old headless) with no window."""
+        """A REAL headed Chromium — this is a genuine user session, not a bot, so we do NOT try to
+        evade Cloudflare; the operator clears any human-check themselves in the stream, exactly as
+        they would in their own browser. Headed browsers aren't flagged the way headless is. The
+        window is positioned off-screen (it renders for the CDP stream but isn't shown on the server
+        desktop). On a display-less server, set up a virtual display (e.g. xvfb) for this to run."""
         _PROFILE_DIR.mkdir(parents=True, exist_ok=True)
         _reap_profile()
         return pw.chromium.launch_persistent_context(
-            str(_PROFILE_DIR), headless=True,
-            args=_LAUNCH_ARGS + ["--headless=new"],
+            str(_PROFILE_DIR), headless=False, args=_LAUNCH_ARGS,
             user_agent=_UA, locale="en-US", viewport=self.viewport,
             ignore_default_args=["--enable-automation"])
 
@@ -173,10 +184,6 @@ class BrowserSession:
         try:
             with sync_playwright() as pw:
                 ctx = self._launch(pw)
-                try:
-                    ctx.add_init_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined});")
-                except Exception:
-                    pass
                 page = ctx.pages[0] if ctx.pages else ctx.new_page()
                 self._alive = True
                 self._ready.set()
@@ -265,6 +272,26 @@ class BrowserSession:
             try:
                 if name == "url":
                     box["val"] = page.url
+                elif name == "probe":
+                    info = page.evaluate(
+                        """() => {
+                            const isAuthPage = /\\/(login|log-in|signin|sign-in|register|signup|sign-up|auth|sso|oauth)\\b/i.test(location.pathname);
+                            const hasPassword = !!document.querySelector('input[type=password]');
+                            const hasLogout = Array.from(document.querySelectorAll('a[href],button,[role=menuitem]')).some(a => {
+                                const h = ((a.getAttribute && a.getAttribute('href')) || '').toLowerCase();
+                                const x = (((a.innerText||'') + ' ' + ((a.getAttribute&&(a.getAttribute('aria-label')||a.getAttribute('title')))||''))).toLowerCase();
+                                return h.includes('logout') || h.includes('signout') || h.includes('sign-out') || h.includes('log-out') || /\\blog ?out\\b|\\bsign ?out\\b/.test(x);
+                            });
+                            return {url: location.href, isAuthPage, hasPassword, hasLogout};
+                        }""")
+                    if info.get("hasPassword"):
+                        self._saw_login_form = True
+                    # Logged in if: a clear logout affordance exists, OR a login form we saw earlier
+                    # is now gone on a non-auth page (a real transition through login).
+                    logged_in = bool(info.get("hasLogout")) or (
+                        getattr(self, "_saw_login_form", False)
+                        and not info.get("hasPassword") and not info.get("isAuthPage"))
+                    box["val"] = {"url": info.get("url"), "logged_in": logged_in}
                 elif name == "cookies":
                     box["val"] = page.context.cookies()
                 elif name == "read_page":
@@ -289,6 +316,8 @@ class BrowserSession:
         # login input ops (no result)
         try:
             if op == "click":       page.mouse.click(arg["x"], arg["y"])
+            elif op == "down":      page.mouse.move(arg["x"], arg["y"]); page.mouse.down()
+            elif op == "up":        page.mouse.move(arg["x"], arg["y"]); page.mouse.up()
             elif op == "move":      page.mouse.move(arg["x"], arg["y"])
             elif op == "scroll":    page.mouse.wheel(0, arg["dy"])
             elif op == "type":      page.keyboard.type(arg["text"])

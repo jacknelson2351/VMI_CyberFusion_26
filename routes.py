@@ -811,19 +811,27 @@ save each challenge with its description and any downloadable files.
 
 Work in a loop. Each step, reply with EXACTLY ONE JSON object and nothing else:
   {"thought":"...", "action":"open",  "url":"<absolute url>"}          — read a page (returns its text + links)
-  {"thought":"...", "action":"save",  "challenge":{"name":"...", "category":"web|pwn|crypto|rev|forensics|osint|network|misc", "description":"...", "source_url":"<page url>", "file_urls":["<absolute file url>", ...]}}
+  {"thought":"...", "action":"save",  "challenge":{"name":"...", "category":"web|pwn|crypto|rev|forensics|osint|network|misc", "description":"...", "target":"<where the solver ATTACKS>", "submit_url":"<where the FLAG is submitted>", "file_urls":["<absolute file url>", ...]}}
   {"thought":"...", "action":"say",   "message":"<message to the operator>"}   — finish this turn
 
-Be direct and fast — do the minimum browsing needed:
-- Open the page the operator is on FIRST. It usually lists the challenges directly, or links to them.
-  Work ONLY from that page and the links on it. Do NOT wander to site-wide search, /library, or
-  dashboard pages — the operator already navigated to what they want; trust that page.
-- NEVER re-open a page you've already read. Never guess/enumerate URLs by incrementing ids — only
-  follow links you were actually given.
-- If you genuinely can't find what was asked on the current page or its links, say() and ask the
-  operator to navigate the login browser to the exact page — don't keep exploring.
-- If the current page already shows a challenge (title + prompt + file links), save it straight away
-  without opening more pages. Open a sub-page only when you need its prompt/files.
+`target` and `submit_url` are DIFFERENT things — never put the same value in both:
+- target  = what the solver actually attacks: a service URL (http://…), a `nc host port`, or a
+            ws:// endpoint pulled from the challenge's prompt/connection info. Empty "" if the
+            challenge is just a downloadable file with no live service.
+- submit_url = the page on THIS platform where you go to submit the flag — normally the challenge's
+            own page URL you're reading.
+
+You can freely move around the logged-in site — open listing pages, category pages, individual
+challenge pages, and download/attachment links — to gather everything the operator asked for:
+- Start from the URL the operator names, or the page they were last on (given below). From there,
+  FOLLOW the links you're given to reach each challenge, open its page for the prompt + files, and
+  save it. Visiting sub-pages and different sections to collect challenges is expected and good.
+- Only two limits, to avoid loops: NEVER re-open a URL you've already read, and never invent URLs by
+  guessing/incrementing ids — only follow links that actually appeared on a page you read.
+- If the current page already shows a challenge (title + prompt + files), save it without opening
+  more pages; open a sub-page when you need its prompt or file links.
+- If after real exploration you can't find what was asked, say() and tell the operator what you did
+  find or ask them to point you at the right page.
 - category must be one of the allowed values; infer it, default "misc".
 - description = the challenge's real prompt text (include any connection info like `nc host port`).
 - file_urls: include every downloadable file link on the challenge page (attachments, handouts,
@@ -853,6 +861,23 @@ def _import_agent_step(msgs, model_ref):
         return {"action": "invalid", "raw": raw[:400]}, None
     # No JSON at all → treat as a plain message to the operator.
     return {"action": "say", "message": raw.strip() or "(no response)"}, None
+
+
+def _parse_import_target(raw) -> dict:
+    """Turn the agent's `target` string (what the solver attacks) into a structured target dict.
+    Handles `nc host port`, http(s)/ws(s) URLs, and bare host:port. Empty → {} (no live target)."""
+    t = (raw or "").strip()
+    if not t:
+        return {}
+    m = re.match(r"^nc\s+(\S+)\s+(\d+)", t, re.I)
+    if m:
+        return {"host": m.group(1), "port": m.group(2), "protocol": "tcp"}
+    if t.startswith(("http://", "https://", "ws://", "wss://")):
+        return {"url": t}
+    m = re.match(r"^([A-Za-z0-9\.\-]+):(\d+)$", t)
+    if m:
+        return {"host": m.group(1), "port": m.group(2)}
+    return {"url": t}
 
 
 _import_agent_cancel = set()   # sids that asked the running import agent to stop
@@ -930,13 +955,14 @@ def _run_import_agent(sid, base, start_url, user_msg, history, model_ref, max_st
                 msgs.append({"role": "user", "content": "OBSERVATION: save failed — missing name."})
                 continue
             emit_step(f"Saving “{name}”", "save")
+            submit_url = (ch.get("submit_url") or ch.get("source_url") or start_url or base).strip()
             challenge = {
                 "name": name,
                 "category": importer._norm_category(ch.get("category")),
                 "description": (ch.get("description") or "").strip(),
-                "flag_url": (ch.get("source_url") or start_url or base),
-                "target": {"url": ch.get("source_url") or ""} if (ch.get("source_url") or "").startswith("http") else {},
-                "source_meta": {"platform": "web", "source_url": base, "remote_id": (ch.get("source_url") or name)},
+                "flag_url": submit_url,                                # where the flag is submitted
+                "target": _parse_import_target(ch.get("target")),      # what the solver attacks
+                "source_meta": {"platform": "web", "source_url": base, "remote_id": submit_url or name},
                 "tags": [],
             }
             cid, is_new = _import_create_challenge(challenge)
@@ -2651,6 +2677,19 @@ def import_browser_open():
     return jsonify({"ok": True})
 
 
+@app.route("/api/import/browser/status", methods=["POST"])
+def import_browser_status():
+    """Poll while the streamed login browser is open: is it still up, where is it, and does it look
+    logged in yet (so the client can auto-capture and close it)?"""
+    import browser_session
+    sess = browser_session.get_session()
+    if not sess:
+        return jsonify({"open": False})
+    p = sess.login_probe()
+    return jsonify({"open": True, "url": p.get("url") or sess.current_url(),
+                    "logged_in": bool(p.get("logged_in"))})
+
+
 @app.route("/api/import/browser/grab", methods=["POST"])
 def import_browser_grab():
     """Operator is logged in. Capture the session (all cookies), STOP streaming (the login view
@@ -2694,6 +2733,8 @@ def on_import_browser_input(data):
     t = p.get("type")
     try:
         if t == "click":     sess.click(p.get("x", 0), p.get("y", 0))
+        elif t == "down":    sess.down(p.get("x", 0), p.get("y", 0))
+        elif t == "up":      sess.up(p.get("x", 0), p.get("y", 0))
         elif t == "move":    sess.move(p.get("x", 0), p.get("y", 0))
         elif t == "scroll":  sess.scroll(p.get("dy", 0))
         elif t == "type":    sess.type_text(p.get("text", ""))

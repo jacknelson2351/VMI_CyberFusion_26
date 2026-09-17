@@ -1716,7 +1716,8 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 
 /* Streamed login browser */
 .ibx-toolbar { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--bg2);
-  border: 1px solid var(--border2); border-bottom: none; border-radius: 12px 12px 0 0; }
+  border: 1px solid var(--border2); border-bottom: none; border-radius: 12px 12px 0 0;
+  width: min(100%, 86vh); margin: 0 auto; box-sizing: border-box; }
 .ibx-tbtn { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; border-radius: 7px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; transition: all .13s; }
 .ibx-tbtn:hover { background: var(--bg3); color: var(--text); }
@@ -1724,8 +1725,11 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   border-radius: 999px; border: 1px solid var(--border); background: var(--bg1); color: var(--text-dim); }
 .ibx-url:focus { color: var(--text); border-color: var(--accent-dim); outline: none; }
 #ibx-grab { flex-shrink: 0; margin-left: 2px; }
-.ibx-stage { position: relative; width: 100%; aspect-ratio: 1180 / 760; background: #fff;
-  border: 1px solid var(--border2); border-radius: 0 0 12px 12px; overflow: hidden; outline: none; cursor: default; }
+/* Keep the streamed viewport's aspect but cap width (→ height ≈ 56vh) so the modal never scrolls;
+   toolbar and stage share the same capped width and are centered. */
+.ibx-stage { position: relative; width: min(100%, 86vh); aspect-ratio: 1180 / 760; margin: 0 auto;
+  background: #fff; border: 1px solid var(--border2); border-radius: 0 0 12px 12px;
+  overflow: hidden; outline: none; cursor: default; }
 #ibx-frame { display: block; width: 100%; height: 100%; object-fit: fill; user-select: none; -webkit-user-drag: none; }
 .ibx-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); background: var(--bg3); pointer-events: none; text-align: center; padding: 0 20px; }
@@ -3557,7 +3561,22 @@ async function importOpenBrowser() {
   catch (e) { res = { error: (e && e.message) || 'failed' }; }
   if (!res || res.error) { _importShowStep('connect'); setImportStatus('import-connect-status', (res && res.error) || 'Could not open the browser.', 'err'); return; }
   setTimeout(() => document.getElementById('ibx-stage')?.focus(), 80);
+  startLoginAutoDetect();
 }
+
+// The instant a valid session is detected, capture it and close the browser — no button needed.
+let _loginPoll = null;
+function startLoginAutoDetect() {
+  stopLoginAutoDetect();
+  _loginPoll = setInterval(async () => {
+    let s; try { s = await api('/api/import/browser/status', { method: 'POST', body: {} }); } catch (e) { return; }
+    if (!s) return;
+    if (!s.open) { stopLoginAutoDetect(); return; }
+    if (s.url) _importBase = s.url;
+    if (s.logged_in && !_importGrabbing) { stopLoginAutoDetect(); importGrabSession(); }
+  }, 1800);
+}
+function stopLoginAutoDetect() { if (_loginPoll) { clearInterval(_loginPoll); _loginPoll = null; } }
 
 function _ibxCoords(e) {
   const img = document.getElementById('ibx-frame');
@@ -3580,8 +3599,11 @@ function setupInlineBrowser() {
     const u = document.getElementById('ibx-url');
     if (u && document.activeElement !== u && d.url) u.value = d.url;
   });
-  stage.addEventListener('mousedown', (e) => { e.preventDefault(); stage.focus(); socket.emit('import_browser_input', { type: 'click', ..._ibxCoords(e) }); });
-  stage.addEventListener('mousemove', (e) => { const n = Date.now(); if (n - _ibxMoveTs < 90) return; _ibxMoveTs = n; socket.emit('import_browser_input', { type: 'move', ..._ibxCoords(e) }); });
+  // Relay the operator's REAL mouse faithfully (move trajectory + press + release) so they can
+  // clear a site's human-check themselves. No synthesized clicks, no movement fabrication.
+  stage.addEventListener('mousedown', (e) => { e.preventDefault(); stage.focus(); socket.emit('import_browser_input', { type: 'down', ..._ibxCoords(e) }); });
+  stage.addEventListener('mouseup', (e) => { e.preventDefault(); socket.emit('import_browser_input', { type: 'up', ..._ibxCoords(e) }); });
+  stage.addEventListener('mousemove', (e) => { const n = Date.now(); if (n - _ibxMoveTs < 25) return; _ibxMoveTs = n; socket.emit('import_browser_input', { type: 'move', ..._ibxCoords(e) }); });
   stage.addEventListener('wheel', (e) => { e.preventDefault(); socket.emit('import_browser_input', { type: 'scroll', dy: e.deltaY }); }, { passive: false });
   stage.addEventListener('keydown', (e) => {
     const named = { Enter:'Enter', Backspace:'Backspace', Tab:'Tab', Delete:'Delete', Escape:'Escape', ArrowLeft:'ArrowLeft', ArrowRight:'ArrowRight', ArrowUp:'ArrowUp', ArrowDown:'ArrowDown', Home:'Home', End:'End' };
@@ -3599,15 +3621,20 @@ function setupInlineBrowser() {
   document.getElementById('ibx-reload').addEventListener('click', () => socket.emit('import_browser_input', { type: 'nav', url: document.getElementById('ibx-url').value }));
   document.getElementById('ibx-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); socket.emit('import_browser_input', { type: 'nav', url: e.target.value }); stage.focus(); } });
   document.getElementById('ibx-grab').addEventListener('click', importGrabSession);
-  document.getElementById('ibx-cancel').addEventListener('click', () => { closeInlineBrowser(); _importShowStep('connect'); });
+  document.getElementById('ibx-cancel').addEventListener('click', () => { stopLoginAutoDetect(); closeInlineBrowser(); _importShowStep('connect'); });
 }
 
+let _importGrabbing = false;
 async function importGrabSession() {
+  if (_importGrabbing) return;
+  _importGrabbing = true;
+  stopLoginAutoDetect();
   const btn = document.getElementById('ibx-grab'); if (btn) btn.disabled = true;
-  setImportStatus('ibx-status', 'Capturing session…');
+  setImportStatus('ibx-status', '✓ Logged in — capturing session…', 'ok');
   let res;
   try { res = await api('/api/import/browser/grab', { method: 'POST', body: { base: _importBase } }); }
   catch (e) { res = { error: (e && e.message) || 'failed' }; }
+  _importGrabbing = false;
   if (btn) btn.disabled = false;
   if (!res || res.error) { setImportStatus('ibx-status', (res && res.error) || 'Could not capture the session.', 'err'); return; }
   _importConn = res;                    // { base, url, cookie, challenges? }
@@ -3630,6 +3657,7 @@ function renderSessionStrip() {
 }
 
 function closeInlineBrowser() {
+  stopLoginAutoDetect();
   try { api('/api/import/browser/close', { method: 'POST', body: {} }); } catch (e) {}
 }
 
