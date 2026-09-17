@@ -77,6 +77,12 @@ class BrowserSession:
             raise RuntimeError(box["err"])
         return box["val"]
 
+    def read_page(self, url: str) -> dict:
+        """Navigate a background page to `url` (JS rendered) and return its visible text + links,
+        so the import agent can browse the logged-in site like a person. Returns
+        {url, title, text, links:[{t,href}]}."""
+        return self._call(("read_page", url), timeout=45)
+
     def fetch_json(self, url: str) -> dict:
         """GET a URL from inside the logged-in page (real session + Cloudflare clearance).
         Returns {status, ct, body}."""
@@ -179,6 +185,45 @@ class BrowserSession:
                 box["val"] = page.url
             elif kind == "cookies":
                 box["val"] = page.context.cookies()
+            elif kind == "read_page":
+                ap = getattr(self, "_agent_page", None)
+                if ap is None:
+                    ap = page.context.new_page()
+                    self._agent_page = ap
+                try:
+                    ap.goto(payload, timeout=30000, wait_until="domcontentloaded")
+                    try:
+                        ap.wait_for_load_state("networkidle", timeout=4000)
+                    except Exception:
+                        ap.wait_for_timeout(500)
+                    text = ap.evaluate("() => (document.body && document.body.innerText || '')")
+                    # Gather link-like targets broadly: anchors, elements with download/data-href/
+                    # data-url, and any href/src that looks like a downloadable file — so a
+                    # "Download" button that isn't a plain <a href> is still discoverable.
+                    links = ap.evaluate(
+                        """() => {
+                            const out = [], seen = new Set();
+                            const push = (t, href) => {
+                                if (!href) return;
+                                try { href = new URL(href, location.href).href; } catch(e) { return; }
+                                if (!/^https?:/.test(href) || seen.has(href)) return;
+                                seen.add(href); out.push({t:(t||'').trim().slice(0,90), href});
+                            };
+                            document.querySelectorAll('a[href], [download], [data-href], [data-url], [data-download]').forEach(el => {
+                                push(el.innerText || el.getAttribute('aria-label') || el.getAttribute('title'),
+                                     el.getAttribute('href') || el.getAttribute('data-href') || el.getAttribute('data-url') || el.getAttribute('data-download'));
+                            });
+                            const rx = /\\.(zip|tar|gz|tgz|7z|rar|bin|elf|exe|key|pem|enc|pcap|pcapng|img|iso|jpg|jpeg|png|gif|bmp|wav|mp3|txt|csv|json|pdf|docx?|xlsx?|py|c|cpp|apk|jar|class|raw|dump|mem|vmdk|ova)(\\?|#|$)/i;
+                            document.querySelectorAll('[href],[src]').forEach(el => {
+                                const u = el.getAttribute('href') || el.getAttribute('src');
+                                if (u && rx.test(u)) push(el.innerText || el.getAttribute('alt'), u);
+                            });
+                            return out.slice(0, 250);
+                        }""")
+                    box["val"] = {"url": ap.url, "title": ap.title(),
+                                  "text": (text or "")[:9000], "links": links}
+                except Exception as e:
+                    box["val"] = {"url": payload, "title": "", "text": "", "links": [], "error": str(e)}
             elif kind == "fetch_json":
                 box["val"] = page.evaluate(
                     """async (u) => {
@@ -189,16 +234,15 @@ class BrowserSession:
                         } catch (e) { return {status:0, ct:'', body:'', err:String(e)}; }
                     }""", payload)
             elif kind == "fetch_bytes":
-                box["val"] = page.evaluate(
-                    """async (u) => {
-                        try {
-                            const r = await fetch(u, {credentials:'include'});
-                            const b = new Uint8Array(await r.arrayBuffer());
-                            let s=''; const CH=0x8000;
-                            for (let i=0;i<b.length;i+=CH) s+=String.fromCharCode.apply(null, b.subarray(i,i+CH));
-                            return {status:r.status, b64: btoa(s)};
-                        } catch (e) { return {status:0, b64:'', err:String(e)}; }
-                    }""", payload)
+                # Use Playwright's request API (carries the context's cookies, and — unlike an
+                # in-page fetch — is NOT subject to CORS), so cross-origin artifact hosts like
+                # artifacts.picoctf.net / S3 download fine.
+                import base64 as _b64
+                try:
+                    r = page.context.request.get(payload, timeout=60000)
+                    box["val"] = {"status": r.status, "b64": _b64.b64encode(r.body()).decode()}
+                except Exception as e:
+                    box["val"] = {"status": 0, "b64": "", "err": str(e)}
         except Exception as e:
             box["err"] = str(e)
         finally:

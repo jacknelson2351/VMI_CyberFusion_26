@@ -1662,26 +1662,51 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   flex: 1; min-height: 300px; max-height: 46vh; overflow-y: auto;
   display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 2px;
 }
-.ic-msg { max-width: 92%; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-.ic-msg.user { align-self: flex-end; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); border-radius: 12px 12px 4px 12px; padding: 7px 12px; }
-.ic-msg.bot  { align-self: flex-start; color: var(--text); padding: 3px 2px; }
-.ic-msg.bot .ic-imported { display: block; margin-top: 5px; font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
-.ic-msg.thinking { align-self: flex-start; color: var(--text-muted); font-size: 12px; font-style: italic; padding: 3px 2px; }
-.import-chat-bar { display: flex; align-items: flex-end; gap: 8px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
-#import-chat-input {
-  flex: 1; resize: none; max-height: 120px; font-family: var(--font-sans); font-size: 13px; line-height: 1.45;
-  padding: 9px 12px; border-radius: 12px; border: 1px solid var(--border2); background: var(--bg2); color: var(--text);
+/* Messages mirror the solve chat: assistant as plain text, user as a right bubble,
+   agent actions as compact tool-call chips. */
+.ic-msg { max-width: 94%; font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.ic-msg.user { align-self: flex-end; max-width: 82%; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); border-radius: 12px 12px 4px 12px; padding: 8px 13px; }
+.ic-msg.bot  { align-self: flex-start; color: var(--text); padding: 2px 2px; }
+.ic-msg.bot .ic-imported { display: block; margin-top: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+.ic-msg.thinking { align-self: flex-start; color: var(--text-muted); font-size: 12px; padding: 2px 2px; }
+.ic-msg.ic-step {
+  align-self: stretch; display: flex; align-items: center; gap: 9px;
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-dim);
+  background: var(--bg1); border: 1px solid var(--border); border-radius: 9px; padding: 6px 11px;
 }
-#import-chat-input:focus { outline: none; border-color: var(--accent-dim); }
+.ic-msg.ic-step::before {
+  content: attr(data-tag); flex-shrink: 0;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 5px; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-dim);
+}
+.ic-msg.ic-step-done { color: var(--text); border-color: var(--accent-dim); }
+.ic-msg.ic-step-done::before { color: var(--accent); }
+.ic-msg.ic-step-skip { opacity: .7; }
+.ic-msg.ic-step-warn { color: var(--amber, #c98a20); border-color: var(--amber, #c98a20); }
+.ic-msg.ic-step-warn::before { color: var(--amber, #c98a20); background: rgba(201,138,32,.12); border-color: var(--amber, #c98a20); }
+
+/* Input bar: textarea + a footer row (activity orb + label, stop, send) — like the solve bar. */
+.import-chat-bar { margin-top: 10px; padding: 8px; border: 1px solid var(--border2); border-radius: 14px; background: var(--bg2); }
+#import-chat-input {
+  width: 100%; box-sizing: border-box; resize: none; max-height: 120px;
+  font-family: var(--font-sans); font-size: 13.5px; line-height: 1.45;
+  padding: 6px 6px 2px; border: none; background: transparent; color: var(--text);
+}
+#import-chat-input:focus { outline: none; }
+.import-chat-foot { display: flex; align-items: center; gap: 8px; padding: 4px 4px 2px; }
+#import-activity { display: inline-flex; align-items: center; gap: 7px; }
+#import-activity .activity-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; color: var(--text-muted); }
+#import-activity.running .activity-label { color: var(--accent); }
+.import-chat-foot .ic-send { margin-left: auto; }
+#import-chat-stop { margin-left: auto; }
+#import-chat-stop + .ic-send { margin-left: 8px; }
 .ic-send {
-  flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; border: none;
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 9px; border: none;
   background: var(--accent); color: var(--on-accent); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; transition: all 0.13s;
 }
 .ic-send:hover { background: var(--accent-hover); box-shadow: 0 2px 10px var(--accent-glow); }
 .ic-send:disabled { opacity: 0.4; cursor: default; }
-.import-cat-col .import-list { max-height: 40vh; }
-@media (max-width: 760px) { .import-split { flex-direction: column; } .import-cat-col { display: none; } }
 .import-advanced summary { cursor: pointer; color: var(--text-muted); font-size: 11.5px; user-select: none; }
 .import-advanced summary:hover { color: var(--text-dim); }
 .import-advanced input { width: 100%; }
@@ -2377,25 +2402,34 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
         <div class="import-wait">
           <thinking-orb class="agent-orb" size="34" state="searching" theme="auto" aria-label="Waiting for login"></thinking-orb>
           <div class="import-wait-main">
-            <div class="import-wait-title">A Chromium window opened — log in there.</div>
-            <div class="import-wait-sub" id="import-wait-sub">Waiting for your session… this jumps ahead automatically once you're in.</div>
+            <div class="import-wait-title">A Chromium window opened — log into the site there.</div>
+            <div class="import-wait-sub" id="import-wait-sub">Once you can see the challenges (fully logged in), click <b>I’m logged in</b> and I’ll capture the session.</div>
           </div>
         </div>
         <div class="import-actions" style="border-top:none;padding-top:4px;margin-top:8px">
           <button class="btn btn-sm btn-ghost" id="import-wait-cancel">Cancel</button>
           <span style="margin-right:auto"></span>
-          <button class="btn btn-sm btn-ghost" id="import-wait-retry">Check now</button>
+          <button class="btn btn-sm btn-primary" id="import-wait-grab">I’m logged in →</button>
         </div>
       </div>
 
       <div id="import-select-step" hidden>
         <div class="import-chat-col">
           <div class="import-chat" id="import-chat"></div>
-          <div class="import-chat-bar">
-            <textarea id="import-chat-input" rows="1" placeholder="Tell the agent what to grab — e.g. “all unsolved web and pwn, skip the misc”"></textarea>
-            <button id="import-chat-send" class="ic-send" title="Send" aria-label="Send">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-            </button>
+          <div class="import-chat-bar" id="import-chat-wrap">
+            <textarea id="import-chat-input" rows="1" placeholder="Tell the agent what to import…"></textarea>
+            <div class="import-chat-foot">
+              <span class="agent-activity" id="import-activity">
+                <thinking-orb class="import-orb" size="18" state="working" theme="auto" paused aria-label="Import agent idle"></thinking-orb>
+                <span class="activity-label" id="import-activity-label">READY</span>
+              </span>
+              <button class="btn-stop-icon" id="import-chat-stop" title="Stop" aria-label="Stop" hidden>
+                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9" rx="2" fill="currentColor"/></svg>
+              </button>
+              <button id="import-chat-send" class="ic-send" title="Send" aria-label="Send">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              </button>
+            </div>
           </div>
         </div>
         <div class="import-actions">
@@ -3483,27 +3517,36 @@ function startImportPoll() {
     try { res = await api('/api/import/browser/status', { method: 'POST', body: { base: _importBase } }); }
     catch (e) { return; }
     if (!res) return;
-    if (res.authenticated) {
-      stopImportPoll();
-      _importConn = res;                       // carries the grabbed .cookie (token)
-      const sub = document.getElementById('import-wait-sub');
-      if (sub) sub.textContent = '✓ Token acquired — closing the browser…';
-      const orb = document.querySelector('#import-waiting-step thinking-orb');
-      if (orb) orb.setAttribute('state', 'solving');
-      setTimeout(() => {
-        document.getElementById('import-waiting-step').hidden = true;
-        document.getElementById('import-select-step').hidden = false;
-        renderImportList('');
-        startImportChat();
-      }, 650);
-      return;
-    }
-    if (!res.open) { stopImportPoll(); backToImportConnect('Browser closed before login. Try again.'); }
+    if (!res.open) { stopImportPoll(); backToImportConnect('Browser closed before login. Try again.'); return; }
+    if (res.url) _importBase = res.url;   // track where they navigated
   };
-  _importPoll = setInterval(tick, 2000);
+  _importPoll = setInterval(tick, 2500);
   tick();
 }
 function stopImportPoll() { if (_importPoll) { clearInterval(_importPoll); _importPoll = null; } }
+
+async function importGrabSession() {
+  const btn = document.getElementById('import-wait-grab');
+  if (btn) btn.disabled = true;
+  const sub = document.getElementById('import-wait-sub');
+  if (sub) sub.innerHTML = 'Capturing your session…';
+  const orb = document.querySelector('#import-waiting-step thinking-orb');
+  if (orb) orb.setAttribute('state', 'solving');
+  let res;
+  try { res = await api('/api/import/browser/grab', { method: 'POST', body: { base: _importBase } }); }
+  catch (e) { res = { error: (e && e.message) || 'failed' }; }
+  if (btn) btn.disabled = false;
+  if (!res || res.error) {
+    if (sub) sub.textContent = (res && res.error) || 'Could not capture the session.';
+    if (orb) orb.setAttribute('state', 'searching');
+    return;
+  }
+  stopImportPoll();
+  _importConn = res;                 // { base, url, cookie, challenges? }
+  document.getElementById('import-waiting-step').hidden = true;
+  document.getElementById('import-select-step').hidden = false;
+  startImportChat();
+}
 
 function backToImportConnect(msg) {
   document.getElementById('import-waiting-step').hidden = true;
@@ -3656,10 +3699,37 @@ function startImportChat() {
   _importChatMsgs = [];
   const chat = document.getElementById('import-chat');
   if (chat) chat.innerHTML = '';
-  const chals = _importConn.challenges || [];
-  const cats = [...new Set(chals.map(c => c.category))].sort().join(', ');
-  appendImportChat('bot', `Token acquired ✓ — I can see ${chals.length} challenges (${cats}). Tell me what to grab: e.g. “all unsolved web and crypto”, “everything except misc”, or “just the forensics ones”. I’ll pull the descriptions and files in for you.`);
+  appendImportChat('bot', 'Session captured. Tell me what to import — I’ll browse the site and pull the challenges in with their files.');
+  setImportOrb('working', { paused: true }, 'READY');
   setTimeout(() => document.getElementById('import-chat-input')?.focus(), 60);
+}
+
+// Drive the import chat's own activity orb (scoped to .import-orb so it never touches the solve orb).
+const IC_ORB = { think: 'working', open: 'searching', save: 'composing', done: 'solving', skip: 'working', warn: 'shaping' };
+const IC_LABEL = { think: 'THINKING', open: 'READING', save: 'SAVING', done: 'IMPORTED', skip: 'SKIPPED', warn: 'RETRYING' };
+function setImportOrb(stateName, opts = {}, label) {
+  const orb = document.querySelector('thinking-orb.import-orb');
+  if (orb) {
+    if (stateName) orb.setAttribute('state', stateName);
+    if (opts.paused) orb.setAttribute('paused', ''); else orb.removeAttribute('paused');
+  }
+  const lab = document.getElementById('import-activity-label');
+  if (lab && label != null) lab.textContent = label;
+  const act = document.getElementById('import-activity');
+  if (act) act.classList.toggle('running', !opts.paused);
+}
+function importBeam(on) {
+  const w = document.getElementById('import-chat-wrap');
+  if (w && w.__beam) w.__beam.setActive(!!on);
+}
+function importBusy(on) {
+  _importAgentBusy = on;
+  const send = document.getElementById('import-chat-send');
+  const stop = document.getElementById('import-chat-stop');
+  if (send) send.hidden = on;
+  if (stop) stop.hidden = !on;
+  importBeam(on);
+  if (!on) setImportOrb('working', { paused: true }, 'READY');
 }
 
 function appendImportChat(role, text, importedNames) {
@@ -3678,39 +3748,49 @@ function appendImportChat(role, text, importedNames) {
   return el;
 }
 
-async function importChatSend() {
+let _importAgentBusy = false;
+let _importThinking = null;
+function importChatSend() {
   const input = document.getElementById('import-chat-input');
   const text = (input.value || '').trim();
-  if (!text || !_importConn) return;
+  if (!text || !_importConn || _importAgentBusy) return;
   input.value = ''; input.style.height = 'auto';
   appendImportChat('user', text);
   _importChatMsgs.push({ role: 'user', content: text });
-  const send = document.getElementById('import-chat-send'); if (send) send.disabled = true;
-  const think = appendImportChat('thinking', 'Thinking…');
-  const creds = _importCreds();
-  let res;
-  try {
-    res = await api('/api/import/agent', { method: 'POST', body: {
-      base: _importConn.base,
-      cookie: _importConn.cookie || creds.cookie,
-      token: _importConn.cookie ? '' : creds.token,
-      challenges: _importConn.challenges,
-      messages: _importChatMsgs,
-    }});
-  } catch (e) { res = { error: (e && e.message) || 'request failed' }; }
-  think.remove();
-  if (send) send.disabled = false;
-  if (!res || res.error) { appendImportChat('bot', 'Error: ' + ((res && res.error) || 'no response')); return; }
-  const names = (res.imported || []).map(c => c.name);
-  appendImportChat('bot', res.reply || '(no reply)', names);
-  _importChatMsgs.push({ role: 'assistant', content: res.reply || '' });
-  if ((res.import_ids || []).length) {
-    (res.import_ids || []).forEach(id => _importDone.add(String(id)));
-    renderImportList(document.getElementById('import-search').value || '');
-    await loadChallengeSets();
-    await loadChallenges();
-    if (names.length) toast(`Imported ${names.length} challenge${names.length === 1 ? '' : 's'}.`, 'success');
-  }
+  importBusy(true);
+  setImportOrb('working', { paused: false }, 'THINKING');
+  socket.emit('import_agent', {
+    base: _importConn.base,
+    url: _importConn.url || _importConn.base,
+    message: text,
+    history: _importChatMsgs,
+  });
+}
+
+function setupImportAgentStream() {
+  if (window._importAgentWired) return; window._importAgentWired = true;
+  const TAG = { think: 'plan', open: 'read', save: 'save', done: 'done', skip: 'skip', warn: 'warn' };
+  socket.on('import_agent_step', (d) => {
+    if (!d) return;
+    const kind = d.kind || 'think';
+    setImportOrb(IC_ORB[kind] || 'working', { paused: false }, IC_LABEL[kind] || 'WORKING');
+    if (kind === 'think') return;   // reasoning drives the orb but isn't printed as a chip
+    const el = appendImportChat('step', d.text || '');
+    el.classList.add('ic-step', 'ic-step-' + kind);
+    el.setAttribute('data-tag', TAG[kind] || kind);
+  });
+  socket.on('import_agent_reply', async (d) => {
+    if (_importThinking) { _importThinking.remove(); _importThinking = null; }
+    importBusy(false);
+    const saved = (d && d.saved) || [];
+    appendImportChat('bot', (d && d.reply) || 'Done.', saved.map(s => s.name));
+    _importChatMsgs.push({ role: 'assistant', content: (d && d.reply) || '' });
+    if (saved.length) {
+      await loadChallengeSets();
+      await loadChallenges();
+      toast(`Imported ${saved.length} challenge${saved.length === 1 ? '' : 's'}.`, 'success');
+    }
+  });
 }
 
 async function loadChallenges() {
@@ -4874,6 +4954,10 @@ function updateRunningUI() {
   else setAgentOrb(window.orbIdleState || 'working', { paused: true, speed: 1 });
   if (state.agentRunning) startActivityTimer();
   else stopActivityTimer();
+  // The input glow is only lit WHILE the agent is running; plain when idle or stopped.
+  // (The launch button keeps its steady orange metal-outline ring.)
+  const _w = document.getElementById('chat-input-wrap');
+  if (_w && _w.__beam) _w.__beam.setActive(!!state.agentRunning);
 }
 
 async function launch(retry = false) {
@@ -5001,8 +5085,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (importAuth) importAuth.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); importConnect(); } });
   const importWaitCancel = document.getElementById('import-wait-cancel');
   if (importWaitCancel) importWaitCancel.addEventListener('click', () => { closeInlineBrowser(); backToImportConnect(''); });
-  const importWaitRetry = document.getElementById('import-wait-retry');
-  if (importWaitRetry) importWaitRetry.addEventListener('click', () => startImportPoll());
+  const importWaitGrab = document.getElementById('import-wait-grab');
+  if (importWaitGrab) importWaitGrab.addEventListener('click', importGrabSession);
+  setupImportAgentStream();
   const importSearch = document.getElementById('import-search');
   if (importSearch) importSearch.addEventListener('input', () => renderImportList(importSearch.value));
   const importBack = document.getElementById('import-back');
@@ -5014,6 +5099,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (importRunBtn) importRunBtn.addEventListener('click', importRun);
   const importChatSendBtn = document.getElementById('import-chat-send');
   if (importChatSendBtn) importChatSendBtn.addEventListener('click', importChatSend);
+  const importChatStop = document.getElementById('import-chat-stop');
+  if (importChatStop) importChatStop.addEventListener('click', () => { socket.emit('import_agent_stop', {}); setImportOrb('working', { paused: false }, 'STOPPING'); });
   const importChatInput = document.getElementById('import-chat-input');
   if (importChatInput) {
     importChatInput.addEventListener('keydown', (e) => {
@@ -5035,7 +5122,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('chat-input-wrap');
     if (el && !el.__beam) {
       el.__beam = window.attachBorderBeam(el, {
-        size: 'md', colorVariant: 'sunset', theme: 'auto', borderWidth: 1.6, duration: 3.4, active: true,
+        // Lit only while the agent runs (toggled in updateRunningUI); plain when idle.
+        size: 'md', colorVariant: 'sunset', theme: 'auto', borderWidth: 1.6, duration: 3.4, active: false,
       });
     }
     // Orange metal-outline ring on the launch/Enter button.
@@ -5043,6 +5131,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (lb && !lb.__beam) {
       lb.__beam = window.attachBorderBeam(lb, {
         size: 'sm', colorVariant: 'sunset', theme: 'auto', borderWidth: 2, duration: 2.6, active: true,
+      });
+    }
+    // Import chat input — glows only while the import agent is running.
+    const iw = document.getElementById('import-chat-wrap');
+    if (iw && !iw.__beam) {
+      iw.__beam = window.attachBorderBeam(iw, {
+        size: 'md', colorVariant: 'sunset', theme: 'auto', borderWidth: 1.6, duration: 3.4, active: false,
       });
     }
   }

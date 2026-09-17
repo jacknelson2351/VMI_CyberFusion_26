@@ -567,6 +567,17 @@ def _reconcile_orphaned_solving() -> int:
 
 # ── Index ──────────────────────────────────────────────────────────────────────
 
+@app.after_request
+def _no_cache_html(resp):
+    # The UI is a single server-rendered page; never let the browser serve a stale copy.
+    ct = resp.headers.get("Content-Type", "")
+    if ct.startswith("text/html"):
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+    return resp
+
+
 @app.route("/")
 def index():
     return render_template(
@@ -763,14 +774,14 @@ def _import_agent_complete(messages, model_ref=""):
         if kind == "anthropic":
             sys = "\n".join(m["content"] for m in messages if m["role"] == "system")
             conv = [{"role": m["role"], "content": m["content"]} for m in messages if m["role"] != "system"]
-            resp = client.messages.create(model=spec.model_id, max_tokens=900, system=sys, messages=conv)
+            resp = client.messages.create(model=spec.model_id, max_tokens=1600, system=sys, messages=conv)
             text = "".join(getattr(b, "text", "") for b in resp.content if getattr(b, "type", None) == "text")
         else:
             # Newer OpenAI models want `max_completion_tokens` and only default temperature; older /
             # self-hosted OpenAI-compatible endpoints want `max_tokens`. Try modern, fall back.
             def _call(token_param):
                 return client.chat.completions.create(
-                    model=spec.model_id, messages=messages, **{token_param: 900})
+                    model=spec.model_id, messages=messages, **{token_param: 1600})
             try:
                 resp = _call("max_completion_tokens")
             except Exception as e:
@@ -784,64 +795,196 @@ def _import_agent_complete(messages, model_ref=""):
         return None, str(e)
 
 
-@app.route("/api/import/agent", methods=["POST"])
-def import_agent():
-    """Conversational importer: the user tells the agent what to grab; it reasons over the
-    challenge catalog, picks ids, and imports them. Returns a chat reply + import summary."""
-    data = request.get_json(force=True) or {}
-    base = (data.get("base") or "").strip()
-    cookie = data.get("cookie", "")
-    token = data.get("token", "")
-    catalog = data.get("challenges") or []
-    history = data.get("messages") or []
-    if not base or not catalog:
-        return jsonify({"error": "Connect to a platform first."}), 400
+_IMPORT_AGENT_SYSTEM = """You are a web import agent for a CTF/challenge workspace. The operator has \
+logged into a website in a real browser and wants you to import challenges (or tasks/exercises/labs) \
+from it into their workspace. You browse the LOGGED-IN site yourself to discover what's there, then \
+save each challenge with its description and any downloadable files.
 
-    lines = []
-    for c in catalog:
-        lines.append(f'- id={c.get("id")} | {c.get("name")} | cat={c.get("category")} '
-                     f'| {c.get("value")} pts | {"solved" if c.get("solved") else "unsolved"}')
-    catalog_txt = "\n".join(lines)
-    system = (
-        "You are the import assistant for a CTF workspace. The operator has logged into a CTF "
-        "platform and wants you to pull specific challenges into their workspace. You can see the "
-        "full challenge catalog below. Interpret the operator's instruction (by category, points, "
-        "solved/unsolved, name match, or 'everything') and decide which challenge ids to import.\n\n"
-        "Respond ONLY with a single JSON object, no prose around it:\n"
-        '{"reply": "<one or two short sentences to the operator>", "import_ids": [<ids to import now>]}\n'
-        "- import_ids must be a subset of the catalog ids. Use [] when the operator is only asking a "
-        "question, when you need clarification, or when nothing matches.\n"
-        "- Prefer unsolved challenges unless told otherwise. Never invent ids.\n\n"
-        f"CATALOG ({len(catalog)} challenges):\n{catalog_txt}"
-    )
-    msgs = [{"role": "system", "content": system}]
-    for m in history[-12:]:
-        role = "assistant" if m.get("role") == "assistant" else "user"
-        msgs.append({"role": role, "content": str(m.get("content", ""))})
+Work in a loop. Each step, reply with EXACTLY ONE JSON object and nothing else:
+  {"thought":"...", "action":"open",  "url":"<absolute url>"}          — read a page (returns its text + links)
+  {"thought":"...", "action":"save",  "challenge":{"name":"...", "category":"web|pwn|crypto|rev|forensics|osint|network|misc", "description":"...", "source_url":"<page url>", "file_urls":["<absolute file url>", ...]}}
+  {"thought":"...", "action":"say",   "message":"<message to the operator>"}   — finish this turn
 
-    text, err = _import_agent_complete(msgs, data.get("model", ""))
+Rules:
+- Start by opening the page the operator is on (given below) or a listing/challenges page, and follow \
+links to find individual challenges. Prefer absolute URLs from the links you're given.
+- category must be one of the allowed values; infer it, default "misc".
+- Put the challenge's real prompt/description in description. Include any connection info (nc host port, \
+URLs) in the description.
+- file_urls: ALWAYS include every downloadable file link visible on the challenge page — \
+attachments, handouts, and artifact links (e.g. .zip/.tar/.key/.enc/.bin/.pcap or anything under an \
+artifacts/download host). Copy the full absolute URLs from the page's links. Only omit if there are none.
+- Only save real challenges the operator asked for. Don't save nav pages or duplicates.
+- Use "say" when you've imported what was asked, need clarification, or can't find anything. Keep it short.
+- Budget: at most %(max_steps)d steps. Save challenges as you find them rather than all at the end."""
+
+
+def _import_agent_step(msgs, model_ref):
+    text, err = _import_agent_complete(msgs, model_ref)
     if err:
-        return jsonify({"error": err}), 400
+        return None, err
+    raw = text or ""
+    if "{" in raw and "}" in raw:
+        candidate = raw[raw.index("{"):raw.rindex("}") + 1]
+        for attempt in (candidate, re.search(r"\{.*?\}", raw, re.DOTALL) and re.search(r"\{.*?\}", raw, re.DOTALL).group(0)):
+            if not attempt:
+                continue
+            try:
+                return json.loads(attempt), None
+            except Exception:
+                continue
+        # Unparseable JSON (often a description overflowed the token budget) — don't end the run;
+        # signal invalid so the loop asks the model to resend a smaller, valid action.
+        return {"action": "invalid", "raw": raw[:400]}, None
+    # No JSON at all → treat as a plain message to the operator.
+    return {"action": "say", "message": raw.strip() or "(no response)"}, None
 
-    reply, import_ids = text.strip(), []
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if m:
-        try:
-            parsed = json.loads(m.group(0))
-            reply = str(parsed.get("reply") or "").strip() or reply
-            valid = {str(c.get("id")) for c in catalog}
-            import_ids = [i for i in (parsed.get("import_ids") or []) if str(i) in valid]
-        except Exception:
-            pass
 
-    imported = []
-    if import_ids:
-        try:
-            result = _run_import(base, import_ids, cookie, token, listing=catalog)
-            imported = result.get("created", [])
-        except Exception as e:
-            reply += f"\n(Import error: {e})"
-    return jsonify({"reply": reply, "import_ids": import_ids, "imported": imported})
+_import_agent_cancel = set()   # sids that asked the running import agent to stop
+
+
+def _run_import_agent(sid, base, start_url, user_msg, history, model_ref, max_steps=16):
+    import browser_session, importer
+    _import_agent_cancel.discard(sid)
+    sess = browser_session.get_session()
+    if not sess:
+        socketio.emit("import_agent_reply", {"reply": "The login browser closed — reopen it and log in again."}, room=sid)
+        return
+
+    def emit_step(text, kind="think"):
+        socketio.emit("import_agent_step", {"text": text, "kind": kind}, room=sid)
+
+    system = _IMPORT_AGENT_SYSTEM % {"max_steps": max_steps}
+    msgs = [{"role": "system", "content": system}]
+    for m in (history or [])[-8:]:
+        msgs.append({"role": "assistant" if m.get("role") == "assistant" else "user",
+                     "content": str(m.get("content", ""))})
+    msgs.append({"role": "user", "content":
+                 f"You are logged in at: {start_url or base}\nBase site: {base}\n\nInstruction: {user_msg}"})
+
+    saved = []
+    for _ in range(max_steps):
+        if sid in _import_agent_cancel:
+            _import_agent_cancel.discard(sid)
+            socketio.emit("import_agent_reply",
+                          {"reply": f"Stopped. Imported {len(saved)} so far.", "saved": saved}, room=sid)
+            return
+        act, err = _import_agent_step(msgs, model_ref)
+        if err:
+            socketio.emit("import_agent_reply", {"reply": f"Model error: {err}"}, room=sid)
+            return
+        action = (act.get("action") or "").lower()
+        thought = (act.get("thought") or "").strip()
+
+        if action == "invalid":
+            # Keep the run alive; nudge the model to resend one compact, valid JSON action.
+            msgs.append({"role": "user", "content":
+                         "OBSERVATION: your previous message was not valid JSON. Resend EXACTLY ONE "
+                         "JSON action. If saving, keep the description under ~1500 characters."})
+            continue
+
+        msgs.append({"role": "assistant", "content": json.dumps(act)})
+
+        if action == "open":
+            url = (act.get("url") or "").strip()
+            if thought:
+                emit_step(thought)
+            emit_step(f"Reading {url}", "open")
+            try:
+                page = sess.read_page(url)
+            except Exception as e:
+                msgs.append({"role": "user", "content": f"OBSERVATION: failed to open {url}: {e}"})
+                continue
+            links = page.get("links") or []
+            link_txt = "\n".join(f"- {l.get('t','')} -> {l.get('href','')}" for l in links[:80])
+            obs = (f"OBSERVATION of {page.get('url')} (title: {page.get('title')}):\n"
+                   f"TEXT:\n{page.get('text','')[:5000]}\n\nLINKS:\n{link_txt[:3000]}")
+            msgs.append({"role": "user", "content": obs})
+
+        elif action == "save":
+            ch = act.get("challenge") or {}
+            name = (ch.get("name") or "").strip()
+            if not name:
+                msgs.append({"role": "user", "content": "OBSERVATION: save failed — missing name."})
+                continue
+            emit_step(f"Saving “{name}”", "save")
+            challenge = {
+                "name": name,
+                "category": importer._norm_category(ch.get("category")),
+                "description": (ch.get("description") or "").strip(),
+                "flag_url": (ch.get("source_url") or start_url or base),
+                "target": {"url": ch.get("source_url") or ""} if (ch.get("source_url") or "").startswith("http") else {},
+                "source_meta": {"platform": "web", "source_url": base, "remote_id": (ch.get("source_url") or name)},
+                "tags": [],
+            }
+            cid, is_new = _import_create_challenge(challenge)
+            import base64 as _b64
+            files, file_fails = [], []
+            for furl in (ch.get("file_urls") or [])[:20]:
+                full = furl if furl.startswith("http") else base + furl
+                try:
+                    fres = sess.fetch_bytes(full)
+                except Exception as e:
+                    file_fails.append((furl, f"error {e}"))
+                    continue
+                status = fres.get("status")
+                raw = _b64.b64decode(fres.get("b64") or "") if fres.get("b64") else b""
+                head = raw[:64].lstrip().lower()
+                is_html = head.startswith(b"<!doctype") or head.startswith(b"<html")
+                if status == 200 and raw and not is_html:
+                    fname = importer._safe_name(full.split("?")[0].rsplit("/", 1)[-1])
+                    dest = challenge_workspace_dir(cid) / fname
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_bytes(raw)
+                    files.append(fname)
+                else:
+                    why = "not logged-in / redirected to HTML" if is_html else f"HTTP {status}"
+                    file_fails.append((full.rsplit("/", 1)[-1][:40], why))
+            chd = get_challenge(cid)
+            if chd and is_new:
+                _broadcast_challenge(chd)
+            if is_new:
+                saved.append({"name": name, "files": files})
+                msg = f"✓ Imported “{name}”" + (f" ({len(files)} file{'s' if len(files) != 1 else ''})" if files else "")
+                emit_step(msg, "done")
+            else:
+                emit_step(f"“{name}” already imported — skipped", "skip")
+            for fn, why in file_fails:
+                emit_step(f"⚠ couldn’t download {fn} — {why}", "warn")
+            msgs.append({"role": "user", "content":
+                         f"OBSERVATION: saved '{name}' ({'new' if is_new else 'duplicate'}), files={files}, "
+                         f"failed_files={[f for f,_ in file_fails]}. If a file failed, its link may be wrong or need "
+                         f"a click — look for the real download link on the page. Continue or say()."})
+
+        else:  # say / finish
+            socketio.emit("import_agent_reply",
+                          {"reply": (act.get("message") or thought or "Done.").strip(), "saved": saved}, room=sid)
+            return
+
+    socketio.emit("import_agent_reply",
+                  {"reply": f"Stopped after {max_steps} steps. Imported {len(saved)} so far — tell me to continue if there's more.",
+                   "saved": saved}, room=sid)
+
+
+@socketio.on("import_agent")
+def on_import_agent(data):
+    import importer  # noqa: F401 (used by _run_import_agent)
+    data = data or {}
+    base = _import_base_from(data.get("base") or "")
+    start_url = (data.get("url") or "").strip()
+    user_msg = str(data.get("message") or "").strip()
+    history = data.get("history") or []
+    model_ref = data.get("model", "")
+    sid = request.sid
+    if not base or not user_msg:
+        socketio.emit("import_agent_reply", {"reply": "Log into a site first, then tell me what to import."}, room=sid)
+        return
+    socketio.start_background_task(_run_import_agent, sid, base, start_url, user_msg, history, model_ref)
+
+
+@socketio.on("import_agent_stop")
+def on_import_agent_stop(_data=None):
+    _import_agent_cancel.add(request.sid)
 
 
 @app.route("/api/challenges/<cid>", methods=["GET"])
@@ -2464,28 +2607,37 @@ def import_browser_open():
 
 @app.route("/api/import/browser/status", methods=["POST"])
 def import_browser_status():
-    """Poll: is the login browser open, and is the operator logged in yet? The moment login is
-    detected we grab the session token (all cookies, cf_clearance included), CLOSE the Chromium
-    window, and hand back the token + challenge listing. Everything after that runs off the token."""
+    """Is the login window still open, and where is it? (Used to show the current URL while the
+    operator logs in.) Session capture is explicit — the operator clicks 'I'm logged in'."""
+    import browser_session
+    sess = browser_session.get_session()
+    if not sess:
+        return jsonify({"open": False})
+    return jsonify({"open": True, "url": sess.current_url()})
+
+
+@app.route("/api/import/browser/grab", methods=["POST"])
+def import_browser_grab():
+    """The operator says they're logged in. Capture the session token (all cookies) and keep the
+    browser alive so the agent can browse the site. Works for ANY website — no platform-specific
+    detection. If it happens to be CTFd we also hand back the challenge listing as a head start."""
     import browser_session, importer
     data = request.get_json(silent=True) or {}
     sess = browser_session.get_session()
     if not sess:
-        return jsonify({"open": False, "authenticated": False})
-    base = _import_base_from(data.get("base") or data.get("url") or sess.current_url())
+        return jsonify({"error": "The login browser isn't open."}), 400
+    cur = sess.current_url()
+    base = _import_base_from(data.get("base") or data.get("url") or cur)
+    cookie = sess.cookie_header(base)
+    out = {"ok": True, "base": base, "url": cur, "cookie": cookie, "challenges": []}
+    # Opportunistic CTFd head-start (never required).
     try:
         conn = importer.connect_via_fetch(base, sess.fetch_json)
-    except PermissionError:
-        return jsonify({"open": True, "authenticated": False, "base": base})
-    except Exception as e:
-        return jsonify({"open": True, "authenticated": False, "base": base, "note": str(e)})
-    # Logged in → capture the token, then close the window.
-    cookie = sess.cookie_header(base)
-    browser_session.close_session()
-    conn["open"] = False
-    conn["authenticated"] = True
-    conn["cookie"] = cookie
-    return jsonify(conn)
+        out["platform"] = conn.get("platform")
+        out["challenges"] = conn.get("challenges", [])
+    except Exception:
+        out["platform"] = ""
+    return jsonify(out)
 
 
 @app.route("/api/import/browser/close", methods=["POST"])
