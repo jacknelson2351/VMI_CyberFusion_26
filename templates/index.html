@@ -13,6 +13,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script type="module">
+  // Thinking-orb: register the <thinking-orb> web component (vendored, offline-safe).
+  import { registerThinkingOrbElement } from '/static/thinking-orbs.mjs';
+  registerThinkingOrbElement();
+  window.__orbReady = true;
+</script>
 
 <style>
 /*  Reset & Base  */
@@ -239,6 +245,15 @@ html, body {
 .btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 
 .btn-icon { padding: 7px 9px; }
+.btn-stop-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; flex-shrink: 0;
+  border-radius: 8px; border: 1px solid var(--border2);
+  background: var(--bg3); color: var(--red); cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-stop-icon:hover:not(:disabled) { background: var(--red); color: #fff; border-color: var(--red); }
+.btn-stop-icon:disabled { opacity: 0.3; cursor: not-allowed; }
 .theme-icon-dark { display: none; }
 .theme-icon-light { display: inline-block; }
 :root[data-theme="light"] .theme-icon-dark { display: inline-block; }
@@ -948,8 +963,18 @@ html, body {
   font-size: 11px;
   color: var(--text-dim);
 }
-.file-item .file-icon { font-size: 13px; }
+.file-item { cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+.file-item:hover { border-color: var(--accent); background: var(--bg2); }
+.file-item .file-icon { font-size: 13px; flex-shrink: 0; }
+.file-item .file-name { flex: 1; min-width: 0; word-break: break-all; }
+.file-item .file-dl {
+  flex-shrink: 0; color: var(--text-muted); text-decoration: none; font-size: 15px;
+  padding: 0 4px; border-radius: 5px;
+}
+.file-item .file-dl:hover { color: var(--accent); }
 .file-empty { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+.btn-cli { display: inline-flex; align-items: center; gap: 5px; }
+.btn-cli svg { color: var(--accent); }
 
 .memory-modal {
   width: min(1100px, 96vw);
@@ -1479,7 +1504,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 .agent-activity.running .activity-dot { background: var(--accent); animation: pulse 1.2s infinite; }
 .agent-activity .activity-label { color: var(--text-muted); font-weight: 700; }
 .agent-activity .activity-time  { color: var(--text-muted); letter-spacing: 0; font-weight: 400; }
-/* Slim single-line agent status strip (was a 3-card panel eating the top third). */
+/* Slim single-line agent status strip. */
 .agent-status-strip {
   flex-shrink: 0;
   display: flex;
@@ -1488,14 +1513,15 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   padding: 7px 28px;
   background: var(--bg1);
   border-bottom: 1px solid var(--border);
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-family: var(--font-mono); font-size: 11px;
 }
-.agent-status-strip .ass-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--text-muted); flex-shrink: 0;
+/* Brand-tint the (single, inline) orb to the clay accent in both themes. */
+thinking-orb.agent-orb {
+  --orb-color-dark: #d97757;
+  --orb-color-light: #cc785c;
+  flex-shrink: 0; display: block; line-height: 0;
 }
-.agent-status-strip.running .ass-dot { background: var(--accent); animation: pulse 1.2s infinite; }
+.agent-orb.inline { vertical-align: middle; display: inline-block; }
 .ass-phase {
   color: var(--accent); font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0;
@@ -1766,7 +1792,7 @@ details:not([open]) .accordion-icon::before { content: '+'; }
                      max-width:240px;cursor:pointer"></select>
       <div id="docker-menu-wrap">
         <button id="docker-status" class="status-pill" type="button" aria-haspopup="menu" aria-expanded="false">
-          <img class="mark" src="/static/docker-logo.png" alt="" aria-hidden="true">
+          <img class="mark" src="/static/docker-mark.svg" alt="" aria-hidden="true">
           <div class="dot"></div>
           <span>Checking</span>
         </button>
@@ -1862,12 +1888,18 @@ details:not([open]) .accordion-icon::before { content: '+'; }
         <span style="font-size:10px;color:var(--text-muted);" id="cost-tokens"></span>
       </div>
 
-      <!-- Files popout -->
-      <div class="ch-menu-wrap" id="ch-files-wrap">
-        <button class="btn btn-ghost btn-sm" id="btn-files-toggle">Files</button>
-        <div class="ch-popout" id="ch-files-menu">
+      <!-- Challenge popout: description + target + files (view/edit/download) -->
+      <div class="ch-menu-wrap" id="ch-challenge-wrap">
+        <button class="btn btn-ghost btn-sm" id="btn-challenge-toggle">Challenge</button>
+        <div class="ch-popout" id="ch-challenge-menu" style="width:440px;right:0;max-height:70vh;overflow:auto;">
+          <div id="ch-target-url-wrap" style="margin-bottom:12px;display:none;">
+            <div class="ch-popout-title">Target</div>
+            <a id="ch-target-url-link" href="#" target="_blank" rel="noopener" style="font-size:12px;font-family:var(--font-mono);color:var(--accent);word-break:break-all;text-decoration:none;"></a>
+          </div>
+          <div class="ch-popout-title">Description</div>
+          <div class="ch-description" id="ch-description" style="font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;color:var(--text-dim);margin-bottom:14px;"></div>
           <div class="ch-popout-title">Files</div>
-          <div class="file-list" id="file-list"><span class="file-empty">No files uploaded</span></div>
+          <div class="file-list" id="file-list"><span class="file-empty">No files</span></div>
           <div style="margin-top:8px;">
             <button class="btn btn-ghost btn-sm" id="btn-upload-more" style="width:100%">+ Add Files</button>
             <input type="file" id="upload-input-hidden" multiple style="display:none">
@@ -1879,20 +1911,11 @@ details:not([open]) .accordion-icon::before { content: '+'; }
         </div>
       </div>
 
-      <button class="btn btn-ghost btn-sm" id="btn-memory-toggle">Memory</button>
-
-      <!-- Info popout -->
-      <div class="ch-menu-wrap" id="ch-info-wrap">
-        <button class="btn btn-ghost btn-sm" id="btn-info-toggle">Info</button>
-        <div class="ch-popout" id="ch-info-menu" style="width:380px;right:0;">
-          <div class="ch-popout-title">Description</div>
-          <div id="ch-target-url-wrap" style="margin-bottom:10px;display:none;">
-            <div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Target</div>
-            <a id="ch-target-url-link" href="#" target="_blank" rel="noopener" style="font-size:12px;font-family:var(--font-mono);color:var(--accent);word-break:break-all;text-decoration:none;"></a>
-          </div>
-          <div class="ch-description" id="ch-description" style="font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:var(--text-dim);"></div>
-        </div>
-      </div>
+      <!-- Manual CLI — distinct button with a terminal glyph -->
+      <button class="btn btn-ghost btn-sm btn-cli" id="btn-cli-start" title="Open a manual terminal in the challenge container">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l4 4-4 4"/><path d="M13 16h6"/></svg>
+        CLI
+      </button>
 
       <!-- Solve popout -->
       <div class="ch-menu-wrap" id="ch-solve-wrap">
@@ -1917,7 +1940,6 @@ details:not([open]) .accordion-icon::before { content: '+'; }
       <div class="ch-menu-wrap" id="ch-more-wrap">
         <button class="btn btn-ghost btn-sm btn-icon" id="btn-more-toggle" title="More options">&#8943;</button>
         <div class="ch-popout" id="ch-more-menu" style="width:200px;">
-          <button class="ch-menu-item ch-menu-item-accent" id="btn-cli-start">Manual CLI</button>
           <button class="ch-menu-item" id="btn-edit-challenge">Edit Challenge</button>
           <div class="ch-menu-divider"></div>
           <button class="ch-menu-item ch-menu-item-danger" id="btn-reset">Reset Container</button>
@@ -1954,10 +1976,9 @@ details:not([open]) .accordion-icon::before { content: '+'; }
       </div>
 
       <div class="agent-status-strip" id="agent-status-panel">
-        <span class="ass-dot"></span>
         <span class="ass-phase" id="agent-phase-value">Idle</span>
         <span class="ass-checkpoint" id="agent-checkpoint-value">No active checkpoint.</span>
-        <span class="ass-step" id="agent-stall-value">0</span>
+        <span class="ass-step" id="agent-stall-value"></span>
       </div>
 
       <!-- Chat feed -->
@@ -1974,13 +1995,14 @@ details:not([open]) .accordion-icon::before { content: '+'; }
               {% endfor %}
             </select>
             <span class="agent-activity" id="agent-activity">
-              <span class="activity-dot"></span>
+              <thinking-orb class="agent-orb inline" size="20" state="working" theme="auto" paused
+                            aria-label="Agent idle"></thinking-orb>
               <span class="activity-label" id="agent-activity-label">IDLE</span>
               <span class="activity-time" id="agent-activity-time"></span>
             </span>
-            <button class="btn btn-danger btn-sm" id="btn-stop">Stop</button>
-            <button class="btn btn-ghost btn-sm" id="btn-retry">Retry</button>
-            <button class="btn btn-ghost btn-sm" id="btn-clear-feed" title="Clear chat feed">Clear</button>
+            <button class="btn-stop-icon" id="btn-stop" title="Stop the agent" aria-label="Stop">
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9" rx="2" fill="currentColor"/></svg>
+            </button>
             <button id="btn-launch" title="Launch agent">&#8593;</button>
           </div>
         </div>
@@ -1990,6 +2012,23 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 </div>
 
 <!--  New Challenge Modal  -->
+<div class="modal-overlay" id="modal-file-viewer">
+  <div class="modal" style="width:min(940px,95vw);max-width:940px;">
+    <div class="modal-header">
+      <div class="modal-title" id="file-viewer-name" style="font-family:var(--font-mono);font-size:13px;word-break:break-all;">file</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <button class="btn btn-sm btn-primary" id="file-viewer-save" onclick="saveFileViewer()">Save</button>
+        <a class="btn btn-sm btn-ghost" id="file-viewer-download" href="#" download>Download</a>
+        <button class="modal-close" data-close="modal-file-viewer">X</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="file-viewer-body" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);padding:16px;">Loading…</div>
+      <textarea id="file-viewer-editor" spellcheck="false" style="display:none;width:100%;height:62vh;font-family:var(--font-mono);font-size:12.5px;line-height:1.55;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;resize:vertical;outline:none;"></textarea>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-new">
   <div class="modal">
     <div class="modal-header">
@@ -2460,7 +2499,7 @@ const DONUT_RADIUS = 46;
 const DONUT_CIRC = 2 * Math.PI * DONUT_RADIUS;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 let donutHasPainted = false;
-const DOCKER_STATUS_MARK = '<img class="mark" src="/static/docker-logo.png" alt="" aria-hidden="true">';
+const DOCKER_STATUS_MARK = '<img class="mark" src="/static/docker-mark.svg" alt="" aria-hidden="true">';
 
 //  Socket.IO 
 const socket = io();
@@ -2477,6 +2516,43 @@ function cacheLog(cid, entry) {
   if (!state.logCache[cid]) state.logCache[cid] = [];
   state.logCache[cid].push(entry);
   if (state.logCache[cid].length > 2000) state.logCache[cid].splice(0, 200);
+}
+
+// ── Thinking-orb: reflect what the model is doing, live, across all 6 states ──────
+// working=reasoning · searching=recon/enumerate · shaping=analyze/reverse ·
+// listening=connect/remote · composing=write exploit · solving=execute/exploit.
+const TOOL_ORB = {
+  search_flag: 'searching', list_files: 'searching', web_recon: 'searching', web_fuzz: 'searching',
+  gdb_session: 'shaping', run_gdb: 'shaping', extract_artifact: 'shaping', analyze_image: 'shaping',
+  remote_session: 'listening', remote_interact: 'listening', http_request: 'listening', sql_test: 'listening',
+  write_file: 'composing', save_note: 'composing',
+  run_command: 'solving', shell_session: 'solving', submit_flag: 'solving', check_job: 'solving',
+};
+const ORB_ARIA = {
+  working: 'Agent reasoning', searching: 'Agent searching', solving: 'Agent exploiting',
+  listening: 'Agent connecting', composing: 'Agent writing code', shaping: 'Agent analyzing',
+};
+function cmdToolKey(raw, kind) {
+  const m = (raw || '').match(/^([a-z_]+)(?:\[|:|\s)/i);
+  if (m && TOOL_ORB[m[1]]) return m[1];
+  if (kind === 'gdb-command') return 'gdb_session';
+  return 'run_command';
+}
+function setAgentOrb(state, opts = {}) {
+  document.querySelectorAll('thinking-orb.agent-orb').forEach(el => {
+    if (state) { el.setAttribute('state', state); el.setAttribute('aria-label', ORB_ARIA[state] || 'Agent working'); }
+    if (opts.speed != null) el.setAttribute('speed', String(opts.speed));
+    if (opts.paused != null) { opts.paused ? el.setAttribute('paused', '') : el.removeAttribute('paused'); }
+  });
+}
+function orbFromEvent(ev, data) {
+  if (ev === 'thought' || ev === 'plan' || ev === 'user_message') setAgentOrb('working', { speed: 1, paused: false });
+  else if (ev === 'command') {
+    const kind = data.gdb ? 'gdb-command' : 'command';
+    if (!data.notice) setAgentOrb(TOOL_ORB[cmdToolKey(data.cmd || '', kind)] || 'solving', { speed: 1.6, paused: false });
+  } else if (ev === 'output') setAgentOrb(null, { speed: 1.2, paused: false });
+  else if (ev === 'flag') setAgentOrb('solving', { speed: 1.4, paused: false });
+  else if (ev === 'done') setAgentOrb('working', { paused: true });
 }
 
 function handleLogEvent(ev, data) {
@@ -2497,6 +2573,7 @@ function handleLogEvent(ev, data) {
   }
   cacheLog(cid, { event: ev, data, ts: t });
   if (!cid || cid !== state.currentCid) return false;
+  orbFromEvent(ev, data);
   if (ev === 'plan') appendPlan(data.text || '', !!data.replan, t);
   else if (ev === 'user_message') appendUser(data.text || '', t);
   else if (ev === 'thought') {
@@ -3126,14 +3203,60 @@ function openChallenge(cid) {
 function renderFileList(files) {
   const list = document.getElementById('file-list');
   if (!files.length) {
-    list.innerHTML = '<span class="file-empty">No files uploaded</span>';
+    list.innerHTML = '<span class="file-empty">No files</span>';
     return;
   }
+  const cid = state.currentCid;
   list.innerHTML = files.map(f => `
-    <div class="file-item">
+    <div class="file-item" data-path="${escHtml(f)}" title="View / edit">
       <span class="file-icon">&#128196;</span>
-      <span style="word-break:break-all;min-width:0">${escHtml(f)}</span>
+      <span class="file-name">${escHtml(f)}</span>
+      <a class="file-dl" href="/api/challenges/${cid}/file?path=${encodeURIComponent(f)}&download=1"
+         download title="Download">&#8623;</a>
     </div>`).join('');
+  list.querySelectorAll('.file-item').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('.file-dl')) return;
+      openFileViewer(el.getAttribute('data-path'));
+    });
+  });
+}
+
+let fileViewerPath = null;
+async function openFileViewer(path) {
+  fileViewerPath = path;
+  const cid = state.currentCid;
+  document.getElementById('file-viewer-name').textContent = path;
+  const body = document.getElementById('file-viewer-body');
+  const editor = document.getElementById('file-viewer-editor');
+  const dl = document.getElementById('file-viewer-download');
+  dl.href = `/api/challenges/${cid}/file?path=${encodeURIComponent(path)}&download=1`;
+  editor.value = ''; body.textContent = 'Loading…'; body.style.display = 'block'; editor.style.display = 'none';
+  openModal('modal-file-viewer');
+  try {
+    const res = await fetch(`/api/challenges/${cid}/file?path=${encodeURIComponent(path)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      body.textContent = (err.error || 'Could not open file.') + (err.download ? ' Use Download.' : '');
+      document.getElementById('file-viewer-save').disabled = true;
+      return;
+    }
+    const data = await res.json();
+    editor.value = data.content || '';
+    body.style.display = 'none'; editor.style.display = 'block';
+    document.getElementById('file-viewer-save').disabled = false;
+  } catch (e) {
+    body.textContent = 'Error loading file: ' + e;
+  }
+}
+async function saveFileViewer() {
+  if (!fileViewerPath) return;
+  const editor = document.getElementById('file-viewer-editor');
+  const res = await api(`/api/challenges/${state.currentCid}/file`, {
+    method: 'POST', body: { path: fileViewerPath, content: editor.value },
+  });
+  if (res && res.ok) toast('Saved ' + fileViewerPath, 'success');
+  else toast((res && res.error) || 'Save failed', 'error');
 }
 
 function syncModelSelect(challenge) {
@@ -3705,10 +3828,12 @@ async function uploadFiles(files) {
 function updateRunningUI() {
   const launchBlocked = state.agentRunning || !state.dockerBuildReady || state.dockerBuildInProgress;
   document.getElementById('btn-launch').disabled  = launchBlocked;
-  document.getElementById('btn-retry').disabled   = launchBlocked;
   document.getElementById('btn-stop').disabled    = !state.agentRunning;
   document.getElementById('model-select').disabled = state.agentRunning;
   updateAgentActivity();
+  // Freeze the thinking-orb when the agent isn't running; wake it when it is.
+  if (state.agentRunning) setAgentOrb(null, { paused: false });
+  else setAgentOrb('working', { paused: true, speed: 1 });
   if (state.agentRunning) startActivityTimer();
   else stopActivityTimer();
 }
@@ -3881,8 +4006,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     menu.addEventListener('click', e => e.stopPropagation());
   }
-  setupChPopout('ch-files-wrap', 'btn-files-toggle', 'ch-files-menu');
-  setupChPopout('ch-info-wrap', 'btn-info-toggle', 'ch-info-menu');
+  setupChPopout('ch-challenge-wrap', 'btn-challenge-toggle', 'ch-challenge-menu');
   setupChPopout('ch-solve-wrap', 'btn-solve-toggle', 'ch-solve-menu');
   setupChPopout('ch-more-wrap', 'btn-more-toggle', 'ch-more-menu');
 
@@ -4035,11 +4159,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Agent controls
   document.getElementById('btn-launch').addEventListener('click', () => launch(false));
-  document.getElementById('btn-memory-toggle').addEventListener('click', async () => {
-    if (!state.currentCid) return;
-    await loadMemoryIndex(state.currentMemoryFile);
-    openModal('modal-memory');
-  });
   document.getElementById('btn-memory-save').addEventListener('click', async () => {
     await saveCurrentMemoryFile();
   });
@@ -4052,7 +4171,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-memory-clear').addEventListener('click', async () => {
     await clearAllMemoryFiles();
   });
-  document.getElementById('btn-retry').addEventListener('click', () => launch(true));
   document.getElementById('btn-cli-start').addEventListener('click', async () => {
     if (!state.currentCid) return;
     const res = await api(`/api/challenges/${state.currentCid}/manual-start`, {
@@ -4071,11 +4189,6 @@ document.addEventListener('DOMContentLoaded', () => {
       toast('Container started for manual mode.', 'success');
     }
     checkDockerStatus();
-  });
-  document.getElementById('btn-clear-feed').addEventListener('click', () => {
-    document.getElementById('chat-feed').innerHTML = '';
-    planStreams.clear();
-    agentStreams.clear();
   });
   document.getElementById('btn-stop').addEventListener('click', async () => {
     let res = null;

@@ -14,7 +14,7 @@ import importlib.util
 from datetime import datetime
 from threading import RLock
 
-from flask import jsonify, request, render_template, Response, session, redirect, url_for
+from flask import jsonify, request, render_template, Response, session, redirect, url_for, send_file
 from flask_socketio import join_room
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -699,6 +699,56 @@ def challenge_workspace(cid):
         "path": str(challenge_workspace_dir(cid)),
         "entries": workspace_listing(cid, max_depth=max_depth, include_hidden=include_hidden),
     })
+
+
+def _safe_workspace_file(cid: str, rel: str):
+    """Resolve a workspace-relative path safely (no traversal). Returns (base, target) or None."""
+    base = challenge_workspace_dir(cid).resolve()
+    rel = (rel or "").lstrip("/")
+    try:
+        target = (base / rel).resolve()
+        if target == base or target.is_relative_to(base):
+            return base, target
+    except Exception:
+        pass
+    return None
+
+
+_VIEW_MAX_BYTES = 512 * 1024  # inline-view/edit size cap
+
+
+@app.route("/api/challenges/<cid>/file", methods=["GET"])
+def get_challenge_file(cid):
+    if not get_challenge(cid):
+        return jsonify({"error": "Not found"}), 404
+    resolved = _safe_workspace_file(cid, request.args.get("path", ""))
+    if not resolved or not resolved[1].is_file():
+        return jsonify({"error": "File not found"}), 404
+    target = resolved[1]
+    if request.args.get("download"):
+        return send_file(target, as_attachment=True, download_name=target.name)
+    size = target.stat().st_size
+    if size > _VIEW_MAX_BYTES:
+        return jsonify({"error": "File too large to view — download instead.", "size": size, "download": True}), 413
+    try:
+        text = target.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, ValueError):
+        return jsonify({"error": "Binary file — download to view.", "size": size, "binary": True, "download": True}), 415
+    return jsonify({"path": request.args.get("path", ""), "content": text, "size": size})
+
+
+@app.route("/api/challenges/<cid>/file", methods=["POST"])
+def write_challenge_file(cid):
+    if not get_challenge(cid):
+        return jsonify({"error": "Not found"}), 404
+    data = request.get_json(force=True) or {}
+    resolved = _safe_workspace_file(cid, data.get("path", ""))
+    if not resolved or resolved[1] == resolved[0]:
+        return jsonify({"error": "Invalid path"}), 400
+    target = resolved[1]
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(data.get("content") or "", encoding="utf-8")
+    return jsonify({"ok": True, "path": data.get("path", ""), "size": target.stat().st_size})
 
 
 @app.route("/api/challenges/<cid>/notes", methods=["GET"])
