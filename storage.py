@@ -216,6 +216,10 @@ def normalize_source_meta(value: Any) -> dict[str, str]:
     if isinstance(value, dict):
         for key in source:
             source[key] = str(value.get(key) or "").strip()
+        # Preserve importer provenance (used to de-duplicate re-imports) and any other scalar keys.
+        for key, val in value.items():
+            if key not in source and isinstance(val, (str, int, float)) and str(val).strip():
+                source[key] = str(val).strip()
     return source
 
 

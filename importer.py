@@ -8,6 +8,8 @@ session cookie (grab it after logging in) or an API/access token. No browser pro
 """
 from __future__ import annotations
 
+import base64
+import json
 import re
 import uuid
 from pathlib import Path
@@ -16,7 +18,10 @@ import requests
 
 from storage import challenge_workspace_dir
 
-_UA = "Mozilla/5.0 (CTF-Copilot importer)"
+# Match the login browser's UA — Cloudflare binds cf_clearance to the UA, so the grabbed token
+# only keeps working if server-side requests present the same User-Agent.
+_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
 _TIMEOUT = 20
 
 
@@ -52,28 +57,55 @@ def _norm_category(cat: str) -> str:
     return aliases.get(c, c if c in ("pwn", "web", "crypto", "rev", "forensics", "osint", "network", "misc") else "misc")
 
 
-def connect(url: str, cookie: str = "", token: str = "") -> dict:
-    """Detect the platform + list challenges. Returns {platform, base, challenges:[...]}."""
+def _norm_base(url: str) -> str:
     base = (url or "").strip().rstrip("/")
     if not base.startswith(("http://", "https://")):
         base = "https://" + base
+    return base
+
+
+def _parse_ctfd_listing(base: str, data: list) -> dict:
+    chals = []
+    for c in data:
+        chals.append({
+            "id": c.get("id"),
+            "name": c.get("name") or "Untitled",
+            "category": _norm_category(c.get("category")),
+            "raw_category": c.get("category") or "",
+            "value": c.get("value"),
+            "solved": bool(c.get("solved_by_me")),
+        })
+    return {"platform": "ctfd", "base": base, "challenges": chals}
+
+
+def connect_via_fetch(url: str, fetch_json) -> dict:
+    """Same as connect(), but reads the CTFd API through a caller-supplied fetch (the login browser).
+    `fetch_json(abs_url) -> {status, ct, body}`. This uses the real logged-in session, so it works
+    behind Cloudflare where a replayed cookie would not."""
+    base = _norm_base(url)
+    res = fetch_json(f"{base}/api/v1/challenges")
+    status, ct, body = res.get("status"), res.get("ct", ""), res.get("body", "")
+    if status == 200 and ("application/json" in ct or (body or "").lstrip().startswith("{")):
+        try:
+            j = json.loads(body)
+        except Exception:
+            j = None
+        if isinstance(j, dict) and isinstance(j.get("data"), list):
+            return _parse_ctfd_listing(base, j["data"])
+    # Not JSON (usually a login/redirect page) or an auth error → treat as not-logged-in yet.
+    raise PermissionError("Not logged in yet — finish signing in, then this will detect the session.")
+
+
+def connect(url: str, cookie: str = "", token: str = "") -> dict:
+    """Detect the platform + list challenges. Returns {platform, base, challenges:[...]}."""
+    base = _norm_base(url)
     s = _session(cookie, token)
     # ── CTFd ──────────────────────────────────────────────────────────────────
     r = s.get(f"{base}/api/v1/challenges", timeout=_TIMEOUT)
     if r.status_code == 200 and "application/json" in r.headers.get("content-type", ""):
         j = r.json()
         if isinstance(j, dict) and isinstance(j.get("data"), list):
-            chals = []
-            for c in j["data"]:
-                chals.append({
-                    "id": c.get("id"),
-                    "name": c.get("name") or "Untitled",
-                    "category": _norm_category(c.get("category")),
-                    "raw_category": c.get("category") or "",
-                    "value": c.get("value"),
-                    "solved": bool(c.get("solved_by_me")),
-                })
-            return {"platform": "ctfd", "base": base, "challenges": chals}
+            return _parse_ctfd_listing(base, j["data"])
     if r.status_code in (401, 403):
         raise PermissionError("Authentication failed — check your session cookie or token.")
     raise RuntimeError(
@@ -90,6 +122,62 @@ def _ctfd_detail(s: requests.Session, base: str, cid) -> dict:
 
 def _safe_name(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", (name or "file")).strip("_") or "file"
+
+
+def _build_challenge(base: str, raw_id, detail: dict, meta: dict) -> dict:
+    name = detail.get("name") or (meta or {}).get("name") or "Untitled"
+    category = _norm_category(detail.get("category") or (meta or {}).get("raw_category"))
+    description = (detail.get("description") or "").strip()
+    conn_info = (detail.get("connection_info") or "").strip()
+    target_url = conn_info if conn_info.startswith(("http://", "https://", "nc ", "ws://", "wss://")) else ""
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    flag_url = f"{base}/challenges#{slug}-{raw_id}"
+    return {
+        "name": name,
+        "category": category,
+        "description": description + (f"\n\nConnection: {conn_info}" if conn_info and not target_url else ""),
+        "flag_url": flag_url,
+        "target": {"url": target_url} if target_url else {},
+        "source_meta": {"platform": "ctfd", "source_url": base, "remote_id": raw_id,
+                        "value": detail.get("value")},
+        "tags": [t.get("value") for t in (detail.get("tags") or []) if isinstance(t, dict) and t.get("value")],
+    }
+
+
+def import_via_fetch(url: str, ids: list, listing: list, fetch_json, fetch_bytes,
+                     create_fn=None) -> dict:
+    """Import CTFd challenge ids by reading detail + files through the login browser's fetch
+    (Cloudflare-proof). `fetch_json(abs_url)->{status,ct,body}`, `fetch_bytes(abs_url)->{status,b64}`."""
+    base = _norm_base(url)
+    by_id = {str(c["id"]): c for c in (listing or [])}
+    created, failed = [], []
+    for raw_id in ids:
+        meta = by_id.get(str(raw_id)) or {}
+        try:
+            res = fetch_json(f"{base}/api/v1/challenges/{raw_id}")
+            detail = (json.loads(res.get("body") or "{}") or {}).get("data") or {}
+        except Exception as e:
+            failed.append({"id": raw_id, "name": meta.get("name"), "error": f"detail: {e}"})
+            continue
+        challenge = _build_challenge(base, raw_id, detail, meta)
+        cid = create_fn(challenge) if create_fn else None
+        dl = []
+        for fpath in (detail.get("files") or []):
+            try:
+                furl = fpath if fpath.startswith("http") else base + fpath
+                fres = fetch_bytes(furl)
+                if fres.get("status") == 200 and fres.get("b64"):
+                    fname = _safe_name(furl.split("?")[0].rsplit("/", 1)[-1])
+                    if cid:
+                        dest = challenge_workspace_dir(cid) / fname
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        dest.write_bytes(base64.b64decode(fres["b64"]))
+                    dl.append(fname)
+            except Exception:
+                pass
+        created.append({"cid": cid, "name": challenge["name"], "category": challenge["category"],
+                        "files": dl, "flag_url": challenge["flag_url"]})
+    return {"platform": "ctfd", "base": base, "created": created, "failed": failed}
 
 
 def import_challenges(url: str, ids: list, cookie: str = "", token: str = "",

@@ -684,39 +684,164 @@ def import_connect():
         return jsonify({"error": str(e)}), 400
 
 
+def _import_create_challenge(ch: dict):
+    """Persist one imported challenge into the active set, de-duplicating on the source's remote
+    id + platform URL so re-importing the same challenge returns the existing id instead of a copy.
+    Returns (cid, is_new)."""
+    src = ch.get("source_meta") or {}
+    rid, surl = str(src.get("remote_id", "")), str(src.get("source_url", ""))
+    furl = str(ch.get("flag_url", ""))
+    with _db_lock:
+        chals = _load_challenges_unlocked()
+        for existing in chals:
+            es = existing.get("source_meta") or {}
+            same_meta = rid and str(es.get("remote_id", "")) == rid and str(es.get("source_url", "")) == surl
+            same_flag = furl and str(existing.get("flag_url", "")) == furl
+            if same_meta or same_flag:
+                return existing["id"], False
+        ch = dict(ch)
+        ch["id"] = str(uuid.uuid4())[:8]
+        ch.setdefault("created_at", utc_now_iso())
+        ch["last_activity_at"] = utc_now_iso()
+        chal = apply_challenge_defaults(ch)
+        chals.append(chal)
+        _save_challenges_unlocked(chals)
+    return chal["id"], True
+
+
+def _run_import(url, ids, cookie="", token="", listing=None):
+    """Import ids, broadcast new challenges, return the importer summary dict. Prefers reading
+    through the live login browser (Cloudflare-proof); falls back to cookie/token over HTTP."""
+    import importer, browser_session
+    created_new = []
+
+    def _create(ch: dict) -> str:
+        cid, is_new = _import_create_challenge(ch)
+        if is_new:
+            created_new.append(cid)
+        return cid
+
+    sess = browser_session.get_session()
+    if sess:
+        result = importer.import_via_fetch(url, ids, listing or [], sess.fetch_json, sess.fetch_bytes,
+                                           create_fn=_create)
+    else:
+        result = importer.import_challenges(url, ids, cookie, token, create_fn=_create)
+    for cid in created_new:
+        ch = get_challenge(cid)
+        if ch:
+            _broadcast_challenge(ch)
+    result["created_new"] = created_new
+    return result
+
+
 @app.route("/api/import/run", methods=["POST"])
 def import_run():
-    import importer
     data = request.get_json(force=True) or {}
     ids = data.get("ids") or []
     if not ids:
         return jsonify({"error": "No challenges selected."}), 400
-
-    def _create(ch: dict) -> str:
-        with _db_lock:
-            chals = _load_challenges_unlocked()
-            ch = dict(ch)
-            ch["id"] = str(uuid.uuid4())[:8]
-            ch.setdefault("created_at", utc_now_iso())
-            ch["last_activity_at"] = utc_now_iso()
-            chal = apply_challenge_defaults(ch)
-            chals.append(chal)
-            _save_challenges_unlocked(chals)
-        return chal["id"]
-
     try:
-        result = importer.import_challenges(
-            data.get("url", ""), ids, data.get("cookie", ""), data.get("token", ""), create_fn=_create)
+        result = _run_import(data.get("url", ""), ids, data.get("cookie", ""), data.get("token", ""))
     except PermissionError as e:
         return jsonify({"error": str(e)}), 401
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-    for c in result.get("created", []):
-        if c.get("cid"):
-            ch = get_challenge(c["cid"])
-            if ch:
-                _broadcast_challenge(ch)
     return jsonify(result)
+
+
+def _import_agent_complete(messages, model_ref=""):
+    """One provider-agnostic chat completion for the import agent. Returns (text, error)."""
+    cfg = load_config()
+    spec = providers.resolve_model(cfg, model_ref) if model_ref else None
+    if spec is None:
+        spec = providers.resolve_role(cfg, "aux") or providers.resolve_role(cfg, "solver")
+    client, kind = providers.build_client(spec, timeout=60, max_retries=1)
+    if client is None:
+        return None, "No model configured (add an API key in Settings)."
+    try:
+        if kind == "anthropic":
+            sys = "\n".join(m["content"] for m in messages if m["role"] == "system")
+            conv = [{"role": m["role"], "content": m["content"]} for m in messages if m["role"] != "system"]
+            resp = client.messages.create(model=spec.model_id, max_tokens=900, system=sys, messages=conv)
+            text = "".join(getattr(b, "text", "") for b in resp.content if getattr(b, "type", None) == "text")
+        else:
+            # Newer OpenAI models want `max_completion_tokens` and only default temperature; older /
+            # self-hosted OpenAI-compatible endpoints want `max_tokens`. Try modern, fall back.
+            def _call(token_param):
+                return client.chat.completions.create(
+                    model=spec.model_id, messages=messages, **{token_param: 900})
+            try:
+                resp = _call("max_completion_tokens")
+            except Exception as e:
+                if "max_completion_tokens" in str(e) or "max_tokens" in str(e):
+                    resp = _call("max_tokens")
+                else:
+                    raise
+            text = resp.choices[0].message.content or ""
+        return text, None
+    except Exception as e:
+        return None, str(e)
+
+
+@app.route("/api/import/agent", methods=["POST"])
+def import_agent():
+    """Conversational importer: the user tells the agent what to grab; it reasons over the
+    challenge catalog, picks ids, and imports them. Returns a chat reply + import summary."""
+    data = request.get_json(force=True) or {}
+    base = (data.get("base") or "").strip()
+    cookie = data.get("cookie", "")
+    token = data.get("token", "")
+    catalog = data.get("challenges") or []
+    history = data.get("messages") or []
+    if not base or not catalog:
+        return jsonify({"error": "Connect to a platform first."}), 400
+
+    lines = []
+    for c in catalog:
+        lines.append(f'- id={c.get("id")} | {c.get("name")} | cat={c.get("category")} '
+                     f'| {c.get("value")} pts | {"solved" if c.get("solved") else "unsolved"}')
+    catalog_txt = "\n".join(lines)
+    system = (
+        "You are the import assistant for a CTF workspace. The operator has logged into a CTF "
+        "platform and wants you to pull specific challenges into their workspace. You can see the "
+        "full challenge catalog below. Interpret the operator's instruction (by category, points, "
+        "solved/unsolved, name match, or 'everything') and decide which challenge ids to import.\n\n"
+        "Respond ONLY with a single JSON object, no prose around it:\n"
+        '{"reply": "<one or two short sentences to the operator>", "import_ids": [<ids to import now>]}\n'
+        "- import_ids must be a subset of the catalog ids. Use [] when the operator is only asking a "
+        "question, when you need clarification, or when nothing matches.\n"
+        "- Prefer unsolved challenges unless told otherwise. Never invent ids.\n\n"
+        f"CATALOG ({len(catalog)} challenges):\n{catalog_txt}"
+    )
+    msgs = [{"role": "system", "content": system}]
+    for m in history[-12:]:
+        role = "assistant" if m.get("role") == "assistant" else "user"
+        msgs.append({"role": role, "content": str(m.get("content", ""))})
+
+    text, err = _import_agent_complete(msgs, data.get("model", ""))
+    if err:
+        return jsonify({"error": err}), 400
+
+    reply, import_ids = text.strip(), []
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if m:
+        try:
+            parsed = json.loads(m.group(0))
+            reply = str(parsed.get("reply") or "").strip() or reply
+            valid = {str(c.get("id")) for c in catalog}
+            import_ids = [i for i in (parsed.get("import_ids") or []) if str(i) in valid]
+        except Exception:
+            pass
+
+    imported = []
+    if import_ids:
+        try:
+            result = _run_import(base, import_ids, cookie, token, listing=catalog)
+            imported = result.get("created", [])
+        except Exception as e:
+            reply += f"\n(Import error: {e})"
+    return jsonify({"reply": reply, "import_ids": import_ids, "imported": imported})
 
 
 @app.route("/api/challenges/<cid>", methods=["GET"])
@@ -2312,6 +2437,62 @@ def on_manual_terminal_resize(data):
 @socketio.on("manual_terminal_close")
 def on_manual_terminal_close(_data=None):
     _close_manual_terminal_for_sid(request.sid)
+
+
+# ── Login browser (real Chromium window) for the challenge importer ───────────
+def _import_base_from(url: str) -> str:
+    from urllib.parse import urlparse
+    raw = (url or "").strip()
+    parsed = urlparse(raw if raw.startswith(("http://", "https://")) else "https://" + raw)
+    return f"{parsed.scheme}://{parsed.netloc}" if parsed.netloc else raw
+
+
+@app.route("/api/import/browser/open", methods=["POST"])
+def import_browser_open():
+    import browser_session
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "Enter a platform URL."}), 400
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    _sess, ok, err = browser_session.open_session(url)
+    if not ok:
+        return jsonify({"error": err or "Failed to open browser."}), 500
+    return jsonify({"ok": True})
+
+
+@app.route("/api/import/browser/status", methods=["POST"])
+def import_browser_status():
+    """Poll: is the login browser open, and is the operator logged in yet? The moment login is
+    detected we grab the session token (all cookies, cf_clearance included), CLOSE the Chromium
+    window, and hand back the token + challenge listing. Everything after that runs off the token."""
+    import browser_session, importer
+    data = request.get_json(silent=True) or {}
+    sess = browser_session.get_session()
+    if not sess:
+        return jsonify({"open": False, "authenticated": False})
+    base = _import_base_from(data.get("base") or data.get("url") or sess.current_url())
+    try:
+        conn = importer.connect_via_fetch(base, sess.fetch_json)
+    except PermissionError:
+        return jsonify({"open": True, "authenticated": False, "base": base})
+    except Exception as e:
+        return jsonify({"open": True, "authenticated": False, "base": base, "note": str(e)})
+    # Logged in → capture the token, then close the window.
+    cookie = sess.cookie_header(base)
+    browser_session.close_session()
+    conn["open"] = False
+    conn["authenticated"] = True
+    conn["cookie"] = cookie
+    return jsonify(conn)
+
+
+@app.route("/api/import/browser/close", methods=["POST"])
+def import_browser_close():
+    import browser_session
+    browser_session.close_session()
+    return jsonify({"ok": True})
 
 
 @socketio.on("disconnect")

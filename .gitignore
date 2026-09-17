@@ -5,3 +5,6 @@ static/app/
 config.json
 _reference/
 .superpowers/
+
+# Playwright persistent profile for the inline login browser
+.browser_profiles/

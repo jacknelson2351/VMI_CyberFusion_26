@@ -244,6 +244,9 @@ html, body {
   isolation: isolate;
 }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-ico { gap: 8px; }
+.btn-ico svg { flex-shrink: 0; margin-left: -1px; }
+.btn-ghost.btn-ico svg { color: var(--accent); }
 
 /* Liquid "gooey" hover — a currentColor blob wells up behind crisp text (no text blur).
    The elastic overshoot gives the gooey feel; works on every button variant. */
@@ -1649,6 +1652,49 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 .import-row.done { opacity: 0.5; }
 .import-row.done .import-row-name::after { content: ' ✓ imported'; color: var(--accent); font-weight: 500; }
 .import-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.import-advanced { margin-top: 14px; font-size: 12px; }
+
+/* Agent-chat import layout */
+.import-split { display: flex; gap: 16px; align-items: stretch; }
+.import-chat-col { flex: 1.15; min-width: 0; display: flex; flex-direction: column; }
+.import-cat-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.import-chat {
+  flex: 1; min-height: 300px; max-height: 46vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 2px;
+}
+.ic-msg { max-width: 92%; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.ic-msg.user { align-self: flex-end; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); border-radius: 12px 12px 4px 12px; padding: 7px 12px; }
+.ic-msg.bot  { align-self: flex-start; color: var(--text); padding: 3px 2px; }
+.ic-msg.bot .ic-imported { display: block; margin-top: 5px; font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+.ic-msg.thinking { align-self: flex-start; color: var(--text-muted); font-size: 12px; font-style: italic; padding: 3px 2px; }
+.import-chat-bar { display: flex; align-items: flex-end; gap: 8px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+#import-chat-input {
+  flex: 1; resize: none; max-height: 120px; font-family: var(--font-sans); font-size: 13px; line-height: 1.45;
+  padding: 9px 12px; border-radius: 12px; border: 1px solid var(--border2); background: var(--bg2); color: var(--text);
+}
+#import-chat-input:focus { outline: none; border-color: var(--accent-dim); }
+.ic-send {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; border: none;
+  background: var(--accent); color: var(--on-accent); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; transition: all 0.13s;
+}
+.ic-send:hover { background: var(--accent-hover); box-shadow: 0 2px 10px var(--accent-glow); }
+.ic-send:disabled { opacity: 0.4; cursor: default; }
+.import-cat-col .import-list { max-height: 40vh; }
+@media (max-width: 760px) { .import-split { flex-direction: column; } .import-cat-col { display: none; } }
+.import-advanced summary { cursor: pointer; color: var(--text-muted); font-size: 11.5px; user-select: none; }
+.import-advanced summary:hover { color: var(--text-dim); }
+.import-advanced input { width: 100%; }
+
+/* Login-browser waiting state */
+.import-wait {
+  display: flex; align-items: center; gap: 16px;
+  padding: 22px 20px; border-radius: 14px;
+  background: var(--bg2); border: 1px solid var(--border2);
+}
+.import-wait-main { min-width: 0; }
+.import-wait-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.import-wait-sub { font-size: 12.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.5; }
 
 /* Searchable model picker */
 #model-picker { position: relative; }
@@ -2085,8 +2131,14 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
           <span class="tokens" id="dash-cost-tokens"></span>
         </div>
         <button class="btn btn-ghost" id="btn-run-all" title="Launch the agent on every unsolved challenge, one at a time, unattended">&#9654; Run All</button>
-        <button class="btn btn-ghost" id="btn-import" title="Import challenges from a CTF platform">&#8681; Import</button>
-        <button class="btn btn-primary" id="btn-new-challenge">+ New Challenge</button>
+        <button class="btn btn-ghost btn-ico" id="btn-import" title="Import challenges from a CTF platform — log in and pull them in">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          <span>Import</span>
+        </button>
+        <button class="btn btn-primary btn-ico" id="btn-new-challenge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span>New Challenge</span>
+        </button>
       </div>
     </div>
     <div id="dash-body">
@@ -2301,34 +2353,58 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
 
 <!--  New Challenge Modal  -->
 <div class="modal-overlay" id="modal-import">
-  <div class="modal" style="width:min(680px,95vw)">
+  <div class="modal" id="import-modal-box" style="width:min(640px,95vw);max-width:640px">
     <div class="modal-header">
       <div class="modal-title">Import from a CTF platform</div>
       <button class="modal-close" data-close="modal-import">X</button>
     </div>
     <div class="modal-body">
       <div id="import-connect-step">
-        <div class="import-help">Log into the CTF site in your browser, then paste your <b>session cookie</b> (from DevTools → Application → Cookies, e.g. <code>session=…</code>) or a CTFd <b>API token</b>. Challenges import into <b id="import-target-comp">the active competition</b>, with files, description, target, and a flag-submission link.</div>
+        <div class="import-help">Enter the CTF site — a Chromium window opens, you log in, and the moment your session is captured the window closes and you’re handed to an import agent. Tell it what to grab in plain English; it imports the challenges (files, description, target, flag link) into <b id="import-target-comp">the active competition</b>.</div>
         <div class="field"><label>PLATFORM URL</label><input type="text" id="import-url" placeholder="https://ctf.example.com" autocomplete="off"></div>
-        <div class="field"><label>SESSION COOKIE or API TOKEN</label><input type="text" id="import-auth" placeholder="session=abc123…   or   ctfd_token…" autocomplete="off"></div>
         <div style="display:flex;gap:8px;align-items:center;">
-          <a id="import-open-site" class="btn btn-sm btn-ghost" href="#" target="_blank" rel="noopener">Open site to log in ↗</a>
-          <button id="import-connect-btn" class="btn btn-sm btn-primary">Connect</button>
+          <button id="import-open-browser" class="btn btn-sm btn-primary">Open login browser</button>
           <span id="import-connect-status" class="import-status"></span>
         </div>
+        <details class="import-advanced">
+          <summary>Advanced: paste a cookie / API token instead</summary>
+          <div class="field" style="margin-top:8px"><input type="text" id="import-auth" placeholder="session=abc123…   or   ctfd_token…" autocomplete="off"></div>
+          <button id="import-connect-btn" class="btn btn-sm btn-ghost">Connect with token</button>
+        </details>
       </div>
+
+      <div id="import-waiting-step" hidden>
+        <div class="import-wait">
+          <thinking-orb class="agent-orb" size="34" state="searching" theme="auto" aria-label="Waiting for login"></thinking-orb>
+          <div class="import-wait-main">
+            <div class="import-wait-title">A Chromium window opened — log in there.</div>
+            <div class="import-wait-sub" id="import-wait-sub">Waiting for your session… this jumps ahead automatically once you're in.</div>
+          </div>
+        </div>
+        <div class="import-actions" style="border-top:none;padding-top:4px;margin-top:8px">
+          <button class="btn btn-sm btn-ghost" id="import-wait-cancel">Cancel</button>
+          <span style="margin-right:auto"></span>
+          <button class="btn btn-sm btn-ghost" id="import-wait-retry">Check now</button>
+        </div>
+      </div>
+
       <div id="import-select-step" hidden>
-        <div class="import-toolbar">
-          <input type="text" id="import-search" placeholder="Filter challenges…" autocomplete="off">
-          <span class="import-count" id="import-count"></span>
+        <div class="import-chat-col">
+          <div class="import-chat" id="import-chat"></div>
+          <div class="import-chat-bar">
+            <textarea id="import-chat-input" rows="1" placeholder="Tell the agent what to grab — e.g. “all unsolved web and pwn, skip the misc”"></textarea>
+            <button id="import-chat-send" class="ic-send" title="Send" aria-label="Send">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </div>
         </div>
-        <div id="import-quick" class="import-quick"></div>
-        <div id="import-list" class="import-list"></div>
         <div class="import-actions">
-          <button class="btn btn-sm btn-ghost" id="import-back">← Back</button>
+          <button class="btn btn-sm btn-ghost" id="import-back">← New site</button>
           <span id="import-run-status" class="import-status" style="margin-right:auto;"></span>
-          <button class="btn btn-sm btn-primary" id="import-run-btn">Import selected</button>
         </div>
+        <input type="hidden" id="import-search" value="">
+        <div id="import-quick" hidden></div>
+        <div id="import-list" hidden></div>
       </div>
     </div>
   </div>
@@ -3364,18 +3440,81 @@ let _importConn = null;           // { platform, base, challenges:[...] }
 const _importSel = new Set();     // selected remote ids (as strings)
 const _importDone = new Set();    // ids already imported this session
 
+let _importBase = '';
+let _importPoll = null;
+
 function openImport() {
   const active = _compSets.find(s => s.active) || _compSets[0];
   const tgt = document.getElementById('import-target-comp');
   if (tgt) tgt.textContent = active ? `“${active.name}”` : 'the active competition';
-  // reset to step 1
-  _importConn = null; _importSel.clear();
+  _importConn = null; _importSel.clear(); _importBase = '';
+  stopImportPoll();
   document.getElementById('import-connect-step').hidden = false;
+  document.getElementById('import-waiting-step').hidden = true;
   document.getElementById('import-select-step').hidden = true;
   setImportStatus('import-connect-status', '');
   setImportStatus('import-run-status', '');
   openModal('modal-import');
   setTimeout(() => document.getElementById('import-url')?.focus(), 60);
+}
+
+/* ─── Login browser: open a real Chromium window, poll until logged in ─────── */
+async function importOpenBrowser() {
+  let url = (document.getElementById('import-url').value || '').trim();
+  if (!url) { setImportStatus('import-connect-status', 'Enter the platform URL.', 'err'); document.getElementById('import-url').focus(); return; }
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  _importBase = url;
+  setImportStatus('import-connect-status', 'Opening browser…');
+  let res;
+  try { res = await api('/api/import/browser/open', { method: 'POST', body: { url } }); }
+  catch (e) { res = { error: (e && e.message) || 'failed' }; }
+  if (!res || res.error) { setImportStatus('import-connect-status', (res && res.error) || 'Could not open the browser.', 'err'); return; }
+  setImportStatus('import-connect-status', '');
+  document.getElementById('import-connect-step').hidden = true;
+  document.getElementById('import-waiting-step').hidden = false;
+  document.getElementById('import-select-step').hidden = true;
+  startImportPoll();
+}
+
+function startImportPoll() {
+  stopImportPoll();
+  const tick = async () => {
+    let res;
+    try { res = await api('/api/import/browser/status', { method: 'POST', body: { base: _importBase } }); }
+    catch (e) { return; }
+    if (!res) return;
+    if (res.authenticated) {
+      stopImportPoll();
+      _importConn = res;                       // carries the grabbed .cookie (token)
+      const sub = document.getElementById('import-wait-sub');
+      if (sub) sub.textContent = '✓ Token acquired — closing the browser…';
+      const orb = document.querySelector('#import-waiting-step thinking-orb');
+      if (orb) orb.setAttribute('state', 'solving');
+      setTimeout(() => {
+        document.getElementById('import-waiting-step').hidden = true;
+        document.getElementById('import-select-step').hidden = false;
+        renderImportList('');
+        startImportChat();
+      }, 650);
+      return;
+    }
+    if (!res.open) { stopImportPoll(); backToImportConnect('Browser closed before login. Try again.'); }
+  };
+  _importPoll = setInterval(tick, 2000);
+  tick();
+}
+function stopImportPoll() { if (_importPoll) { clearInterval(_importPoll); _importPoll = null; } }
+
+function backToImportConnect(msg) {
+  document.getElementById('import-waiting-step').hidden = true;
+  document.getElementById('import-select-step').hidden = true;
+  document.getElementById('import-connect-step').hidden = false;
+  if (msg) setImportStatus('import-connect-status', msg, 'err');
+}
+
+function closeInlineBrowser() {
+  stopImportPoll();
+  try { api('/api/import/browser/close', { method: 'POST', body: {} }); } catch (e) {}
 }
 
 function setImportStatus(id, msg, kind) {
@@ -3409,8 +3548,10 @@ async function importConnect() {
   const n = (res.challenges || []).length;
   setImportStatus('import-connect-status', `Connected — ${n} challenge${n === 1 ? '' : 's'}.`, 'ok');
   document.getElementById('import-connect-step').hidden = true;
+  document.getElementById('import-waiting-step').hidden = true;
   document.getElementById('import-select-step').hidden = false;
   renderImportList('');
+  startImportChat();
 }
 
 function renderImportList(filter) {
@@ -3478,7 +3619,10 @@ function updateImportCount() {
 
 async function importRun() {
   if (!_importConn || !_importSel.size) { setImportStatus('import-run-status', 'Select at least one challenge.', 'err'); return; }
-  const { cookie, token } = _importCreds();
+  // Prefer the session captured by the inline login browser; fall back to a pasted token.
+  const creds = _importCreds();
+  const cookie = _importConn.cookie || creds.cookie;
+  const token = _importConn.cookie ? '' : creds.token;
   const ids = [..._importSel];
   const btn = document.getElementById('import-run-btn');
   if (btn) btn.disabled = true;
@@ -3503,6 +3647,70 @@ async function importRun() {
   await loadChallengeSets();
   await loadChallenges();
   toast(`Imported ${created} challenge${created === 1 ? '' : 's'}.`, 'success');
+}
+
+/* ─── Import agent chat ──────────────────────────────────────────────────── */
+let _importChatMsgs = [];
+
+function startImportChat() {
+  _importChatMsgs = [];
+  const chat = document.getElementById('import-chat');
+  if (chat) chat.innerHTML = '';
+  const chals = _importConn.challenges || [];
+  const cats = [...new Set(chals.map(c => c.category))].sort().join(', ');
+  appendImportChat('bot', `Token acquired ✓ — I can see ${chals.length} challenges (${cats}). Tell me what to grab: e.g. “all unsolved web and crypto”, “everything except misc”, or “just the forensics ones”. I’ll pull the descriptions and files in for you.`);
+  setTimeout(() => document.getElementById('import-chat-input')?.focus(), 60);
+}
+
+function appendImportChat(role, text, importedNames) {
+  const chat = document.getElementById('import-chat');
+  const el = document.createElement('div');
+  el.className = 'ic-msg ' + (role === 'user' ? 'user' : (role === 'thinking' ? 'thinking' : 'bot'));
+  el.textContent = text;
+  if (importedNames && importedNames.length) {
+    const s = document.createElement('span');
+    s.className = 'ic-imported';
+    s.textContent = '✓ imported: ' + importedNames.join(', ');
+    el.appendChild(s);
+  }
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+  return el;
+}
+
+async function importChatSend() {
+  const input = document.getElementById('import-chat-input');
+  const text = (input.value || '').trim();
+  if (!text || !_importConn) return;
+  input.value = ''; input.style.height = 'auto';
+  appendImportChat('user', text);
+  _importChatMsgs.push({ role: 'user', content: text });
+  const send = document.getElementById('import-chat-send'); if (send) send.disabled = true;
+  const think = appendImportChat('thinking', 'Thinking…');
+  const creds = _importCreds();
+  let res;
+  try {
+    res = await api('/api/import/agent', { method: 'POST', body: {
+      base: _importConn.base,
+      cookie: _importConn.cookie || creds.cookie,
+      token: _importConn.cookie ? '' : creds.token,
+      challenges: _importConn.challenges,
+      messages: _importChatMsgs,
+    }});
+  } catch (e) { res = { error: (e && e.message) || 'request failed' }; }
+  think.remove();
+  if (send) send.disabled = false;
+  if (!res || res.error) { appendImportChat('bot', 'Error: ' + ((res && res.error) || 'no response')); return; }
+  const names = (res.imported || []).map(c => c.name);
+  appendImportChat('bot', res.reply || '(no reply)', names);
+  _importChatMsgs.push({ role: 'assistant', content: res.reply || '' });
+  if ((res.import_ids || []).length) {
+    (res.import_ids || []).forEach(id => _importDone.add(String(id)));
+    renderImportList(document.getElementById('import-search').value || '');
+    await loadChallengeSets();
+    await loadChallenges();
+    if (names.length) toast(`Imported ${names.length} challenge${names.length === 1 ? '' : 's'}.`, 'success');
+  }
 }
 
 async function loadChallenges() {
@@ -4785,19 +4993,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnImport) btnImport.addEventListener('click', openImport);
   const importConnectBtn = document.getElementById('import-connect-btn');
   if (importConnectBtn) importConnectBtn.addEventListener('click', importConnect);
+  const importOpenBtn = document.getElementById('import-open-browser');
+  if (importOpenBtn) importOpenBtn.addEventListener('click', importOpenBrowser);
   const importUrl = document.getElementById('import-url');
-  if (importUrl) {
-    importUrl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('import-auth')?.focus(); } });
-    const syncOpen = () => {
-      let u = (importUrl.value || '').trim();
-      if (u && !/^https?:\/\//i.test(u)) u = 'https://' + u;
-      const a = document.getElementById('import-open-site');
-      if (a) a.href = u || '#';
-    };
-    importUrl.addEventListener('input', syncOpen); syncOpen();
-  }
+  if (importUrl) importUrl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); importOpenBrowser(); } });
   const importAuth = document.getElementById('import-auth');
   if (importAuth) importAuth.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); importConnect(); } });
+  const importWaitCancel = document.getElementById('import-wait-cancel');
+  if (importWaitCancel) importWaitCancel.addEventListener('click', () => { closeInlineBrowser(); backToImportConnect(''); });
+  const importWaitRetry = document.getElementById('import-wait-retry');
+  if (importWaitRetry) importWaitRetry.addEventListener('click', () => startImportPoll());
   const importSearch = document.getElementById('import-search');
   if (importSearch) importSearch.addEventListener('input', () => renderImportList(importSearch.value));
   const importBack = document.getElementById('import-back');
@@ -4807,6 +5012,18 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const importRunBtn = document.getElementById('import-run-btn');
   if (importRunBtn) importRunBtn.addEventListener('click', importRun);
+  const importChatSendBtn = document.getElementById('import-chat-send');
+  if (importChatSendBtn) importChatSendBtn.addEventListener('click', importChatSend);
+  const importChatInput = document.getElementById('import-chat-input');
+  if (importChatInput) {
+    importChatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); importChatSend(); }
+    });
+    importChatInput.addEventListener('input', () => {
+      importChatInput.style.height = 'auto';
+      importChatInput.style.height = Math.min(120, importChatInput.scrollHeight) + 'px';
+    });
+  }
   // Model picker + orb appearance
   updateModelTrigger();
   buildOrbSettings();
@@ -5530,7 +5747,10 @@ function switchView(id) {
 }
 
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if (id === 'modal-import' && typeof closeInlineBrowser === 'function') closeInlineBrowser();
+}
 
 // Styled in-app confirm (replaces the ugly native confirm()). Returns a Promise<boolean>.
 function uiConfirm(message, opts = {}) {
