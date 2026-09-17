@@ -1558,12 +1558,12 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   border-bottom: 1px solid var(--border);
   font-family: var(--font-mono); font-size: 11px;
 }
-/* Brand-tint the (single, inline) orb to the clay accent in both themes. */
-thinking-orb.agent-orb {
-  --orb-color-dark: #d97757;
-  --orb-color-light: #cc785c;
-  flex-shrink: 0; display: block; line-height: 0;
+/* Orb color: user override (Settings → Appearance) falls back to the clay accent. */
+thinking-orb.agent-orb, thinking-orb#orb-preview, .orb-anim-opt thinking-orb {
+  --orb-color-dark: var(--user-orb-dark, #d97757);
+  --orb-color-light: var(--user-orb-light, #cc785c);
 }
+thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
 .agent-orb.inline { vertical-align: middle; display: inline-block; }
 .ass-phase {
   color: var(--accent); font-weight: 700;
@@ -2198,6 +2198,25 @@ thinking-orb.agent-orb {
     font-size:12px;font-weight:600;letter-spacing:.04em;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
   .settings-tabs .stab:hover{color:var(--text-dim)}
   .settings-tabs .stab.on{color:var(--text);border-bottom-color:var(--accent)}
+  .orb-appearance{display:flex;gap:24px;align-items:flex-start;margin-top:14px}
+  .orb-appearance-controls{flex:1;min-width:0}
+  .orb-field-label{display:block;font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;
+    text-transform:uppercase;color:var(--text-muted);margin-bottom:8px}
+  .orb-swatches{display:flex;gap:9px;flex-wrap:wrap}
+  .orb-swatch{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid transparent;
+    box-shadow:0 0 0 1px var(--border) inset;transition:transform .12s}
+  .orb-swatch:hover{transform:scale(1.1)}
+  .orb-swatch.on{border-color:var(--text)}
+  .orb-anim-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .orb-anim-opt{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;
+    border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--bg2);transition:.12s}
+  .orb-anim-opt:hover{border-color:var(--border2)}
+  .orb-anim-opt.on{border-color:var(--accent);background:var(--accent-soft)}
+  .orb-anim-opt .oa-label{font-family:var(--font-mono);font-size:10px;color:var(--text-muted)}
+  .orb-anim-opt.on .oa-label{color:var(--accent)}
+  .orb-preview-card{flex-shrink:0;width:150px;display:flex;flex-direction:column;align-items:center;gap:10px;
+    padding:22px 16px;border:1px solid var(--border);border-radius:14px;background:var(--bg2)}
+  .orb-preview-label{font-family:var(--font-mono);font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em}
   .models-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
   .models-title{font-size:15px;font-weight:600;color:var(--text)}
   .models-sub{font-size:12px;color:var(--text-muted);margin-top:2px;line-height:1.4}
@@ -2250,7 +2269,26 @@ thinking-orb.agent-orb {
     <div class="modal-body">
       <div class="settings-tabs">
         <button type="button" class="stab on" data-stab="models">Models</button>
+        <button type="button" class="stab" data-stab="appearance">Appearance</button>
         <button type="button" class="stab" data-stab="general">General</button>
+      </div>
+
+      <!-- APPEARANCE TAB -->
+      <div data-spanel="appearance" hidden>
+        <div class="models-title">Thinking orb</div>
+        <div class="models-sub">The orb reflects what the agent is doing, live. Choose its color and its resting animation.</div>
+        <div class="orb-appearance">
+          <div class="orb-appearance-controls">
+            <label class="orb-field-label">Color</label>
+            <div id="orb-color-swatches" class="orb-swatches"></div>
+            <label class="orb-field-label" style="margin-top:16px;">Resting animation</label>
+            <div id="orb-anim-grid" class="orb-anim-grid"></div>
+          </div>
+          <div class="orb-preview-card">
+            <thinking-orb id="orb-preview" size="64" state="working" theme="auto" aria-label="Orb preview"></thinking-orb>
+            <div class="orb-preview-label" id="orb-preview-label">working</div>
+          </div>
+        </div>
       </div>
 
       <!-- MODELS TAB -->
@@ -3385,6 +3423,56 @@ function toggleModelPanel() {
   p.hidden ? openModelPanel() : closeModelPanel();
 }
 
+// ── Orb appearance (Settings → Appearance): color + resting animation ────────
+const ORB_COLORS = [
+  { name: 'Clay', dark: '#d97757', light: '#cc785c' },
+  { name: 'Blue', dark: '#5b9cf6', light: '#2f7fe0' },
+  { name: 'Teal', dark: '#2dd4bf', light: '#0f8b7c' },
+  { name: 'Violet', dark: '#a78bfa', light: '#6d4fe0' },
+  { name: 'Pink', dark: '#f472b6', light: '#db2777' },
+  { name: 'Green', dark: '#4ade80', light: '#16a34a' },
+  { name: 'Amber', dark: '#fbbf24', light: '#d97706' },
+];
+const ORB_ANIMS = ['working', 'searching', 'solving', 'listening', 'composing', 'shaping'];
+window.orbIdleState = 'working';
+
+function applyOrbColor(idx) {
+  const c = ORB_COLORS[idx] || ORB_COLORS[0];
+  document.documentElement.style.setProperty('--user-orb-dark', c.dark);
+  document.documentElement.style.setProperty('--user-orb-light', c.light);
+  try { localStorage.setItem('orb-color', String(idx)); } catch (e) {}
+  document.querySelectorAll('#orb-color-swatches .orb-swatch').forEach((el, i) => el.classList.toggle('on', i === idx));
+}
+function applyOrbAnim(stateName) {
+  if (!ORB_ANIMS.includes(stateName)) stateName = 'working';
+  window.orbIdleState = stateName;
+  try { localStorage.setItem('orb-anim', stateName); } catch (e) {}
+  document.querySelectorAll('#orb-anim-grid .orb-anim-opt').forEach(el => el.classList.toggle('on', el.dataset.state === stateName));
+  const prev = document.getElementById('orb-preview');
+  if (prev) { prev.setAttribute('state', stateName); prev.removeAttribute('paused'); }
+  const lbl = document.getElementById('orb-preview-label');
+  if (lbl) lbl.textContent = stateName;
+  if (!state.agentRunning) setAgentOrb(stateName, { paused: true });
+}
+function buildOrbSettings() {
+  const sw = document.getElementById('orb-color-swatches');
+  if (sw) {
+    sw.innerHTML = ORB_COLORS.map((c, i) =>
+      `<div class="orb-swatch" title="${c.name}" data-i="${i}" style="background:${c.dark}"></div>`).join('');
+    sw.querySelectorAll('.orb-swatch').forEach(el => el.addEventListener('click', () => applyOrbColor(+el.dataset.i)));
+  }
+  const grid = document.getElementById('orb-anim-grid');
+  if (grid) {
+    grid.innerHTML = ORB_ANIMS.map(s =>
+      `<div class="orb-anim-opt" data-state="${s}"><thinking-orb size="20" state="${s}" theme="auto"></thinking-orb><span class="oa-label">${s}</span></div>`).join('');
+    grid.querySelectorAll('.orb-anim-opt').forEach(el => el.addEventListener('click', () => applyOrbAnim(el.dataset.state)));
+  }
+  let savedColor = 0, savedAnim = 'working';
+  try { savedColor = parseInt(localStorage.getItem('orb-color') || '0', 10) || 0; savedAnim = localStorage.getItem('orb-anim') || 'working'; } catch (e) {}
+  applyOrbColor(savedColor);
+  applyOrbAnim(savedAnim);
+}
+
 function formatMemorySize(bytes) {
   const n = Number(bytes || 0);
   if (!Number.isFinite(n) || n <= 0) return '0 B';
@@ -3949,7 +4037,7 @@ function updateRunningUI() {
   updateAgentActivity();
   // Freeze the thinking-orb when the agent isn't running; wake it when it is.
   if (state.agentRunning) setAgentOrb(null, { paused: false });
-  else setAgentOrb('working', { paused: true, speed: 1 });
+  else setAgentOrb(window.orbIdleState || 'working', { paused: true, speed: 1 });
   if (state.agentRunning) startActivityTimer();
   else stopActivityTimer();
 }
@@ -4057,8 +4145,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (setSelect) {
     setSelect.addEventListener('change', e => activateChallengeSet(e.target.value));
   }
-  // Model picker
+  // Model picker + orb appearance
   updateModelTrigger();
+  buildOrbSettings();
   const modelTrigger = document.getElementById('model-picker-trigger');
   const modelSearch = document.getElementById('model-search');
   if (modelTrigger) modelTrigger.addEventListener('click', (e) => { e.stopPropagation(); toggleModelPanel(); });
