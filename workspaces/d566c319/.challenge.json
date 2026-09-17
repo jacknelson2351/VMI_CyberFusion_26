@@ -1,0 +1,37 @@
+{
+  "id": "d566c319",
+  "name": "md5",
+  "category": "misc",
+  "flag_format": "",
+  "description": "making a guest appearance from umdctf 2024: this challenge might not be solvable\n\nmd5.challs.umdctf.io",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-04-25T00:46:58.934174Z"
+}

@@ -1,0 +1,582 @@
+[2026-04-25T01:13:02Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-04-25T01:13:02Z] EXIT 0
+
+[2026-04-25T01:13:02Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:02Z] EXIT 0
+
+[2026-04-25T01:13:02Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:02Z] EXIT 0
+
+[2026-04-25T01:13:03Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:03Z] EXIT 0
+
+[2026-04-25T01:13:03Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:03Z] EXIT 0
+
+[2026-04-25T01:13:03Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:03Z] EXIT 0
+
+[2026-04-25T01:13:04Z] CMD ls -1 /ctf/ 2>/dev/null || true
+dns_server.py
+[2026-04-25T01:13:04Z] EXIT 0
+
+[2026-04-25T01:13:04Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 16
+drwxr-xr-x 7 root root  224 Apr 25 01:13 .
+drwxr-xr-x 1 root root 4096 Apr 25 01:13 ..
+-rw-r--r-- 1 root root  902 Apr 25 01:13 .agent_live.log
+drwxr-xr-x 2 root root   64 Apr 25 01:13 .artifacts
+-rw-r--r-- 1 root root  769 Apr 25 01:13 .challenge.json
+drwxr-xr-x 2 root root   64 Apr 25 01:13 .sessions
+-rw-r--r-- 1 root root 1761 Apr 25 00:43 dns_server.py
+---
+/ctf/dns_server.py: Python script, ASCII text executable
+[2026-04-25T01:13:04Z] EXIT 0
+
+[2026-04-25T01:13:04Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:04Z] EXIT 0
+
+[2026-04-25T01:13:05Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:05Z] EXIT 0
+
+[2026-04-25T01:13:05Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:05Z] EXIT 0
+
+[2026-04-25T01:13:05Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:05Z] EXIT 0
+
+[2026-04-25T01:13:06Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:06Z] EXIT 0
+
+[2026-04-25T01:13:10Z] CMD sed -n '1,200p' dns_server.py
+#!/usr/local/bin/python -u
+
+import time, sys, socket, random, string
+from dnslib.server import DNSServer, DNSLogger, BaseResolver
+from dnslib import RR, TXT, QTYPE, RCODE
+from flag import flag
+
+k = 819
+secret = random.choices(string.ascii_letters, k=k)
+subdomain = '.'.join([''.join(secret[i:i+63]) for i in range(0, k - 63 + 1, 63)])
+
+class Resolver(BaseResolver):
+    def resolve(self, request, handler):
+        reply = request.reply()
+
+        for question in request.questions:
+            qname = question.qname
+            if question.qtype != QTYPE.TXT:
+                reply.header.rcode = RCODE.reverse['NXDOMAIN']
+                continue
+
+            if qname == subdomain + ".inside.info":
+                reply.questions = []
+                reply.add_answer(RR("flag.inside.info", QTYPE.TXT, rdata=TXT(flag)))
+            elif qname.matchWildcard("*.inside.info"):
+                try:
+                    index = int(qname.label[0])
+                    reply.add_answer(RR(qname, QTYPE.TXT, rdata=TXT(secret[index])))
+                except ValueError, IndexError:
+                    reply.header.rcode = RCODE.reverse['NXDOMAIN']
+                    reply.questions = []
+            else:
+                reply.header.rcode = RCODE.reverse['NXDOMAIN']
+
+        return reply
+
+server = DNSServer(Resolver(),
+                   port=1337,
+                   logger=DNSLogger(logf=DNSLogger.log_pass))
+server.start_thread()
+
+for _ in range(2):
+    s = sys.stdin.buffer.read(2)
+    s = int.from_bytes(s)
+    q = sys.stdin.buffer.read(s)
+
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.sendto(q, ("127.0.0.1", 1337))
+        a = sock.recv(2**16)
+        a = len(a).to_bytes(2) + a
+        sys.stdout.buffer.write(a)
+[2026-04-25T01:13:10Z] EXIT 0
+
+[2026-04-25T01:13:13Z] CMD grep -r --include='*' -E 'UMDCTF{' /ctf/ 2>/dev/null | head -50; ec=$?; if [ $ec -eq 2 ]; then grep -r --include='*' -F 'UMDCTF{' /ctf/ 2>/dev/null | head -50; fi
+/ctf/.agent_live.log:[2026-04-25T01:13:13Z] CMD grep -r --include='*' -E 'UMDCTF{' /ctf/ 2>/dev/null | head -50; ec=$?; if [ $ec -eq 2 ]; then grep -r --include='*' -F 'UMDCTF{' /ctf/ 2>/dev/null | head -50; fi
+[2026-04-25T01:13:13Z] EXIT 0
+
+[2026-04-25T01:13:32Z] CMD chmod +x /ctf/query.py
+[2026-04-25T01:13:32Z] EXIT 0
+
+[2026-04-25T01:14:08Z] CMD chmod +x /ctf/solve.py
+[2026-04-25T01:14:08Z] EXIT 0
+
+[2026-04-25T01:14:10Z] CMD chmod +x solve.py && ./solve.py
+Traceback (most recent call last):
+  File "/ctf/./solve.py", line 3, in <module>
+    from dnslib import DNSRecord, QTYPE
+ModuleNotFoundError: No module named 'dnslib'
+[2026-04-25T01:14:10Z] EXIT 1
+
+[2026-04-25T01:14:14Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:14:14Z] EXIT 0
+
+[2026-04-25T01:14:18Z] CMD /ctf/.venv/bin/python -m pip install --user dnslib
+ERROR: Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
+[2026-04-25T01:14:18Z] EXIT 1
+
+[2026-04-25T01:14:20Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:14:20Z] EXIT 0
+
+[2026-04-25T01:14:21Z] CMD /ctf/.venv/bin/python -m pip install dnslib
+Collecting dnslib
+  Downloading dnslib-0.9.26-py3-none-any.whl.metadata (19 kB)
+Downloading dnslib-0.9.26-py3-none-any.whl (64 kB)
+Installing collected packages: dnslib
+Successfully installed dnslib-0.9.26
+[2026-04-25T01:14:21Z] EXIT 0
+
+[2026-04-25T01:14:24Z] CMD ./solve.py
+Traceback (most recent call last):
+  File "/ctf/./solve.py", line 3, in <module>
+    from dnslib import DNSRecord, QTYPE
+ModuleNotFoundError: No module named 'dnslib'
+[2026-04-25T01:14:24Z] EXIT 1
+
+[2026-04-25T01:14:32Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:14:32Z] EXIT 0
+
+[2026-04-25T01:14:32Z] CMD /ctf/.venv/bin/python solve.py
+Error querying 0.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 0.inside.info
+Error querying 1.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 1.inside.info
+Error querying 2.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 2.inside.info
+Error querying 3.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 3.inside.info
+Error querying 4.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 4.inside.info
+Error querying 5.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 5.inside.info
+Error querying 6.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 6.inside.info
+Error querying 7.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 7.inside.info
+Error querying 8.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 8.inside.info
+Error querying 9.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 9.inside.info
+Error querying 10.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 10.inside.info
+Error querying 11.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 11.inside.info
+Error querying 12.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 12.inside.info
+Error querying 13.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 13.inside.info
+Error querying 14.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 14.inside.info
+Error querying 15.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 15.inside.info
+Error querying 16.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 16.inside.info
+Error querying 17.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 17.inside.info
+Error querying 18.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 18.inside.info
+Error querying 19.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 19.inside.info
+Error querying 20.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 20.inside.info
+Error querying 21.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 21.inside.info
+Error querying 22.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 22.inside.info
+Error querying 23.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 23.inside.info
+Error querying 24.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 24.inside.info
+Error querying 25.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 25.inside.info
+Error querying 26.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 26.inside.info
+Error querying 27.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 27.inside.info
+Error querying 28.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 28.inside.info
+Error querying 29.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 29.inside.info
+Error querying 30.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 30.inside.info
+Error querying 31.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 31.inside.info
+Error querying 32.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 32.inside.info
+Error querying 33.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 33.inside.info
+Error querying 34.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 34.inside.info
+Error querying 35.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 35.inside.info
+Error querying 36.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 36.inside.info
+Error querying 37.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 37.inside.info
+Error querying 38.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 38.inside.info
+Error querying 39.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 39.inside.info
+Error querying 40.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 40.inside.info
+Error querying 41.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 41.inside.info
+Error querying 42.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 42.inside.info
+Error querying 43.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 43.inside.info
+Error querying 44.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 44.inside.info
+Error querying 45.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 45.inside.info
+Error querying 46.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 46.inside.info
+Error querying 47.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 47.inside.info
+Error querying 48.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 48.inside.info
+Error querying 49.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 49.inside.info
+Error querying 50.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 50.inside.info
+Error querying 51.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 51.inside.info
+Error querying 52.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 52.inside.info
+Error querying 53.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 53.inside.info
+Error querying 54.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 54.inside.info
+Error querying 55.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 55.inside.info
+Error querying 56.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 56.inside.info
+Error querying 57.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 57.inside.info
+Error querying 58.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 58.inside.info
+Error querying 59.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 59.inside.info
+Error querying 60.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 60.inside.info
+Error querying 61.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 61.inside.info
+Error querying 62.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 62.inside.info
+Error querying 63.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 63.inside.info
+Error querying 64.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 64.inside.info
+Error querying 65.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 65.inside.info
+Error querying 66.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 66.inside.info
+Error querying 67.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 67.inside.info
+Error querying 68.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 68.inside.info
+Error querying 69.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 69.inside.info
+Error querying 70.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 70.inside.info
+Error querying 71.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 71.inside.info
+Error querying 72.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 72.inside.info
+Error querying 73.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 73.inside.info
+Error querying 74.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 74.inside.info
+Error querying 75.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 75.inside.info
+Error querying 76.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 76.inside.info
+Error querying 77.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 77.inside.info
+Error querying 78.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 78.inside.info
+Error querying 79.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 79.inside.info
+Error querying 80.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 80.inside.info
+Error querying 81.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 81.inside.info
+Error querying 82.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 82.inside.info
+Error querying 83.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 83.inside.info
+Error querying 84.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 84.inside.info
+Error querying 85.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 85.inside.info
+Error querying 86.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 86.inside.info
+Error querying 87.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 87.inside.info
+Error querying 88.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 88.inside.info
+Error querying 89.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 89.inside.info
+Error querying 90.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 90.inside.info
+Error querying 91.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 91.inside.info
+Error querying 92.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 92.inside.info
+Error querying 93.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 93.inside.info
+Error querying 94.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 94.inside.info
+Error querying 95.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 95.inside.info
+Error querying 96.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 96.inside.info
+Error querying 97.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 97.inside.info
+Error querying 98.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 98.inside.info
+Error querying 99.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 99.inside.info
+Error querying 100.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 100.inside.info
+Error querying 101.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 101.inside.info
+Error querying 102.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 102.inside.info
+Error querying 103.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 103.inside.info
+Error querying 104.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 104.inside.info
+Error querying 105.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 105.inside.info
+Error querying 106.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 106.inside.info
+Error querying 107.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 107.inside.info
+Error querying 108.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 108.inside.info
+Error querying 109.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 109.inside.info
+Error querying 110.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 110.inside.info
+Error querying 111.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 111.inside.info
+Error querying 112.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 112.inside.info
+Error querying 113.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 113.inside.info
+Error querying 114.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 114.inside.info
+Error querying 115.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 115.inside.info
+Error querying 116.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 116.inside.info
+Error querying 117.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 117.inside.info
+Error querying 118.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 118.inside.info
+Error querying 119.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 119.inside.info
+Error querying 120.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 120.inside.info
+Error querying 121.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 121.inside.info
+Error querying 122.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 122.inside.info
+Error querying 123.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 123.inside.info
+Error querying 124.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 124.inside.info
+Error querying 125.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 125.inside.info
+Error querying 126.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 126.inside.info
+Error querying 127.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 127.inside.info
+Error querying 128.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 128.inside.info
+Error querying 129.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 129.inside.info
+Error querying 130.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 130.inside.info
+Error querying 131.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 131.inside.info
+Error querying 132.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 132.inside.info
+Error querying 133.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 133.inside.info
+Error querying 134.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 134.inside.info
+Error querying 135.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 135.inside.info
+Error querying 136.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 136.inside.info
+Error querying 137.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 137.inside.info
+Error querying 138.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 138.inside.info
+Error querying 139.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 139.inside.info
+Error querying 140.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 140.inside.info
+Error querying 141.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 141.inside.info
+Error querying 142.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 142.inside.info
+Error querying 143.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 143.inside.info
+Error querying 144.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 144.inside.info
+Error querying 145.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 145.inside.info
+Error querying 146.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 146.inside.info
+Error querying 147.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 147.inside.info
+Error querying 148.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 148.inside.info
+Error querying 149.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 149.inside.info
+Error querying 150.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 150.inside.info
+Error querying 151.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 151.inside.info
+Error querying 152.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 152.inside.info
+Error querying 153.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 153.inside.info
+Error querying 154.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 154.inside.info
+Error querying 155.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 155.inside.info
+Error querying 156.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 156.inside.info
+Error querying 157.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 157.inside.info
+Error querying 158.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 158.inside.info
+Error querying 159.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 159.inside.info
+Error querying 160.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 160.inside.info
+Error querying 161.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 161.inside.info
+Error querying 162.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 162.inside.info
+Error querying 163.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 163.inside.info
+Error querying 164.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 164.inside.info
+Error querying 165.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 165.inside.info
+Error querying 166.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 166.inside.info
+Error querying 167.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 167.inside.info
+Error querying 168.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 168.inside.info
+Error querying 169.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 169.inside.info
+Error querying 170.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 170.inside.info
+Error querying 171.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 171.inside.info
+Error querying 172.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 172.inside.info
+Error querying 173.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 173.inside.info
+Error querying 174.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 174.inside.info
+Error querying 175.inside.info 'TXT' object has no attribute 'txt'
+No TXT for 175.inside.info
+Error querying 176.inside.info 'TXT' object has no attribute 'txt'[2026-04-25T01:14:32Z] EXIT 124
+
+[2026-04-25T01:15:45Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:15:45Z] EXIT 0
+
+[2026-04-25T01:15:46Z] CMD /ctf/.venv/bin/python - << 'PY'
+from dnslib import DNSRecord, QTYPE
+import socket
+HOST='challs.umdctf.io'; PORT=32323
+q=DNSRecord.question('0.inside.info', qtype='TXT')
+qb=q.pack(); frame=len(qb).to_bytes(2,'big')+qb
+s=socket.create_connection((HOST,PORT), timeout=10)
+s.sendall(frame)
+ln=s.recv(2); l=int.from_bytes(ln,'big'); data=s.recv(l)
+resp=DNSRecord.parse(data)
+print(resp)
+for a in resp.rr:
+    print('RR repr:', repr(a))
+    print('rdata repr:', repr(a.rdata))
+    print('type(rdata):', type(a.rdata))
+    try:
+        print('rdata.txt attr:', a.rdata.txt)
+    except Exception as e:
+        print('rdata.txt exception', e)
+    try:
+        print('str(rdata):', str(a.rdata))
+    except Exception as e:
+        print('str exception', e)
+    try:
+        print('rdata.strings:', a.rdata.strings)
+    except Exception as e:
+        print('rdata.strings exception', e)
+print('done')
+PY
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 2584
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+;; QUESTION SECTION:
+;0.inside.info.                 IN      TXT
+;; ANSWER SECTION:
+0.inside.info.          0       IN      TXT     "O"
+RR repr: <DNS RR: '0.inside.info.' rtype=TXT rclass=IN ttl=0 rdata='"O"'>
+rdata repr: "O"
+type(rdata): <class 'dnslib.dns.TXT'>
+rdata.txt exception 'TXT' object has no attribute 'txt'
+str(rdata): "O"
+rdata.strings exception 'TXT' object has no attribute 'strings'
+done
+[2026-04-25T01:15:46Z] EXIT 0
+
+[2026-04-25T01:16:02Z] CMD chmod +x /ctf/solve.py
+[2026-04-25T01:16:02Z] EXIT 0
+
+[2026-04-25T01:16:18Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:16:18Z] EXIT 0
+
+[2026-04-25T01:16:18Z] CMD /ctf/.venv/bin/python solve.py
+[2026-04-25T01:16:18Z] EXIT 124
+
+[2026-04-25T01:17:26Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:17:26Z] EXIT 0
+
+[2026-04-25T01:17:26Z] CMD /ctf/.venv/bin/python -u solve.py | sed -n '1,120p'
+[2026-04-25T01:17:26Z] EXIT 124
+
+[2026-04-25T01:18:32Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:18:32Z] EXIT 0
+
+[2026-04-25T01:18:33Z] CMD /ctf/.venv/bin/python -u solve.py | tee run.log
+[2026-04-25T01:18:33Z] EXIT 124
+

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="PixelVault - Fast, free image hosting">
+    <title>Register - PixelVault</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">
+                <i data-lucide="image" class="nav-icon"></i>
+                <span>PixelVault</span>
+            </a>
+            <div class="nav-links">
+                <a href="/gallery" class="nav-link">
+                    <i data-lucide="layout-grid"></i>
+                    <span>Gallery</span>
+                </a>
+                
+                <a href="/login" class="nav-link">
+                    <i data-lucide="log-in"></i>
+                    <span>Login</span>
+                </a>
+                <a href="/register" class="nav-link btn-primary">
+                    <i data-lucide="user-plus"></i>
+                    <span>Register</span>
+                </a>
+                
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        
+<section class="auth-section">
+    <div class="auth-card">
+        <h1><i data-lucide="user-plus"></i> Create Account</h1>
+
+        
+
+        <form action="/register" method="post" class="auth-form">
+            <div class="form-group">
+                <label for="username"><i data-lucide="user"></i> Username</label>
+                <input type="text" id="username" name="username" required minlength="3" maxlength="32"
+                    pattern="[a-zA-Z0-9_-]+" autocomplete="username"
+                    placeholder="3-32 characters, letters/numbers/dashes">
+            </div>
+            <div class="form-group">
+                <label for="email"><i data-lucide="mail"></i> Email</label>
+                <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+                <label for="password"><i data-lucide="lock"></i> Password</label>
+                <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password"
+                    placeholder="At least 8 characters">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg btn-full">
+                <i data-lucide="user-plus"></i> Create Account
+            </button>
+        </form>
+
+        <p class="auth-alt">
+            Already have an account? <a href="/login">Login</a>
+        </p>
+    </div>
+</section>
+
+    </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>PixelVault &middot; Free image hosting</p>
+            <div class="footer-links">
+                <a href="/api/v1/health">API</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>lucide.createIcons();</script>
+    
+</body>
+</html>

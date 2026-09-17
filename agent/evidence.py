@@ -3,6 +3,8 @@ EvidenceMixin — lightweight evidence tracking derived from observed tool outpu
 """
 import re
 
+from utils import _is_high_signal_evidence_text
+
 
 class EvidenceMixin:
 
@@ -14,8 +16,19 @@ class EvidenceMixin:
         if text in target:
             return
         target.append(text)
-        if len(target) > 20:
-            del target[:len(target) - 20]
+        cap = 30
+        overflow = len(target) - cap
+        if overflow > 0:
+            if bucket == "confirmed":
+                idx = 0
+                while overflow > 0 and idx < len(target):
+                    if not _is_high_signal_evidence_text(target[idx]):
+                        del target[idx]
+                        overflow -= 1
+                    else:
+                        idx += 1
+            if overflow > 0:
+                del target[:overflow]
         self._evidence_version += 1
 
     def _evidence_summary(self) -> str:
@@ -68,5 +81,14 @@ class EvidenceMixin:
                 self._add_evidence("confirmed", stripped[:220])
             if re.search(r"\b(?:status|header|cookie|saved_to|final_url)\b", stripped, re.IGNORECASE):
                 self._add_evidence("confirmed", stripped[:220])
+            # File type magic from `file` command
+            if re.search(r":\s+(?:ELF|PE32|Mach-O|JPEG|PNG|ZIP|PDF|Python|ASCII text|gzip|bzip2|RAR|7-zip)\b", stripped):
+                self._add_evidence("confirmed", stripped[:220])
+            # Security properties from checksec / pwndbg
+            if re.search(r"(?:NX|PIE|Canary|RELRO)(?:\s+found|:\s+(?:enabled|disabled|partial|full|no)\b)", stripped, re.IGNORECASE):
+                self._add_evidence("confirmed", stripped[:220])
+            # Crypto / hash algorithm identifiers
+            if re.search(r"\b(?:AES|RSA|DES3?|XOR|MD5|SHA-?(?:1|256|512)|bcrypt|ECDSA|Fernet|ChaCha)\b", stripped, re.IGNORECASE) and len(stripped) < 140:
+                self._add_evidence("confirmed", stripped[:140])
         for cand in self._extract_flag_candidates(out):
             self._add_evidence("confirmed", f"Flag-like token observed: {cand}")

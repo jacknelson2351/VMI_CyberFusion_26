@@ -1,0 +1,37 @@
+{
+  "id": "64c1b792",
+  "name": "Pixel Vault",
+  "category": "web",
+  "flag_format": "",
+  "description": "",
+  "tags": [],
+  "target": {
+    "url": "http://5602987678ab.pixel-vault.ctf.theromanxpl0.it",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-04-25T02:26:01.211727Z"
+}

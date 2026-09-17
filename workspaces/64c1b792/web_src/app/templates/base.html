@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ settings.SITE_NAME }} - Fast, free image hosting">
+    <title>{% block title %}{{ settings.SITE_NAME }}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">
+                <i data-lucide="image" class="nav-icon"></i>
+                <span>{{ settings.SITE_NAME }}</span>
+            </a>
+            <div class="nav-links">
+                <a href="/gallery" class="nav-link">
+                    <i data-lucide="layout-grid"></i>
+                    <span>Gallery</span>
+                </a>
+                {% if user %}
+                <a href="/album/new" class="nav-link">
+                    <i data-lucide="folder-plus"></i>
+                    <span>New Album</span>
+                </a>
+                <a href="/u/{{ user.username }}" class="nav-link">
+                    <i data-lucide="user"></i>
+                    <span>{{ user.username }}</span>
+                </a>
+                <form action="/logout" method="post" class="nav-form">
+                    <button type="submit" class="nav-link nav-btn">
+                        <i data-lucide="log-out"></i>
+                        <span>Logout</span>
+                    </button>
+                </form>
+                {% else %}
+                <a href="/login" class="nav-link">
+                    <i data-lucide="log-in"></i>
+                    <span>Login</span>
+                </a>
+                <a href="/register" class="nav-link btn-primary">
+                    <i data-lucide="user-plus"></i>
+                    <span>Register</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>{{ settings.SITE_NAME }} &middot; Free image hosting</p>
+            <div class="footer-links">
+                <a href="/api/v1/health">API</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>lucide.createIcons();</script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

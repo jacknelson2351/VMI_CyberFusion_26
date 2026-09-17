@@ -1,0 +1,19 @@
+{
+  "status": "idle",
+  "phase": "idle",
+  "step": 0,
+  "run_id": null,
+  "hypotheses": [],
+  "confirmed": [],
+  "ruled_out": [],
+  "artifacts": [],
+  "dead_ends": [],
+  "flag_candidates": [],
+  "phase_history": [],
+  "tool_stats": {},
+  "next_best_action": "",
+  "checkpoint_summary": "",
+  "repeated_failure_count": 0,
+  "planner_summary": "",
+  "updated_at": null
+}

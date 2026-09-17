@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ settings.SITE_NAME }} - Upload and share images{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Share your images with the world</h1>
+    <p class="hero-sub">Drag, drop, or paste. No account required.</p>
+</section>
+
+<section class="upload-section">
+    <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+        <div id="drop-zone" class="drop-zone">
+            <i data-lucide="upload-cloud" class="drop-icon"></i>
+            <p class="drop-text">Drag images here or click to browse</p>
+            <p class="drop-hint">Paste from clipboard with Ctrl+V</p>
+            <input type="file" id="file-input" name="files" multiple accept="image/*" class="file-input">
+        </div>
+
+        <div id="preview-area" class="preview-area hidden"></div>
+
+        <div class="upload-options">
+            <div class="form-group">
+                <label for="title">
+                    <i data-lucide="type"></i> Title (optional)
+                </label>
+                <input type="text" id="title" name="title" placeholder="Give your upload a title" maxlength="255">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="visibility">
+                        <i data-lucide="eye"></i> Visibility
+                    </label>
+                    <select id="visibility" name="visibility">
+                        <option value="public">Public</option>
+                        <option value="unlisted">Unlisted</option>
+                        <option value="private">Private</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="nsfw" value="true">
+                        <i data-lucide="alert-triangle"></i> NSFW
+                    </label>
+                </div>
+            </div>
+            <button type="submit" id="upload-btn" class="btn btn-primary btn-lg" disabled>
+                <i data-lucide="upload"></i>
+                <span>Upload</span>
+            </button>
+        </div>
+    </form>
+</section>
+
+{% if recent_images %}
+<section class="recent-section">
+    <h2 class="section-title">
+        <i data-lucide="clock"></i> Recent uploads
+    </h2>
+    <div class="image-grid">
+        {% for img in recent_images %}
+        <a href="/i/{{ img.short_code }}" class="grid-item {% if img.nsfw %}nsfw-blur{% endif %}">
+            <img src="/thumb/{{ img.short_code }}/{{ settings.thumb_sizes_list[1] }}"
+                alt="{{ img.title or img.original_name }}" loading="lazy">
+            <div class="grid-overlay">
+                <span class="grid-views"><i data-lucide="eye"></i> {{ img.views }}</span>
+                <span class="grid-votes"><i data-lucide="arrow-up"></i> {{ img.vote_score }}</span>
+            </div>
+            {% if img.nsfw %}
+            <div class="nsfw-badge">NSFW</div>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/upload.js"></script>
+{% endblock %}

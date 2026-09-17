@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Gallery - {{ settings.SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="gallery-section">
+    <div class="gallery-header">
+        <h1><i data-lucide="layout-grid"></i> Gallery</h1>
+        <div class="sort-tabs">
+            <a href="/gallery?sort=newest" class="sort-tab {% if sort == 'newest' %}active{% endif %}">
+                <i data-lucide="clock"></i> Newest
+            </a>
+            <a href="/gallery?sort=top" class="sort-tab {% if sort == 'top' %}active{% endif %}">
+                <i data-lucide="trending-up"></i> Top
+            </a>
+            <a href="/gallery?sort=trending" class="sort-tab {% if sort == 'trending' %}active{% endif %}">
+                <i data-lucide="flame"></i> Trending
+            </a>
+        </div>
+    </div>
+
+    {% if images %}
+    <div class="image-grid">
+        {% for img in images %}
+        <a href="/i/{{ img.short_code }}" class="grid-item {% if img.nsfw %}nsfw-blur{% endif %}">
+            <img src="/thumb/{{ img.short_code }}/{{ settings.thumb_sizes_list[1] }}"
+                alt="{{ img.title or img.original_name }}" loading="lazy">
+            <div class="grid-overlay">
+                <span class="grid-views"><i data-lucide="eye"></i> {{ img.views }}</span>
+                <span class="grid-votes"><i data-lucide="arrow-up"></i> {{ img.vote_score }}</span>
+            </div>
+            {% if img.nsfw %}
+            <div class="nsfw-badge">NSFW</div>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+
+    <nav class="pagination">
+        {% if page > 1 %}
+        <a href="/gallery?sort={{ sort }}&page={{ page - 1 }}" class="btn btn-secondary">
+            <i data-lucide="chevron-left"></i> Previous
+        </a>
+        {% endif %}
+        <span class="page-info">Page {{ page }}</span>
+        {% if has_next %}
+        <a href="/gallery?sort={{ sort }}&page={{ page + 1 }}" class="btn btn-secondary">
+            Next <i data-lucide="chevron-right"></i>
+        </a>
+        {% endif %}
+    </nav>
+    {% else %}
+    <div class="empty-state">
+        <i data-lucide="image-off" class="empty-icon"></i>
+        <p>No images yet. Be the first to <a href="/">upload one</a>!</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

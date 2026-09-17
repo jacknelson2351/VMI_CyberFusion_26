@@ -1,0 +1,37 @@
+{
+  "id": "f30462bd",
+  "name": "sanity check",
+  "category": "misc",
+  "flag_format": "",
+  "description": "I love prediction markets.\n\nI love gambling.\n\nUMDCTF{challenge_based_futures_market}",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-09-14T18:55:14.572618Z"
+}

@@ -1,0 +1,37 @@
+{
+  "id": "458bf1d8",
+  "name": "trx-markdown2",
+  "category": "web",
+  "flag_format": "",
+  "description": "I LOVE custom sanitizers",
+  "tags": [],
+  "target": {
+    "url": "http://4ab4a0fedd73.markdown2.ctf.theromanxpl0.it",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-04-25T02:22:44.573483Z"
+}

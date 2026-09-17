@@ -1,0 +1,82 @@
+{
+  "status": "pending_approval",
+  "phase": "done",
+  "step": 6,
+  "run_id": null,
+  "hypotheses": [],
+  "confirmed": [
+    {
+      "text": "/ctf/img.jpg: JPEG image data, JFIF standard 1.01, aspect ratio, density 1x1, segment length 16, comment: \"c3RlZ2hpZGU6Y0VGNmVuZHZjbVE9\", baseline, precision 8, 640x640, components 3",
+      "step": 0
+    },
+    {
+      "text": "File Type                       : JPEG",
+      "step": 0
+    },
+    {
+      "text": "Flag-like token observed: picoCTF{h1dd3n_1n_1m4g3_656e4d79}",
+      "step": 5
+    }
+  ],
+  "ruled_out": [],
+  "artifacts": [],
+  "dead_ends": [],
+  "flag_candidates": [
+    {
+      "value": "picoCTF{h1dd3n_1n_1m4g3_656e4d79}",
+      "source": "submit_flag",
+      "step": 6
+    }
+  ],
+  "phase_history": [
+    {
+      "phase": "recon",
+      "step": 0,
+      "reason": "run started"
+    },
+    {
+      "phase": "analyze",
+      "step": 0,
+      "reason": "auto-recon complete"
+    },
+    {
+      "phase": "recon",
+      "step": 1,
+      "reason": "step"
+    },
+    {
+      "phase": "analyze",
+      "step": 2,
+      "reason": "step"
+    },
+    {
+      "phase": "exploit",
+      "step": 5,
+      "reason": "step"
+    },
+    {
+      "phase": "verify",
+      "step": 6,
+      "reason": "flag candidate queued"
+    }
+  ],
+  "tool_stats": {
+    "run_command": {
+      "calls": 5,
+      "progress": 5,
+      "errors": 0,
+      "last_step": 5
+    },
+    "submit_flag": {
+      "calls": 1,
+      "progress": 1,
+      "errors": 0,
+      "last_step": 6
+    }
+  },
+  "next_best_action": "Confirm the candidate flag from an independent source before submitting or requesting approval.",
+  "checkpoint_summary": "Flag candidate queued for approval.",
+  "repeated_failure_count": 0,
+  "planner_summary": "",
+  "updated_at": "2026-09-17T21:40:26.282265Z"
+}

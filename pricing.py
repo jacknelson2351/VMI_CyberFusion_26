@@ -8,6 +8,7 @@ import re
 
 MODEL_COSTS = {
     # OpenAI
+    "gpt-5.5":                        ( 2.00,  16.00),
     "gpt-5.2":                        ( 1.75,  14.00),
     "gpt-5.2-chat-latest":            ( 1.75,  14.00),
     "gpt-5.2-pro":                    (21.00, 168.00),
@@ -45,6 +46,7 @@ MODEL_COSTS = {
     "computer-use-preview":           ( 3.00,  12.00),
     "codex-mini-latest":              ( 1.50,   6.00),
     # Anthropic / Claude
+    "claude-opus-4-7":                (15.00,  75.00),
     "claude-opus-4-6":                (15.00,  75.00),
     "claude-sonnet-4-6":              ( 3.00,  15.00),
     "claude-sonnet-4-5":              ( 3.00,  15.00),

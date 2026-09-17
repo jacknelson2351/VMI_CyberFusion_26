@@ -1,0 +1,37 @@
+{
+  "id": "c2ca15e1",
+  "name": "rush-hour",
+  "category": "misc",
+  "flag_format": "",
+  "description": "oobet recently introduced their new game: rush hour. the objective of the game is to successfully bet on how many cars cross an arbitrary section of road in a given time. i have identified a highway exit on a california traffic cam that experts predict will have no traffic during this ctf. however, you somewhat unwisely bet that one car would take this exit. well, now's your chance. can you hack the autonomous car RL policy to drive to the target?\n\nrush-hour.challs.umdctf.io",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-04-25T01:20:13.752717Z"
+}

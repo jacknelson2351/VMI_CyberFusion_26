@@ -1,0 +1,37 @@
+{
+  "id": "c7a18fe9",
+  "name": "vkexchange",
+  "category": "pwn",
+  "flag_format": "",
+  "description": "i built a stock market exchange using vulkan! but somethings wrong, i can feel it.\n\nnc challs.umdctf.io 30305",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-04-25T00:52:17.651680Z"
+}

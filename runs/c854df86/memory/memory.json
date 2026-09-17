@@ -1,0 +1,77 @@
+{
+  "status": "unsolved",
+  "phase": "api_error",
+  "step": 10,
+  "run_id": null,
+  "hypotheses": [],
+  "confirmed": [
+    {
+      "text": "/ctf/*: cannot open `/ctf/*' (No such file or directory)",
+      "step": 0
+    },
+    {
+      "text": "\u2503 \u21d2 https://www.kali.org/docs/troubleshooting/common-minimum-setup/",
+      "step": 2
+    }
+  ],
+  "ruled_out": [
+    {
+      "text": "Path failure in command: auto-recon",
+      "step": 0
+    }
+  ],
+  "artifacts": [],
+  "dead_ends": [],
+  "flag_candidates": [],
+  "phase_history": [
+    {
+      "phase": "recon",
+      "step": 0,
+      "reason": "run started"
+    },
+    {
+      "phase": "analyze",
+      "step": 0,
+      "reason": "auto-recon complete"
+    },
+    {
+      "phase": "recon",
+      "step": 1,
+      "reason": "step"
+    },
+    {
+      "phase": "analyze",
+      "step": 2,
+      "reason": "step"
+    },
+    {
+      "phase": "exploit",
+      "step": 5,
+      "reason": "step"
+    },
+    {
+      "phase": "exploit",
+      "step": 7,
+      "reason": "operator resume"
+    }
+  ],
+  "tool_stats": {
+    "remote_interact": {
+      "calls": 1,
+      "progress": 1,
+      "errors": 0,
+      "last_step": 1
+    },
+    "remote_session": {
+      "calls": 3,
+      "progress": 1,
+      "errors": 0,
+      "last_step": 4
+    }
+  },
+  "next_best_action": "Build the smallest solver/exploit needed, run it, and inspect concrete output.",
+  "checkpoint_summary": "api_error",
+  "repeated_failure_count": 0,
+  "planner_summary": "",
+  "updated_at": "2026-09-17T21:56:18.230291Z"
+}

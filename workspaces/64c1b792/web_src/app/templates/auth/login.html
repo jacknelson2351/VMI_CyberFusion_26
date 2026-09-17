@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Login - {{ settings.SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="auth-section">
+    <div class="auth-card">
+        <h1><i data-lucide="log-in"></i> Login</h1>
+
+        {% if error %}
+        <div class="alert alert-error">
+            <i data-lucide="alert-circle"></i>
+            <p>{{ error }}</p>
+        </div>
+        {% endif %}
+
+        <form action="/login" method="post" class="auth-form">
+            <div class="form-group">
+                <label for="username"><i data-lucide="user"></i> Username</label>
+                <input type="text" id="username" name="username" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="password"><i data-lucide="lock"></i> Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg btn-full">
+                <i data-lucide="log-in"></i> Login
+            </button>
+        </form>
+
+        <p class="auth-alt">
+            Don't have an account? <a href="/register">Register</a>
+        </p>
+    </div>
+</section>
+{% endblock %}

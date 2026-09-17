@@ -1,0 +1,37 @@
+{
+  "id": "e2fc6b62",
+  "name": "no-brainrot-allowed",
+  "category": "crypto",
+  "flag_format": "",
+  "description": "Unfortunately, our insider trading anonymous tip line has been spammed by people who preferred last year's theme. As a result, our encrypted line now checks to make sure you are of sound mind.\n\nnc challs.umdctf.io 32767",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-09-17T20:36:39.948649Z"
+}

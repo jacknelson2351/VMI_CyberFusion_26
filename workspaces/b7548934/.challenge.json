@@ -1,0 +1,37 @@
+{
+  "id": "b7548934",
+  "name": "ipv8",
+  "category": "pwn",
+  "flag_format": "",
+  "description": "whats better than ipv9? ipv8 (backwards compatible) ofc!\n\nnc challs.umdctf.io 30308",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-04-25T00:51:45.481613Z"
+}

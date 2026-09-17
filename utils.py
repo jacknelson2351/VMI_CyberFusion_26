@@ -34,6 +34,26 @@ def _is_plausible_flag_token(token: str) -> bool:
     # Common non-flag interface identifiers in packet captures.
     if p.startswith("npf"):
         return False
+    # Common CSS/JS/control-flow blocks that match WORD{...} syntactically but
+    # are not challenge flags.
+    if p in {
+        "hover", "active", "focus", "visited", "disabled", "before", "after",
+        "root", "media", "supports", "keyframes", "from", "to", "function",
+        "if", "for", "while", "switch", "class", "try", "catch",
+    }:
+        return False
+    # CSS declaration blocks commonly look like hover{ transform: ...; }.
+    if ":" in inner and ";" in inner:
+        return False
+    if re.search(
+        r"\b(?:transform|filter|display|position|margin|padding|background|"
+        r"border|color|font|width|height|opacity|animation|transition)\s*:",
+        inner,
+        re.IGNORECASE,
+    ):
+        return False
+    if re.search(r"\b(?:translate[XYZ]?|brightness|rgba?|calc|var)\s*\(", inner, re.IGNORECASE):
+        return False
     # Reject pure GUID payloads unless prefix strongly suggests CTF flag format.
     if re.fullmatch(r"[0-9A-Fa-f]{8}-(?:[0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}", inner):
         if not _prefix_looks_ctf_like(prefix):
@@ -44,6 +64,27 @@ def _is_plausible_flag_token(token: str) -> bool:
     if inner.count('"') >= 2 and inner.count(":") >= 1 and inner.count(",") >= 1:
         return False
     return True
+
+
+# Placeholder/decoy flags planted in challenge source and binaries (e.g. UMDCTF{fake_flag},
+# UMDCTF{test_flag}, TRX{fake_flag_for_testing}). These caused false "solved" submissions.
+# Conservative on purpose: only match unmistakable placeholder wording, never a bare "test".
+_DECOY_INNER_RE = re.compile(
+    r"(?i)(?:"
+    r"fake[_\- ]?flag|test[_\- ]?flag|flag[_\- ]?here|your[_\- ]?flag|real[_\- ]?flag[_\- ]?here|"
+    r"for[_\- ]?testing|placeholder|redacted|changeme|not[_\- ]?the[_\- ]?flag|not[_\- ]?real|"
+    r"example[_\- ]?flag|sample[_\- ]?flag|dummy[_\- ]?flag|\bfake\b|\bdummy\b|\bxxxx+\b|\.\.\."
+    r")"
+)
+
+
+def _looks_like_decoy_flag(token: str) -> bool:
+    """True for obvious planted placeholder flags that must never be submitted."""
+    m = re.fullmatch(r"([A-Za-z][A-Za-z0-9_]{2,23})\{([^{}\n]{1,220})\}", (token or "").strip())
+    if not m:
+        return False
+    inner = m.group(2).strip()
+    return bool(_DECOY_INNER_RE.search(inner))
 
 
 def _prefix_looks_ctf_like(prefix: str) -> bool:
@@ -57,6 +98,23 @@ def _prefix_looks_ctf_like(prefix: str) -> bool:
 
 def _is_picoctf_flag(token: str) -> bool:
     return re.fullmatch(r"picoCTF\{[^{}\n]{1,220}\}", (token or "").strip(), re.IGNORECASE) is not None
+
+
+def _is_high_signal_evidence_text(text: str) -> bool:
+    """
+    Facts worth preserving across longer runs: file magic, binary protections,
+    target/service URLs, and discovered flag-like tokens.
+    """
+    t = str(text or "")
+    if not t:
+        return False
+    return bool(re.search(
+        r"\b(?:https?://|Flag-like token observed:)|"
+        r":\s+(?:ELF|PE32|Mach-O|JPEG|PNG|ZIP|PDF|Python|ASCII text|gzip|bzip2|RAR|7-zip)\b|"
+        r"(?:NX|PIE|Canary|RELRO)(?:\s+found|:\s+(?:enabled|disabled|partial|full|no)\b)",
+        t,
+        re.IGNORECASE,
+    ))
 
 
 def _is_approval_seeking_text(text: str) -> bool:

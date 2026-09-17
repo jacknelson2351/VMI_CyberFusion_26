@@ -1,0 +1,572 @@
+[2026-09-17T20:19:59Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-09-17T20:19:59Z] EXIT 0
+
+[2026-09-17T20:20:00Z] CMD ls -A1 /ctf 2>/dev/null | grep -v '^\.' | head -1
+french-baguette
+[2026-09-17T20:20:00Z] EXIT 0
+
+[2026-09-17T20:20:01Z] CMD if [ -f /ctf/.venv/pyvenv.cfg ] && ! grep -qi 'include-system-site-packages *= *true' /ctf/.venv/pyvenv.cfg; then rm -rf /ctf/.venv; fi
+[2026-09-17T20:20:01Z] EXIT 0
+
+[2026-09-17T20:20:01Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:20:01Z] EXIT 0
+
+[2026-09-17T20:20:01Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:20:01Z] EXIT 0
+
+[2026-09-17T20:20:02Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:20:02Z] EXIT 0
+
+[2026-09-17T20:20:02Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:20:02Z] EXIT 0
+
+[2026-09-17T20:20:03Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:20:03Z] EXIT 0
+
+[2026-09-17T20:20:03Z] CMD ls -1 /ctf/ 2>/dev/null || true
+french-baguette
+grad.dat
+model.dat
+[2026-09-17T20:20:03Z] EXIT 0
+
+[2026-09-17T20:20:04Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 860
+drwxr-xr-x 9 root root    288 Sep 17 20:20 .
+drwxr-xr-x 1 root root   4096 Sep 17 20:19 ..
+-rw-r--r-- 1 root root   1241 Sep 17 20:20 .agent_live.log
+drwxr-xr-x 2 root root     64 Sep 17 20:20 .artifacts
+-rw-r--r-- 1 root root    846 Sep 17 20:20 .challenge.json
+drwxr-xr-x 2 root root     64 Sep 17 20:20 .sessions
+-rw-r--r-- 1 root root  29848 Apr 25 00:46 french-baguette
+-rw-r--r-- 1 root root 415216 Apr 25 00:46 grad.dat
+-rw-r--r-- 1 root root 415216 Apr 25 00:46 model.dat
+---
+/ctf/french-baguette: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=26806a65e8295eef6ae3abb25572a37c88f1ebcf, for GNU/Linux 4.4.0, not stripped
+/ctf/grad.dat:        data
+/ctf/model.dat:       data
+[2026-09-17T20:20:04Z] EXIT 0
+
+[2026-09-17T20:20:04Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:20:04Z] EXIT 0
+
+[2026-09-17T20:20:05Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:20:05Z] EXIT 0
+
+[2026-09-17T20:20:05Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:20:05Z] EXIT 0
+
+[2026-09-17T20:20:05Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:20:05Z] EXIT 0
+
+[2026-09-17T20:20:06Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:20:06Z] EXIT 0
+
+[2026-09-17T20:20:10Z] CMD file french-baguette grad.dat model.dat && ./french-baguette 2>&1 | head
+french-baguette: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=26806a65e8295eef6ae3abb25572a37c88f1ebcf, for GNU/Linux 4.4.0, not stripped
+grad.dat:        data
+model.dat:       data
+bash: line 1: ./french-baguette: Permission denied
+[2026-09-17T20:20:10Z] EXIT 0
+
+[2026-09-17T20:20:13Z] CMD ls -l french-baguette && chmod +x french-baguette && ls -l french-baguette && ./french-baguette 2>&1 | head
+-rw-r--r-- 1 root root 29848 Apr 25 00:46 french-baguette
+-rwxr-xr-x 1 root root 29848 Apr 25 00:46 french-baguette
+free(): double free detected in tcache 2
+[2026-09-17T20:20:13Z] EXIT 0
+
+[2026-09-17T20:20:15Z] CMD PWNDBG=$(ls /usr/share/pwndbg/gdbinit.py /opt/pwndbg/gdbinit.py 2>/dev/null | head -1); if [ -n "$PWNDBG" ]; then   gdb -batch -nx -ex "source $PWNDBG" -ex "checksec" -ex "run" -ex "bt" /ctf/french-baguette 2>&1; else   gdb -batch -nx -ex "checksec" -ex "run" -ex "bt" /ctf/french-baguette 2>&1; fi
+Undefined command: "checksec".  Try "help".
+warning: linux_ptrace_test_ret_to_nx: Cannot PTRACE_GETREGS: Input/output error
+warning: linux_ptrace_test_ret_to_nx: PC 0x900000000 is neither near return address 0x7ffff8d6e000 nor is the return instruction 0x5555559b8329!
+Couldn't get CS register: Input/output error.
+Python Exception <class 'gdb.error'>: Couldn't get registers: Input/output error.
+Couldn't get registers: Input/output error.
+[2026-09-17T20:20:15Z] EXIT 1
+
+[2026-09-17T20:20:18Z] CMD ./french-baguette test.png 2>&1 | head || echo 'exit code: '$?
+free(): double free detected in tcache 2
+[2026-09-17T20:20:18Z] EXIT 0
+
+[2026-09-17T20:20:24Z] CMD strings french-baguette | head -n 50
+/lib64/ld-linux-x86-64.so.2
+_ITM_deregisterTMCloneTable
+__gmon_start__
+_ITM_registerTMCloneTable
+sqrt
+puts
+__stack_chk_fail
+free
+fread
+fopen
+time
+malloc
+__libc_start_main
+srand
+__cxa_finalize
+calloc
+fclose
+memset
+printf
+memcpy
+fwrite
+fseek
+libm.so.6
+libc.so.6
+GLIBC_2.29
+GLIBC_2.2.5
+GLIBC_2.14
+GLIBC_2.4
+GLIBC_2.34
+PTE1
+u3UH
+batchsize:%d	train:%2d%%
+test:%2d%%
+model.dat
+flag.data
+error file not found
+grad.dat
+;*3$"
+GCC: (GNU) 15.2.1 20260209
+Scrt1.o
+__abi_tag
+crtbeginS.o
+deregister_tm_clones
+__do_global_dtors_aux
+completed.0
+__do_global_dtors_aux_fini_array_entry
+frame_dummy
+__frame_dummy_init_array_entry
+lenet.c
+forward
+[2026-09-17T20:20:24Z] EXIT 0
+
+[2026-09-17T20:20:26Z] CMD hexdump -C grad.dat | head && hexdump -C model.dat | head
+00000000  9a 65 ed 69 4a 0a 73 bf  f1 65 ed 81 2d 6d 6a 3f  |.e.iJ.s..e..-mj?|
+00000010  2a 69 14 ea 07 60 63 bf  12 a1 84 3c c3 1e 95 bf  |*i...`c....<....|
+00000020  da 9e e4 7c 50 87 94 bf  02 97 4b ae 0a ba 74 bf  |...|P.....K...t.|
+00000030  4b d6 f0 52 8a 93 55 bf  76 7a e4 5f 55 5f 72 3f  |K..R..U.vz._U_r?|
+00000040  5a 18 13 f3 4c 14 7a bf  b0 94 52 61 11 03 81 bf  |Z...L.z...Ra....|
+00000050  8b fe 51 a6 ca f6 68 bf  cc 92 5c ae 68 3d 83 3f  |..Q...h...\.h=.?|
+00000060  76 ff 15 92 1f 56 76 3f  5e e5 72 d5 9b 9f 58 3f  |v....Vv?^.r...X?|
+00000070  1d c5 4c 81 54 64 62 3f  be e1 b2 c0 7e f0 61 3f  |..L.Tdb?....~.a?|
+00000080  83 78 70 53 13 00 62 3f  89 58 49 82 e0 a6 64 3f  |.xpS..b?.XI...d?|
+00000090  89 58 49 82 e0 a6 64 3f  89 58 49 82 e0 a6 64 3f  |.XI...d?.XI...d?|
+00000000  b6 d4 bc ec 54 d2 bb 3f  99 d6 2d 49 df 78 c1 3f  |....T..?..-I.x.?|
+00000010  aa f5 54 29 a1 b8 c0 bf  21 38 1c 60 bb 7a b5 3f  |..T)....!8.`.z.?|
+00000020  dd 4f 00 ad da fd b1 bf  52 bd 98 31 46 45 a0 bf  |.O......R..1FE..|
+00000030  fc 2e 35 62 32 40 be 3f  b6 41 33 f2 52 91 b7 3f  |..5b2@.?.A3.R..?|
+00000040  63 85 bf f6 f1 0e c1 bf  c8 c7 34 24 7e 04 c0 3f  |c.........4$~..?|
+00000050  ea 4e ab 84 7d 0e c5 3f  a1 65 79 c1 e2 31 c3 3f  |.N..}..?.ey..1.?|
+00000060  66 f2 bf 45 99 94 b1 3f  73 91 3a 88 93 75 b1 bf  |f..E...?s.:..u..|
+00000070  3a 5e a2 c3 26 fa c4 bf  27 2e ee 99 2b ec b8 bf  |:^..&...'...+...|
+00000080  2b 2a 10 54 ff 5b c3 bf  a0 e0 f9 d0 ab 8c a3 3f  |+*.T.[.........?|
+00000090  3f 29 1d 20 2b c5 ad bf  c7 db 16 83 6d d6 b1 bf  |?). +.......m...|
+[2026-09-17T20:20:26Z] EXIT 0
+
+[2026-09-17T20:20:28Z] CMD grep -r --exclude-dir=.venv --exclude-dir=.sessions --exclude-dir=.artifacts --exclude-dir=__pycache__ --exclude=.agent_live.log --exclude='*.log' --include='*' -E '\{[A-Za-z0-9_]{4,}\}' /ctf/ 2>/dev/null | head -50; ec=$?; if [ $ec -eq 2 ]; then grep -r --exclude-dir=.venv --exclude-dir=.sessions --exclude-dir=.artifacts --exclude-dir=__pycache__ --exclude=.agent_live.log --exclude='*.log' --include='*' -F '\{[A-Za-z0-9_]{4,}\}' /ctf/ 2>/dev/null | head -50; fi
+[2026-09-17T20:20:28Z] EXIT 0
+
+[2026-09-17T20:20:30Z] CMD xxd -g 1 grad.dat | head
+00000000: 9a 65 ed 69 4a 0a 73 bf f1 65 ed 81 2d 6d 6a 3f  .e.iJ.s..e..-mj?
+00000010: 2a 69 14 ea 07 60 63 bf 12 a1 84 3c c3 1e 95 bf  *i...`c....<....
+00000020: da 9e e4 7c 50 87 94 bf 02 97 4b ae 0a ba 74 bf  ...|P.....K...t.
+00000030: 4b d6 f0 52 8a 93 55 bf 76 7a e4 5f 55 5f 72 3f  K..R..U.vz._U_r?
+00000040: 5a 18 13 f3 4c 14 7a bf b0 94 52 61 11 03 81 bf  Z...L.z...Ra....
+00000050: 8b fe 51 a6 ca f6 68 bf cc 92 5c ae 68 3d 83 3f  ..Q...h...\.h=.?
+00000060: 76 ff 15 92 1f 56 76 3f 5e e5 72 d5 9b 9f 58 3f  v....Vv?^.r...X?
+00000070: 1d c5 4c 81 54 64 62 3f be e1 b2 c0 7e f0 61 3f  ..L.Tdb?....~.a?
+00000080: 83 78 70 53 13 00 62 3f 89 58 49 82 e0 a6 64 3f  .xpS..b?.XI...d?
+00000090: 89 58 49 82 e0 a6 64 3f 89 58 49 82 e0 a6 64 3f  .XI...d?.XI...d?
+[2026-09-17T20:20:30Z] EXIT 0
+
+[2026-09-17T20:20:38Z] CMD test -d /ctf/.venv || python3 -m venv --system-site-packages /ctf/.venv
+[2026-09-17T20:20:38Z] EXIT 0
+
+[2026-09-17T20:20:45Z] CMD /ctf/.venv/bin/python - << 'PY'
+import struct, itertools
+import numpy as np
+
+for name in ['model.dat','grad.dat']:
+    data = open(name,'rb').read()
+    print(name, 'len', len(data), 'floats', len(data)//4)
+    arr = np.frombuffer(data, dtype='<f4')
+    print('  min', arr.min(), 'max', arr.max())
+PY
+model.dat len 415216 floats 103804
+  min nan max nan
+grad.dat len 415216 floats 103804
+  min nan max nan
+[2026-09-17T20:20:45Z] EXIT 0
+
+[2026-09-17T20:20:57Z] CMD test -d /ctf/.venv || python3 -m venv --system-site-packages /ctf/.venv
+[2026-09-17T20:20:57Z] EXIT 0
+
+[2026-09-17T20:20:57Z] CMD /ctf/.venv/bin/python - << 'PY'
+import os, sys, struct
+
+path = 'output_from_author.bin'
+if os.path.exists(path):
+    print('size', os.path.getsize(path))
+else:
+    print('no author output file present')
+PY
+no author output file present
+[2026-09-17T20:20:57Z] EXIT 0
+
+[2026-09-17T20:21:04Z] CMD ls -l
+total 888
+-rwxr-xr-x 1 root root  29848 Apr 25 00:46 french-baguette
+-rw-r--r-- 1 root root 415216 Sep 17 20:20 grad.dat
+-rw-r--r-- 1 root root 415216 Apr 25 00:46 model.dat
+[2026-09-17T20:21:04Z] EXIT 0
+
+[2026-09-17T20:21:12Z] CMD test -d /ctf/.venv || python3 -m venv --system-site-packages /ctf/.venv
+[2026-09-17T20:21:12Z] EXIT 0
+
+[2026-09-17T20:21:13Z] CMD /ctf/.venv/bin/python - << 'PY'
+import struct, math
+
+# inspect first 256 floats that look printable as bytes
+with open('grad.dat','rb') as f:
+    data = f.read()
+
+floats = struct.unpack('<%df' % (len(data)//4), data)
+
+cand = []
+for i, x in enumerate(floats[:4096]):
+    b = int(x) & 0xff
+    if 32 <= b <= 126:
+        cand.append((i, x, chr(b)))
+
+print('candidates', len(cand))
+print(cand[:50])
+
+# also try interpreting as raw bytes looking for flag pattern
+raw = data
+for i in range(len(raw)-6):
+    if raw[i:i+1] == b'{':
+        seg = raw[i:i+64]
+        if all(32 <= c < 127 for c in seg):
+            print(i, seg)
+PY
+Traceback (most recent call last):
+  File "<stdin>", line 11, in <module>
+ValueError: cannot convert float NaN to integer
+[2026-09-17T20:21:13Z] EXIT 1
+
+[2026-09-17T20:21:21Z] CMD test -d /ctf/.venv || python3 -m venv --system-site-packages /ctf/.venv
+[2026-09-17T20:21:21Z] EXIT 0
+
+[2026-09-17T20:21:21Z] CMD /ctf/.venv/bin/python - << 'PY'
+import struct, math
+
+with open('grad.dat','rb') as f:
+    data = f.read()
+
+floats = struct.unpack('<%df' % (len(data)//4), data)
+
+cand = []
+for i, x in enumerate(floats[:4096]):
+    if math.isnan(x) or math.isinf(x):
+        continue
+    b = int(x) & 0xff
+    if 32 <= b <= 126:
+        cand.append((i, x, chr(b)))
+
+print('candidates', len(cand))
+print(cand[:50])
+
+raw = data
+for i in range(len(raw)-6):
+    if raw[i:i+1] == b'{':
+        seg = raw[i:i+64]
+        if all(32 <= c < 127 for c in seg):
+            print(i, seg)
+PY
+candidates 45
+[(72, 452707.59375, 'c'), (78, 25413.814453125, 'E'), (170, -1159.6724853515625, 'y'), (202, -11187.212890625, 'M'), (608, 361072.21875, 'p'), (816, -683938.4375, '^'), (818, -154635424.0, '`'), (918, 740469.25, 'u'), (930, -198800.3125, 'p'), (932, -198800.3125, 'p'), (934, -198800.3125, 'p'), (1054, -159.24111938476562, 'a'), (1166, -163.66966247558594, ']'), (1314, 58.23331832885742, ':'), (1500, -41988312.0, '('), (1604, 1915.60791015625, '{'), (1704, 200045344.0, ' '), (1936, 118101280.0, ' '), (2098, -16710090.0, '6'), (2216, 255644448.0, ' '), (2220, 1112.6668701171875, 'X'), (2226, 255644448.0, ' '), (2238, -222.61660766601562, '"'), (2254, 335.08197021484375, 'O'), (2260, 221645632.0, '@'), (2302, 566.125732421875, '6'), (2316, 13902.693359375, 'N'), (2328, 103020.328125, 'l'), (2330, 323.7462158203125, 'C'), (2332, 323.7462158203125, 'C'), (2576, 477800992.0, ' '), (2762, -27799.12109375, 'i'), (2860, 77644.6640625, 'L'), (3240, -457412.6875, '<'), (3570, 44.34121322631836, ','), (3580, -2755.644775390625, '='), (3756, -3217.47314453125, 'o'), (3764, -161.8284912109375, '_'), (3778, 12561973.0, '5'), (3788, 12561973.0, '5'), (3798, 12561973.0, '5'), (3822, -8137.541015625, '7'), (3824, -8137.541015625, '7'), (3832, -8137.541015625, '7'), (3834, -8137.541015625, '7')]
+[2026-09-17T20:21:21Z] EXIT 0
+
+[2026-09-17T20:21:28Z] CMD test -d /ctf/.venv || python3 -m venv --system-site-packages /ctf/.venv
+[2026-09-17T20:21:28Z] EXIT 0
+
+[2026-09-17T20:21:29Z] CMD /ctf/.venv/bin/python - << 'PY'
+import struct, math
+
+with open('grad.dat','rb') as f:
+    data = f.read()
+
+floats = struct.unpack('<%df' % (len(data)//4), data)
+
+chars = []
+for x in floats:
+    if math.isnan(x) or math.isinf(x):
+        continue
+    b = int(x) & 0xff
+    if 32 <= b <= 126:
+        chars.append(chr(b))
+
+s = ''.join(chars)
+print('len', len(s))
+print(s[:500])
+PY
+len 561
+cEyMp^`upppa]:({  6 X "O@6NlCC iL<,=o_5557777[[['H@@s5rrrbqX>`0"AAWHpp```p- J9]$Dd88`_@"992G2:j"6`ppJjh??Nvtj&ICCCCCCeezK:FF?<9,,,,,,00fW@::  5a=  000TTT$l+EEE (uuuY<<<dUUUf\.]<<l.R_  P7XXXX[[[iFFFFFFFFZI0@llll+4mmm000M-S>>>RRRR&)p Ostf#cBt//////8______EEEE?b[b[b'EttHHHPPP>>>|||||| YY@G+  ____DDD!!!!!!#XxmDyd0@&gnO|L\@=;|\e///H999...<GGGK/)   p.QQQQQQQQQQQQw>>>>>>>>>>>>`@uDDvd+0##GGDkk,III@&yyyJJJyyyyyyyyyyyy?TOWJJJJJJJJJJJJ>bxZpppppppppppp7C[###H/F/`/BBBBF>>>@@@oH`W###    ''']3333KKKXXXH+++ZZZZ
+[2026-09-17T20:21:29Z] EXIT 0
+
+[2026-09-17T20:21:37Z] CMD test -d /ctf/.venv || python3 -m venv --system-site-packages /ctf/.venv
+[2026-09-17T20:21:37Z] EXIT 0
+
+[2026-09-17T20:21:37Z] CMD /ctf/.venv/bin/python - << 'PY'
+import struct, math, re
+
+with open('grad.dat','rb') as f:
+    data = f.read()
+
+floats = struct.unpack('<%df' % (len(data)//4), data)
+chars = []
+for x in floats:
+    if math.isnan(x) or math.isinf(x):
+        continue
+    b = int(x) & 0xff
+    if 32 <= b <= 126:
+        chars.append(chr(b))
+
+s = ''.join(chars)
+print('stream len', len(s))
+print(s)
+
+m = re.search(r'[A-Za-z0-9_]{5,}\{[^\n}]+\}', s)
+print('flag-like:', m)
+PY
+stream len 561
+cEyMp^`upppa]:({  6 X "O@6NlCC iL<,=o_5557777[[['H@@s5rrrbqX>`0"AAWHpp```p- J9]$Dd88`_@"992G2:j"6`ppJjh??Nvtj&ICCCCCCeezK:FF?<9,,,,,,00fW@::  5a=  000TTT$l+EEE (uuuY<<<dUUUf\.]<<l.R_  P7XXXX[[[iFFFFFFFFZI0@llll+4mmm000M-S>>>RRRR&)p Ostf#cBt//////8______EEEE?b[b[b'EttHHHPPP>>>|||||| YY@G+  ____DDD!!!!!!#XxmDyd0@&gnO|L\@=;|\e///H999...<GGGK/)   p.QQQQQQQQQQQQw>>>>>>>>>>>>`@uDDvd+0##GGDkk,III@&yyyJJJyyyyyyyyyyyy?TOWJJJJJJJJJJJJ>bxZpppppppppppp7C[###H/F/`/BBBBF>>>@@@oH`W###    ''']3333KKKXXXH+++ZZZZ,8w@\DxgYj)i0x((5oX|mhhPPyB@jtJ^5E=^'cGFY\\\\ xX$eTXO`oooo6(B
+flag-like: None
+[2026-09-17T20:21:37Z] EXIT 0
+
+[2026-09-17T20:22:48Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-09-17T20:22:48Z] EXIT 0
+
+[2026-09-17T20:22:49Z] CMD ls -A1 /ctf 2>/dev/null | grep -v '^\.' | head -1
+french-baguette
+[2026-09-17T20:22:49Z] EXIT 0
+
+[2026-09-17T20:22:49Z] CMD if [ -f /ctf/.venv/pyvenv.cfg ] && ! grep -qi 'include-system-site-packages *= *true' /ctf/.venv/pyvenv.cfg; then rm -rf /ctf/.venv; fi
+[2026-09-17T20:22:49Z] EXIT 0
+
+[2026-09-17T20:22:49Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:22:49Z] EXIT 0
+
+[2026-09-17T20:22:50Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:22:50Z] EXIT 0
+
+[2026-09-17T20:22:50Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:22:50Z] EXIT 0
+
+[2026-09-17T20:22:50Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:22:50Z] EXIT 0
+
+[2026-09-17T20:22:51Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:22:51Z] EXIT 0
+
+[2026-09-17T20:22:51Z] CMD ls -1 /ctf/ 2>/dev/null || true
+french-baguette
+grad.dat
+model.dat
+[2026-09-17T20:22:51Z] EXIT 0
+
+[2026-09-17T20:22:52Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 912
+drwxr-xr-x 10 root root    320 Sep 17 20:20 .
+drwxr-xr-x  1 root root   4096 Sep 17 20:22 ..
+-rw-r--r--  1 root root  15990 Sep 17 20:22 .agent_live.log
+drwxr-xr-x  2 root root     64 Sep 17 20:20 .artifacts
+-rw-r--r--  1 root root    846 Sep 17 20:22 .challenge.json
+drwxr-xr-x  2 root root     64 Sep 17 20:20 .sessions
+drwxr-xr-x  8 root root    256 Sep 17 20:20 .venv
+-rwxr-xr-x  1 root root  29848 Apr 25 00:46 french-baguette
+-rw-r--r--  1 root root 415216 Sep 17 20:20 grad.dat
+-rw-r--r--  1 root root 415216 Apr 25 00:46 model.dat
+---
+/ctf/french-baguette: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=26806a65e8295eef6ae3abb25572a37c88f1ebcf, for GNU/Linux 4.4.0, not stripped
+/ctf/grad.dat:        OpenPGP Public Key
+/ctf/model.dat:       data
+[2026-09-17T20:22:52Z] EXIT 0
+
+[2026-09-17T20:22:52Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:22:52Z] EXIT 0
+
+[2026-09-17T20:22:53Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:22:53Z] EXIT 0
+
+[2026-09-17T20:22:53Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:22:53Z] EXIT 0
+
+[2026-09-17T20:22:54Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:22:54Z] EXIT 0
+
+[2026-09-17T20:22:54Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T20:22:54Z] EXIT 0
+
+[2026-09-17T20:22:56Z] CMD cd /ctf && ls -l
+total 888
+-rwxr-xr-x 1 root root  29848 Apr 25 00:46 french-baguette
+-rw-r--r-- 1 root root 415216 Sep 17 20:20 grad.dat
+-rw-r--r-- 1 root root 415216 Apr 25 00:46 model.dat
+[2026-09-17T20:22:56Z] EXIT 0
+
+[2026-09-17T20:22:58Z] CMD cd /ctf && file grad.dat model.dat
+grad.dat:  OpenPGP Public Key
+model.dat: data
+[2026-09-17T20:22:58Z] EXIT 0
+
+[2026-09-17T20:23:00Z] CMD cd /ctf && ./french-baguette
+free(): double free detected in tcache 2
+bash: line 1:   453 Aborted                    timeout 60s bash -lc 'cd /ctf && ./french-baguette'
+[2026-09-17T20:23:00Z] EXIT 134
+
+[2026-09-17T20:23:03Z] CMD PWNDBG=$(ls /usr/share/pwndbg/gdbinit.py /opt/pwndbg/gdbinit.py 2>/dev/null | head -1); if [ -n "$PWNDBG" ]; then   gdb -batch -nx -ex "source $PWNDBG" -ex "checksec" -ex "info functions" -ex "run grad.dat out.bin" /ctf/french-baguette 2>&1; else   gdb -batch -nx -ex "checksec" -ex "info functions" -ex "run grad.dat out.bin" /ctf/french-baguette 2>&1; fi
+Undefined command: "checksec".  Try "help".
+All defined functions:
+
+Non-debugging symbols:
+0x0000000000001000  _init
+0x0000000000001030  free@plt
+0x0000000000001040  puts@plt
+0x0000000000001050  fread@plt
+0x0000000000001060  fclose@plt
+0x0000000000001070  __stack_chk_fail@plt
+0x0000000000001080  printf@plt
+0x0000000000001090  memset@plt
+0x00000000000010a0  srand@plt
+0x00000000000010b0  calloc@plt
+0x00000000000010c0  memcpy@plt
+0x00000000000010d0  time@plt
+0x00000000000010e0  malloc@plt
+0x00000000000010f0  fseek@plt
+0x0000000000001100  fopen@plt
+0x0000000000001110  fwrite@plt
+0x0000000000001120  sqrt@plt
+0x0000000000001130  exp@plt
+0x0000000000001140  rand@plt
+0x0000000000001150  _start
+0x0000000000001180  deregister_tm_clones
+0x00000000000011b0  register_tm_clones
+0x00000000000011f0  __do_global_dtors_aux
+0x0000000000001240  frame_dummy
+0x0000000000001249  relu
+0x0000000000001276  relugrad
+0x000000000000129e  forward
+0x00000000000020ca  backward
+0x0000000000003827  load_input
+0x0000000000003a32  softmax
+0x0000000000003bed  load_target
+0x0000000000003c37  get_result
+0x0000000000003cc4  f64rand
+0x0000000000003da8  TrainBatch
+0x0000000000004032  Train
+0x00000000000041d5  Predict
+0x0000000000004285  Initial
+0x00000000000043f9  Gradient
+0x0000000000004540  read_data
+0x0000000000004634  read_image_data
+0x00000000000046b2  training
+0x0000000000004760  testing
+0x000000000000482c  save
+0x0000000000004894  load
+0x00000000000048fc  foo
+0x0000000000004a14  main
+0x0000000000004a24  _fini
+warning: linux_ptrace_test_ret_to_nx: Cannot PTRACE_GETREGS: Input/output error
+warning: linux_ptrace_test_ret_to_nx: PC 0x900000000 is neither near return address 0x7ffff8d6e000 nor is the return instruction 0x5555559b8329!
+Couldn't get CS register: Input/output error.
+[2026-09-17T20:23:03Z] EXIT 1
+
+[2026-09-17T20:23:05Z] CMD cd /ctf && strings french-baguette | head
+/lib64/ld-linux-x86-64.so.2
+_ITM_deregisterTMCloneTable
+__gmon_start__
+_ITM_registerTMCloneTable
+sqrt
+puts
+__stack_chk_fail
+free
+fread
+fopen
+[2026-09-17T20:23:05Z] EXIT 0
+
+[2026-09-17T20:23:07Z] CMD cd /ctf && strings french-baguette | grep -i -E 'usage|input|output|grad|model|train|predict'
+batchsize:%d	train:%2d%%
+model.dat
+grad.dat
+load_input
+Gradient
+Predict
+training
+TrainBatch
+relugrad
+Train
+[2026-09-17T20:23:07Z] EXIT 0
+
+[2026-09-17T20:23:09Z] CMD cd /ctf && ./french-baguette grad.dat out.bin || echo 'exit code: '$?
+free(): double free detected in tcache 2
+bash: line 1:   582 Aborted                    ./french-baguette grad.dat out.bin
+exit code: 134
+[2026-09-17T20:23:09Z] EXIT 0
+
+[2026-09-17T20:23:11Z] CMD cd /ctf && xxd -g 1 -l 512 grad.dat | head
+00000000: 64 03 df b6 e0 f3 6e bf 95 44 b7 dc 1d 32 8e bf  d.....n..D...2..
+00000010: d4 51 e3 76 47 3b 82 bf be eb 3e fd b0 e0 66 3f  .Q.vG;....>...f?
+00000020: 42 c8 00 2f 3f 93 50 bf fb d7 b3 a4 d2 06 59 3f  B../?.P.......Y?
+00000030: b6 10 17 3d 00 53 82 3f 97 47 4f d3 ac 87 87 3f  ...=.S.?.GO....?
+00000040: 19 ee 85 f1 a4 4e 85 3f ad cb 0c 07 9b ca 8c 3f  .....N.?.......?
+00000050: 92 3e a5 1a b1 d5 8c bf c5 a7 8a 46 aa 07 8c bf  .>.........F....
+00000060: d8 38 b9 bf b5 69 65 bf bd 96 0c a6 e3 62 70 bf  .8...ie......bp.
+00000070: 8d 2a 03 a8 cc 54 23 bf 0d 66 fc 4a ce 15 5c 3f  .*...T#..f.J..\?
+00000080: af cb 45 9d 6a 13 5c 3f 42 b4 0c 4b f9 70 5e 3f  ..E.j.\?B..K.p^?
+00000090: 42 b4 0c 4b f9 70 5e 3f 42 b4 0c 4b f9 70 5e 3f  B..K.p^?B..K.p^?
+[2026-09-17T20:23:11Z] EXIT 0
+
+[2026-09-17T20:23:12Z] CMD cd /ctf && xxd -g 1 -l 128 model.dat | head
+00000000: b6 d4 bc ec 54 d2 bb 3f 99 d6 2d 49 df 78 c1 3f  ....T..?..-I.x.?
+00000010: aa f5 54 29 a1 b8 c0 bf 21 38 1c 60 bb 7a b5 3f  ..T)....!8.`.z.?
+00000020: dd 4f 00 ad da fd b1 bf 52 bd 98 31 46 45 a0 bf  .O......R..1FE..
+00000030: fc 2e 35 62 32 40 be 3f b6 41 33 f2 52 91 b7 3f  ..5b2@.?.A3.R..?
+00000040: 63 85 bf f6 f1 0e c1 bf c8 c7 34 24 7e 04 c0 3f  c.........4$~..?
+00000050: ea 4e ab 84 7d 0e c5 3f a1 65 79 c1 e2 31 c3 3f  .N..}..?.ey..1.?
+00000060: 66 f2 bf 45 99 94 b1 3f 73 91 3a 88 93 75 b1 bf  f..E...?s.:..u..
+00000070: 3a 5e a2 c3 26 fa c4 bf 27 2e ee 99 2b ec b8 bf  :^..&...'...+...
+[2026-09-17T20:23:12Z] EXIT 0
+
+[2026-09-17T20:23:21Z] CMD cd /ctf && ./french-baguette 2>&1 | head -40
+free(): double free detected in tcache 2
+[2026-09-17T20:23:21Z] EXIT 0
+
+[2026-09-17T20:23:27Z] CMD PWNDBG=$(ls /usr/share/pwndbg/gdbinit.py /opt/pwndbg/gdbinit.py 2>/dev/null | head -1); if [ -n "$PWNDBG" ]; then   gdb -batch -nx -ex "source $PWNDBG" -ex "set args grad.dat out.bin" -ex "run" -ex "bt" /ctf/french-baguette 2>&1; else   gdb -batch -nx -ex "set args grad.dat out.bin" -ex "run" -ex "bt" /ctf/french-baguette 2>&1; fi
+warning: linux_ptrace_test_ret_to_nx: Cannot PTRACE_GETREGS: Input/output error
+warning: linux_ptrace_test_ret_to_nx: PC 0x900000000 is neither near return address 0x7ffff8d6e000 nor is the return instruction 0x5555559b8329!
+Couldn't get CS register: Input/output error.
+Python Exception <class 'gdb.error'>: Couldn't get registers: Input/output error.
+Couldn't get registers: Input/output error.
+[2026-09-17T20:23:27Z] EXIT 1
+

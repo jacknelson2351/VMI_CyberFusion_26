@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Register - {{ settings.SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="auth-section">
+    <div class="auth-card">
+        <h1><i data-lucide="user-plus"></i> Create Account</h1>
+
+        {% if error %}
+        <div class="alert alert-error">
+            <i data-lucide="alert-circle"></i>
+            <p>{{ error }}</p>
+        </div>
+        {% endif %}
+
+        <form action="/register" method="post" class="auth-form">
+            <div class="form-group">
+                <label for="username"><i data-lucide="user"></i> Username</label>
+                <input type="text" id="username" name="username" required minlength="3" maxlength="32"
+                    pattern="[a-zA-Z0-9_-]+" autocomplete="username"
+                    placeholder="3-32 characters, letters/numbers/dashes">
+            </div>
+            <div class="form-group">
+                <label for="email"><i data-lucide="mail"></i> Email</label>
+                <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+                <label for="password"><i data-lucide="lock"></i> Password</label>
+                <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password"
+                    placeholder="At least 8 characters">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg btn-full">
+                <i data-lucide="user-plus"></i> Create Account
+            </button>
+        </form>
+
+        <p class="auth-alt">
+            Already have an account? <a href="/login">Login</a>
+        </p>
+    </div>
+</section>
+{% endblock %}

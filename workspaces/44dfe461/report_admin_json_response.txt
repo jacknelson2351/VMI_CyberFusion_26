@@ -1,0 +1,18 @@
+HTTP/2 500 
+content-security-policy: default-src 'none'
+content-type: text/html; charset=utf-8
+date: Sat, 25 Apr 2026 01:19:35 GMT
+x-content-type-options: nosniff
+x-powered-by: Express
+content-length: 924
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>TypeError: Cannot read properties of undefined (reading &#39;sheetId&#39;)<br> &nbsp; &nbsp;at /app/index.js:117:35<br> &nbsp; &nbsp;at Layer.handleRequest (/app/node_modules/router/lib/layer.js:152:17)<br> &nbsp; &nbsp;at next (/app/node_modules/router/lib/route.js:157:13)<br> &nbsp; &nbsp;at Route.dispatch (/app/node_modules/router/lib/route.js:117:3)<br> &nbsp; &nbsp;at handle (/app/node_modules/router/index.js:435:11)<br> &nbsp; &nbsp;at Layer.handleRequest (/app/node_modules/router/lib/layer.js:152:17)<br> &nbsp; &nbsp;at /app/node_modules/router/index.js:295:15<br> &nbsp; &nbsp;at processParams (/app/node_modules/router/index.js:582:12)<br> &nbsp; &nbsp;at next (/app/node_modules/router/index.js:291:5)<br> &nbsp; &nbsp;at serveStatic (/app/node_modules/serve-static/index.js:74:16)</pre>
+</body>
+</html>

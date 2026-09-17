@@ -1,60 +1,5 @@
 [
   {
-    "id": "b74419c9",
-    "name": "weave",
-    "category": "crypto",
-    "flag_format": "",
-    "description": "every piece of the cipher lies open on the table. compose them correctly and the flag is yours.\n\nDownloads",
-    "tags": [],
-    "notes": "",
-    "credentials": [],
-    "target": {
-      "url": "",
-      "host": "",
-      "port": "",
-      "protocol": "",
-      "entrypoint": "",
-      "instance_label": "",
-      "username": "",
-      "password": "",
-      "access_code": "",
-      "proxy": "",
-      "http_proxy": "",
-      "https_proxy": "",
-      "socks_proxy": "",
-      "no_proxy": "",
-      "cookies": "",
-      "headers": "",
-      "extra_env": "",
-      "notes": ""
-    },
-    "source_meta": {
-      "platform": "",
-      "event": "",
-      "challenge_id": "",
-      "points": ""
-    },
-    "created_at": "2026-04-25T00:42:20.487139Z",
-    "last_activity_at": "2026-04-25T01:16:35.062409Z",
-    "files": [
-      "chall.sage",
-      "output.json"
-    ],
-    "status": "unsolved",
-    "flag": null,
-    "flag_candidate": null,
-    "flag_how": null,
-    "approved_at": null,
-    "writeup_md": null,
-    "writeup_path": null,
-    "writeup_ready_at": null,
-    "retry_summary": "# Agent Memory\n- Status: `unsolved`  Phase: `no_tool_calls`  Step: `15`\n- Repeated no-progress actions: `0`\n- Updated: `2026-04-25T01:16:35.061144Z`\n\n## Current Checkpoint\n- Summary: no_tool_calls\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 0: `recon` - run started\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 5: `exploit` - step\n\n## Tool Performance\n- `run_command`: 8 progress / 12 calls\n- `write_file`: 2 progress / 2 calls\n\n## Confirmed Facts\n- /ctf/chall.sage:  Python script, ASCII text executable\n- /ctf/output.json: JSON text data\n- from hashlib import sha256\n- from Crypto.Cipher import AES\n- wrap_key = sha256(secret_bytes).digest()[:16]\n- Flag-like token observed: UMDCTF{test_flag}\n\n## Ruled Out\n- pegs 40 rows\n- Traceback (most recent call last):\n",
-    "cost_usd": 0.054841,
-    "tokens_in": 105828,
-    "tokens_out": 14192,
-    "last_model": "gpt-5-mini"
-  },
-  {
     "id": "e2fc6b62",
     "name": "no-brainrot-allowed",
     "category": "crypto",
@@ -90,7 +35,7 @@
       "points": ""
     },
     "created_at": "2026-04-25T00:42:57.624728Z",
-    "last_activity_at": "2026-09-12T20:42:24.558633Z",
+    "last_activity_at": "2026-09-17T20:36:39.948599Z",
     "files": [
       "exploit.py",
       "fast_out.txt",
@@ -111,11 +56,12 @@
     "writeup_md": null,
     "writeup_path": null,
     "writeup_ready_at": null,
-    "retry_summary": "# Agent Memory\n- Status: `stopped`  Phase: `stop`  Step: `32`\n- Repeated no-progress actions: `0`\n- Updated: `2026-04-25T01:58:25.794632Z`\n\n## Current Checkpoint\n- Summary: Stopped.\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 5: `exploit` - step\n- step 18: `exploit` - operator resume\n- step 21: `exploit` - operator resume\n- step 22: `exploit` - operator resume\n\n## Tool Performance\n- `run_command`: 21 progress / 27 calls\n- `write_file`: 7 progress / 7 calls\n- `list_files`: 2 progress / 2 calls\n\n## Confirmed Facts\n- Flag-like token observed: M7wno{tN8<\u04efv5x\u04dfw\u06ce\u077c7N|;}\n- Flag-like token observed: zumv{\u04cew\u06de\u77b9}\n- Flag-like token observed: o7n{Mxto;o}\n- Flag-like token observed: Mzo7o{Oxz;}\n- /ctf/exploit.py:      Python script, ASCII text executable, with very long lines (312)\n- /ctf/server.py:       Python script, ASCII text executable, with very long lines (313)\n- /ctf/solve_oracle.py: Python script, ASCII text executable, with very long lines (312)\n- /ctf/solve_quiet.py:  Python script, ASCII text executable, with very long lines (312)\n",
-    "cost_usd": 0.187962,
-    "tokens_in": 435624,
-    "tokens_out": 39528,
-    "last_model": "gpt-5-mini"
+    "retry_summary": "# Agent Memory\n- Status: `stopped`  Phase: `stop`  Step: `3`\n- Repeated no-progress actions: `0`\n- Updated: `2026-09-17T20:36:39.947113Z`\n\n## Current Checkpoint\n- Summary: Stopped.\n- Next best action: Explain the current hypothesis and run one command that can confirm or falsify it.\n\n## Recent Phases\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 0: `recon` - run started\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n\n## Tool Performance\n- `run_command`: 23 progress / 32 calls\n- `write_file`: 7 progress / 7 calls\n- `list_files`: 3 progress / 3 calls\n\n## Confirmed Facts\n- /ctf/fast_solver.py:      Python script, ASCII text executable, with very long lines (312)\n- /ctf/fast_solver_huge.py: Python script, ASCII text executable, with very long lines (312)\n- /ctf/huge_out.txt:        ASCII text, with very long lines (318)\n- /ctf/out.txt:             ASCII text, with very long lines (357)\n- /ctf/server.py:           Python script, ASCII text executable, with very long lines (313)\n- /ctf/solve_oracle.py:     Python script, ASCII text executable, with very long lines (312)\n- /ctf/solve_quiet.py:      Python script, ASCII text executable, with very long lines (312)\n- /ctf/test_batch.py:       Python script, ASCII text executable, with very long lines (693)\n",
+    "cost_usd": 0.19906649999999998,
+    "tokens_in": 462250,
+    "tokens_out": 41752,
+    "last_model": "gpt-5-mini",
+    "flag_url": ""
   },
   {
     "id": "f30462bd",
@@ -153,21 +99,22 @@
       "points": ""
     },
     "created_at": "2026-04-25T00:43:19.584725Z",
-    "last_activity_at": "2026-04-25T01:13:32.594509Z",
+    "last_activity_at": "2026-09-14T18:55:14.572542Z",
     "files": [],
     "status": "solved",
     "flag": "UMDCTF{challenge_based_futures_market}",
     "flag_candidate": "UMDCTF{challenge_based_futures_market}",
-    "flag_how": "Extracted from the description field of the provided .challenge.json in the challenge workspace (displayed via sed).",
-    "approved_at": "2026-04-25T01:13:32.592983Z",
-    "writeup_md": "# Writeup: sanity check\n\n## Metadata\n- Challenge ID: `f30462bd`\n- Category: `MISC`\n- Approved at: `2026-04-25T01:13:32.591559Z`\n- Final flag: `UMDCTF{challenge_based_futures_market}`\n\n## Challenge Description\nI love prediction markets.\n\nI love gambling.\n\nUMDCTF{challenge_based_futures_market}\n\n## Simple Solve Path\nFollow these steps in order. Each step tells you what to run and what signal to confirm before moving on.\n\n### Step 1: Search for high-signal indicators\n- Run:\n```bash\nsed -n '1,200p' .challenge.json\n```\n- What to look for:\n  {\n  \"id\": \"f30462bd\",\n  \"name\": \"sanity check\",\n  \"category\": \"misc\",\n  \"flag_format\": \"\",\n  \"description\": \"I love prediction markets.\\n\\nI love gambling.\\n\\nUMDCTF{challenge_based_futures_market}\",\n  \"tags\": [],\n  \"target\": {\n    \"url\": \"\",\n    \"host\": \"\",\n    \"port\": \"\",\n    \"protocol\": \"\",\n    \"entrypoint\": \"\",\n    \"instance_label\": \"\",\n    \"username\": \"...\n\n## Validation Notes\nNo additional validation notes provided.\n\n## Outcome\nFinal approved flag: `UMDCTF{challenge_based_futures_market}`\nThe flag candidate was manually validated and approved by the user.\n",
+    "flag_how": "Found in both .agent_live.log and .challenge.json metadata files, consistent with challenge description.",
+    "approved_at": "2026-09-14T18:55:14.571696Z",
+    "writeup_md": "# Writeup: sanity check\n\n## Metadata\n- Challenge ID: `f30462bd`\n- Category: `MISC`\n- Approved at: `2026-09-14T18:55:14.570874Z`\n- Final flag: `UMDCTF{challenge_based_futures_market}`\n\n## Challenge Description\nI love prediction markets.\n\nI love gambling.\n\nUMDCTF{challenge_based_futures_market}\n\n## Simple Solve Path\nFollow these steps in order. Each step tells you what to run and what signal to confirm before moving on.\n\n### Step 1: Search for high-signal indicators\n- Run:\n```bash\nsed -n '1,200p' .challenge.json\n```\n- What to look for:\n  {\n  \"id\": \"f30462bd\",\n  \"name\": \"sanity check\",\n  \"category\": \"misc\",\n  \"flag_format\": \"\",\n  \"description\": \"I love prediction markets.\\n\\nI love gambling.\\n\\nUMDCTF{challenge_based_futures_market}\",\n  \"tags\": [],\n  \"target\": {\n    \"url\": \"\",\n    \"host\": \"\",\n    \"port\": \"\",\n    \"protocol\": \"\",\n    \"entrypoint\": \"\",\n    \"instance_label\": \"\",\n    \"username\": \"...\n\n## Validation Notes\nNo additional validation notes provided.\n\n## Outcome\nFinal approved flag: `UMDCTF{challenge_based_futures_market}`\nThe flag candidate was manually validated and approved by the user.\n",
     "writeup_path": "writeups/f30462bd.md",
-    "writeup_ready_at": "2026-04-25T01:13:32.592983Z",
-    "retry_summary": "# Agent Memory\n- Status: `pending_approval`  Phase: `done`  Step: `2`\n- Repeated no-progress actions: `0`\n- Updated: `2026-04-25T01:13:11.419129Z`\n\n## Current Checkpoint\n- Summary: Flag candidate queued for approval.\n- Next best action: Confirm the candidate flag from an independent source before submitting or requesting approval.\n\n## Recent Phases\n- step 0: `recon` - run started\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 2: `verify` - flag candidate queued\n\n## Tool Performance\n- `run_command`: 1 progress / 1 calls\n- `submit_flag`: 1 progress / 1 calls\n\n## Confirmed Facts\n- /ctf/*: cannot open `/ctf/*' (No such file or directory)\n- Flag-like token observed: nUMDCTF{challenge_based_futures_market}\n\n## Ruled Out\n- Path failure in command: auto-recon\n\n## Flag Candidates\n- UMDCTF{challenge_based_futures_market}\n",
-    "cost_usd": 0.001664,
-    "tokens_in": 3312,
-    "tokens_out": 418,
-    "last_model": "gpt-5-mini"
+    "writeup_ready_at": "2026-09-14T18:55:14.571696Z",
+    "retry_summary": "# Agent Memory\n- Status: `pending_approval`  Phase: `done`  Step: `2`\n- Repeated no-progress actions: `0`\n- Updated: `2026-09-14T18:54:18.101824Z`\n\n## Current Checkpoint\n- Summary: Flag candidate queued for approval.\n- Next best action: Confirm the candidate flag from an independent source before submitting or requesting approval.\n\n## Recent Phases\n- step 2: `analyze` - step\n- step 2: `verify` - flag candidate queued\n- step 0: `recon` - run started\n- step 0: `analyze` - auto-recon complete\n- step 1: `verify` - step\n- step 2: `verify` - flag candidate queued\n\n## Tool Performance\n- `submit_flag`: 2 progress / 2 calls\n- `run_command`: 1 progress / 1 calls\n- `search_flag`: 1 progress / 1 calls\n\n## Confirmed Facts\n- /ctf/*: cannot open `/ctf/*' (No such file or directory)\n- Flag-like token observed: nUMDCTF{challenge_based_futures_market}\n- /ctf/.agent_live.log:  \"description\": \"I love prediction markets.\\n\\nI love gambling.\\n\\nUMDCTF{challenge_based_futures_market}\",\n- /ctf/.agent_live.log:[2026-09-14T18:54:15Z] CMD grep -r --exclude-dir=.venv --exclude-dir=.sessions --exclude-dir=.artifacts --exclude-dir=__pycache__ --exclude=.agent_live.log --exclude='*.log' --include='*' -E 'UMDCTF{\n- /ctf/.challenge.json:  \"description\": \"I love prediction markets.\\n\\nI love gambling.\\n\\nUMDCTF{challenge_based_futures_market}\",\n\n## Ruled Out\n- Path failure in command: auto-recon\n\n## Flag Candidates\n- UMDCTF{challenge_based_futures_market}\n- nUMDCTF{challenge_based_futures_market}\n",
+    "cost_usd": 0.0029164,
+    "tokens_in": 6623,
+    "tokens_out": 167,
+    "last_model": "gpt-4.1-mini",
+    "flag_url": ""
   },
   {
     "id": "0731068d",
@@ -221,7 +168,8 @@
     "cost_usd": 0.039213,
     "tokens_in": 90004,
     "tokens_out": 8356,
-    "last_model": "gpt-5-mini"
+    "last_model": "gpt-5-mini",
+    "flag_url": ""
   },
   {
     "id": "d936255f",
@@ -259,9 +207,11 @@
       "points": ""
     },
     "created_at": "2026-04-25T00:44:26.807695Z",
-    "last_activity_at": "2026-04-25T01:20:08.094278Z",
+    "last_activity_at": "2026-09-17T18:37:00.833117Z",
     "files": [
       "challenge1.py",
+      "exploit.py",
+      "exploit_remote.py",
       "flow.pt",
       "flow.py",
       "predictor.pt",
@@ -276,11 +226,12 @@
     "writeup_md": null,
     "writeup_path": null,
     "writeup_ready_at": null,
-    "retry_summary": "# Agent Memory\n- Status: `stopped`  Phase: `stop`  Step: `31`\n- Repeated no-progress actions: `0`\n- Updated: `2026-04-25T01:20:08.091809Z`\n\n## Current Checkpoint\n- Summary: Stopped.\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 9: `exploit` - step\n- step 18: `analyze` - no-progress pivot\n- step 19: `analyze` - no-progress pivot\n- step 20: `analyze` - no-progress pivot\n- step 21: `analyze` - no-progress pivot\n- step 23: `exploit` - step\n\n## Tool Performance\n- `run_command`: 16 progress / 28 calls\n- `write_file`: 2 progress / 2 calls\n\n## Confirmed Facts\n- header = \"{'descr': '%s', 'fortran_order': %s, 'shape': %s, }\" % (descr, str(fortran), str(shape))\n- header = header.encode('latin1')\n- # pad header to 16-byte alignment after preamble\n- # we'll compute header_len minimal to fit header + padding + newline\n- header_len = len(header) + 1\n- # pad header with spaces then newline\n- padded = header + b' ' * (header_len - len(header) - 1) + b'\\n'\n- header: b\"{'descr': '<f4', 'fortran_order': False, 'shape': (5, 64), }                                                         \\n\"\n\n## Ruled Out\n- Traceback (most recent call last):\n- Path failure in command: python3 exploit_remote.py\n- Tool missing: applypatch\n- intro: EPS=0.05  CONF_FLIP=0.8  PURIFY_STEPS=3  ALPHA=0.55  LP_THRESH=921.29\n",
-    "cost_usd": 0.121265,
-    "tokens_in": 339988,
-    "tokens_out": 18134,
-    "last_model": "gpt-5-mini"
+    "retry_summary": "# Agent Memory\n- Status: `stopped`  Phase: `stop`  Step: `6`\n- Repeated no-progress actions: `0`\n- Updated: `2026-09-17T18:37:00.830985Z`\n\n## Current Checkpoint\n- Summary: Stopped.\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 23: `exploit` - step\n- step 0: `recon` - run started\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 5: `exploit` - step\n\n## Tool Performance\n- `run_command`: 20 progress / 32 calls\n- `write_file`: 2 progress / 2 calls\n\n## Confirmed Facts\n- header_len = len(header) + 1\n- # pad header with spaces then newline\n- padded = header + b' ' * (header_len - len(header) - 1) + b'\\n'\n- header: b\"{'descr': '<f4', 'fortran_order': False, 'shape': (5, 64), }                                                         \\n\"\n- /ctf/exploit.py:           Python script, ASCII text executable\n- /ctf/exploit_remote.py:    Python script, ASCII text executable\n- /ctf/flow.pt:              Zip archive data, made by v0.0, extract using at least v0.0, last modified Jan 00 1980 00:00:00, uncompressed size 11258, method=store\n- /ctf/predictor.pt:         Zip archive data, made by v0.0, extract using at least v0.0, last modified Jan 00 1980 00:00:00, uncompressed size 782, method=store\n\n## Ruled Out\n- Traceback (most recent call last):\n- Path failure in command: python3 exploit_remote.py\n- Tool missing: applypatch\n- intro: EPS=0.05  CONF_FLIP=0.8  PURIFY_STEPS=3  ALPHA=0.55  LP_THRESH=921.29\n",
+    "cost_usd": 0.12733125,
+    "tokens_in": 361685,
+    "tokens_out": 18455,
+    "last_model": "gpt-5-mini",
+    "flag_url": ""
   },
   {
     "id": "c2ca15e1",
@@ -339,7 +290,8 @@
     "cost_usd": 0.07029725,
     "tokens_in": 176477,
     "tokens_out": 13089,
-    "last_model": "gpt-5-mini"
+    "last_model": "gpt-5-mini",
+    "flag_url": ""
   },
   {
     "id": "65b6927e",
@@ -398,7 +350,8 @@
     "cost_usd": 0.036199,
     "tokens_in": 85140,
     "tokens_out": 7457,
-    "last_model": "gpt-5-mini"
+    "last_model": "gpt-5-mini",
+    "flag_url": ""
   },
   {
     "id": "a53d6842",
@@ -436,10 +389,14 @@
       "points": ""
     },
     "created_at": "2026-04-25T00:46:20.245097Z",
-    "last_activity_at": "2026-04-25T00:46:20.290791Z",
+    "last_activity_at": "2026-09-14T20:04:18.654383Z",
     "files": [
       "Dockerfile",
-      "chal.py"
+      "chal.py",
+      "check_input.py",
+      "exp_test.py",
+      "exploit_input.txt",
+      "generate_input.py"
     ],
     "status": "unsolved",
     "flag": null,
@@ -449,11 +406,12 @@
     "writeup_md": null,
     "writeup_path": null,
     "writeup_ready_at": null,
-    "retry_summary": null,
-    "cost_usd": 0.0,
-    "tokens_in": 0,
-    "tokens_out": 0,
-    "last_model": ""
+    "retry_summary": "# Agent Memory\n- Status: `unsolved`  Phase: `stopped`  Step: `30`\n- Repeated no-progress actions: `0`\n- Updated: `2026-09-14T20:04:18.653404Z`\n\n## Current Checkpoint\n- Summary: stopped\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 5: `exploit` - step\n- step 0: `recon` - run started\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 5: `exploit` - step\n\n## Tool Performance\n- `run_command`: 22 progress / 32 calls\n- `write_file`: 12 progress / 12 calls\n- `list_files`: 1 progress / 1 calls\n- `remote_interact`: 0 progress / 3 calls\n\n## Confirmed Facts\n- /ctf/Dockerfile: ASCII text\n- /ctf/chal.py:    Python script, ASCII text executable\n- /ctf/Dockerfile:        ASCII text\n- /ctf/chal.py:           Python script, ASCII text executable\n- /ctf/check_input.py:    Python script, ASCII text executable\n- /ctf/exp_test.py:       Python script, ASCII text executable\n- /ctf/exploit_input.txt: ASCII text\n- /ctf/generate_input.py: Python script, ASCII text executable\n\n## Ruled Out\n- Traceback (most recent call last):\n- Candidate: abcd\n- Valid candidate found: print(1)\n- Valid code: abbcccc\n",
+    "cost_usd": 0.1313756,
+    "tokens_in": 269839,
+    "tokens_out": 14650,
+    "last_model": "gpt-4.1-mini",
+    "flag_url": ""
   },
   {
     "id": "4374c708",
@@ -491,11 +449,11 @@
       "points": ""
     },
     "created_at": "2026-04-25T00:46:48.196426Z",
-    "last_activity_at": "2026-04-25T00:46:48.251096Z",
+    "last_activity_at": "2026-09-17T20:27:56.710083Z",
     "files": [
+      "french-baguette",
       "grad.dat",
-      "model.dat",
-      "french-baguette"
+      "model.dat"
     ],
     "status": "unsolved",
     "flag": null,
@@ -505,11 +463,12 @@
     "writeup_md": null,
     "writeup_path": null,
     "writeup_ready_at": null,
-    "retry_summary": null,
-    "cost_usd": 0.0,
-    "tokens_in": 0,
-    "tokens_out": 0,
-    "last_model": ""
+    "retry_summary": "# Agent Memory\n- Status: `stopped`  Phase: `stop`  Step: `18`\n- Repeated no-progress actions: `0`\n- Updated: `2026-09-17T20:27:56.708551Z`\n\n## Current Checkpoint\n- Summary: Stopped.\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 5: `exploit` - step\n- step 13: `exploit` - operator resume\n- step 16: `exploit` - operator resume\n\n## Tool Performance\n- `run_command`: 21 progress / 22 calls\n- `run_gdb`: 3 progress / 3 calls\n- `list_files`: 1 progress / 1 calls\n- `search_flag`: 0 progress / 1 calls\n\n## Confirmed Facts\n- /ctf/french-baguette: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=26806a65e8295eef6ae3abb25572a37c88f1ebcf, for GNU/Linux 4.4.0, not\n- /ctf/grad.dat:        data\n- /ctf/model.dat:       data\n- french-baguette: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=26806a65e8295eef6ae3abb25572a37c88f1ebcf, for GNU/Linux 4.4.0, not stri\n- /ctf/grad.dat:        OpenPGP Public Key\n\n## Ruled Out\n- Traceback (most recent call last):\n",
+    "cost_usd": 0.30259749999999996,
+    "tokens_in": 166542,
+    "tokens_out": 9442,
+    "last_model": "gpt-5.1",
+    "flag_url": ""
   },
   {
     "id": "d566c319",
@@ -561,7 +520,8 @@
     "cost_usd": 0.0,
     "tokens_in": 0,
     "tokens_out": 0,
-    "last_model": ""
+    "last_model": "",
+    "flag_url": ""
   },
   {
     "id": "6a6c09ff",
@@ -615,7 +575,8 @@
     "cost_usd": 0.0,
     "tokens_in": 0,
     "tokens_out": 0,
-    "last_model": ""
+    "last_model": "",
+    "flag_url": ""
   },
   {
     "id": "9940b7bd",
@@ -669,7 +630,8 @@
     "cost_usd": 0.0,
     "tokens_in": 0,
     "tokens_out": 0,
-    "last_model": ""
+    "last_model": "",
+    "flag_url": ""
   },
   {
     "id": "d4ae94dc",
@@ -723,7 +685,8 @@
     "cost_usd": 0.0228915,
     "tokens_in": 57126,
     "tokens_out": 4305,
-    "last_model": "gpt-5-mini"
+    "last_model": "gpt-5-mini",
+    "flag_url": ""
   },
   {
     "id": "b1c33b70",
@@ -777,7 +740,8 @@
     "cost_usd": 0.0,
     "tokens_in": 0,
     "tokens_out": 0,
-    "last_model": ""
+    "last_model": "",
+    "flag_url": ""
   },
   {
     "id": "0bb3e839",
@@ -831,7 +795,8 @@
     "cost_usd": 0.0,
     "tokens_in": 0,
     "tokens_out": 0,
-    "last_model": ""
+    "last_model": "",
+    "flag_url": ""
   },
   {
     "id": "00dac118",
@@ -885,7 +850,8 @@
     "cost_usd": 0.0,
     "tokens_in": 0,
     "tokens_out": 0,
-    "last_model": ""
+    "last_model": "",
+    "flag_url": ""
   },
   {
     "id": "b7548934",
@@ -939,7 +905,8 @@
     "cost_usd": 0.0,
     "tokens_in": 0,
     "tokens_out": 0,
-    "last_model": ""
+    "last_model": "",
+    "flag_url": ""
   },
   {
     "id": "c7a18fe9",
@@ -996,7 +963,8 @@
     "cost_usd": 0.0,
     "tokens_in": 0,
     "tokens_out": 0,
-    "last_model": ""
+    "last_model": "",
+    "flag_url": ""
   },
   {
     "id": "9c9326ac",
@@ -1052,7 +1020,8 @@
     "cost_usd": 0.0,
     "tokens_in": 0,
     "tokens_out": 0,
-    "last_model": ""
+    "last_model": "",
+    "flag_url": ""
   },
   {
     "id": "e087588a",
@@ -1090,10 +1059,21 @@
       "points": ""
     },
     "created_at": "2026-04-25T00:53:23.010451Z",
-    "last_activity_at": "2026-04-25T01:55:53.932843Z",
+    "last_activity_at": "2026-09-17T21:28:42.201737Z",
     "files": [
+      "exploit.py",
+      "exploit_patch.py",
+      "exploit_win.py",
+      "explore_disasm.py",
+      "rodata_dump.txt",
       "roulette",
       "roulette.disasm",
+      "roulette_patched",
+      "scan_rodata.py",
+      "solve.py",
+      "solve_accept.py",
+      "test_run.py",
+      "text_mainish.txt",
       "try_nums.py"
     ],
     "status": "unsolved",
@@ -1104,11 +1084,12 @@
     "writeup_md": null,
     "writeup_path": null,
     "writeup_ready_at": null,
-    "retry_summary": "# Agent Memory\n- Status: `stopped`  Phase: `stop`  Step: `18`\n- Repeated no-progress actions: `0`\n- Updated: `2026-04-25T01:55:53.927356Z`\n\n## Current Checkpoint\n- Summary: Stopped.\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 39: `exploit` - operator resume\n- step 0: `recon` - run started\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 5: `exploit` - step\n\n## Tool Performance\n- `run_command`: 34 progress / 42 calls\n- `run_gdb`: 6 progress / 7 calls\n- `list_files`: 2 progress / 2 calls\n- `write_file`: 2 progress / 2 calls\n- `search_flag`: 2 progress / 2 calls\n\n## Confirmed Facts\n- /ctf/try_nums.py:     Python script, ASCII text executable\n- ELF Header:\n- Size of this header:               64 (bytes)\n- Section header string table index: 29\n- 0x0000000000401a84:\txor    ebp,ebp\n- 0x0000000000401a93:\txor    r8d,r8d\n- 0x0000000000401a96:\txor    ecx,ecx\n- /ctf/.agent_live.log:[2026-04-25T01:55:33Z] CMD grep -r --include='*' -E 'flag{' /ctf/ 2>/dev/null | head -50; ec=$?; if [ $ec -eq 2 ]; then grep -r --include='*' -F 'flag{' /ctf/ 2>/dev/null | head -50; fi\n\n## Ruled Out\n- Traceback (most recent call last):\n",
-    "cost_usd": 0.27014,
-    "tokens_in": 870264,
-    "tokens_out": 26287,
-    "last_model": "gpt-5-mini"
+    "retry_summary": "# Agent Memory\n- Status: `stopped`  Phase: `stop`  Step: `19`\n- Repeated no-progress actions: `0`\n- Updated: `2026-09-17T21:28:42.199148Z`\n\n## Current Checkpoint\n- Summary: Stopped.\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 5: `exploit` - step\n- step 8: `analyze` - no-progress pivot\n- step 10: `exploit` - step\n\n## Tool Performance\n- `run_command`: 122 progress / 161 calls\n- `run_gdb`: 25 progress / 26 calls\n- `write_file`: 13 progress / 13 calls\n- `search_flag`: 7 progress / 7 calls\n- `list_files`: 2 progress / 2 calls\n\n## Confirmed Facts\n- /ctf/exploit_patch.py:  Python script, ASCII text executable\n- /ctf/roulette_patched:  ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, BuildID[sha1]=85c6764f89da9326c9e9464091d6baddf80c2c78, for GNU/Linux 3.2.0, stripped\n- /ctf/solve_accept.py:   Python script, ASCII text executable\n- 4018d6:\t31 ff                \txor    %edi,%edi\n- 4018fc:\t31 f8                \txor    %edi,%eax\n- 401914:\t31 de                \txor    %ebx,%esi\n- 40191f:\t31 fe                \txor    %edi,%esi\n- 401962:\t31 c0                \txor    %eax,%eax\n\n## Ruled Out\n- Traceback (most recent call last):\n- Tool missing: import\n",
+    "cost_usd": 2.39567615,
+    "tokens_in": 1657825,
+    "tokens_out": 53681,
+    "last_model": "gpt-5.2",
+    "flag_url": ""
   },
   {
     "id": "c9f33b7d",
@@ -1163,7 +1144,8 @@
     "cost_usd": 0.05590575,
     "tokens_in": 138935,
     "tokens_out": 10586,
-    "last_model": "gpt-5-mini"
+    "last_model": "gpt-5-mini",
+    "flag_url": ""
   },
   {
     "id": "ef6843b5",
@@ -1201,9 +1183,11 @@
       "points": ""
     },
     "created_at": "2026-04-25T00:54:06.170223Z",
-    "last_activity_at": "2026-04-25T01:20:30.696809Z",
+    "last_activity_at": "2026-09-14T19:58:54.944785Z",
     "files": [
       "feed.bin",
+      "memcmp_override.c",
+      "memcmp_override.so",
       "oracle"
     ],
     "status": "unsolved",
@@ -1214,11 +1198,12 @@
     "writeup_md": null,
     "writeup_path": null,
     "writeup_ready_at": null,
-    "retry_summary": "# Agent Memory\n- Status: `stopped`  Phase: `stop`  Step: `32`\n- Repeated no-progress actions: `0`\n- Updated: `2026-04-25T01:20:30.689832Z`\n\n## Current Checkpoint\n- Summary: Stopped.\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 0: `recon` - run started\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 3: `analyze` - no-progress pivot\n- step 5: `exploit` - step\n\n## Tool Performance\n- `run_command`: 14 progress / 25 calls\n- `run_gdb`: 4 progress / 4 calls\n- `write_file`: 1 progress / 1 calls\n- `list_files`: 0 progress / 1 calls\n\n## Confirmed Facts\n- /ctf/feed.bin: data\n- /ctf/oracle:   ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 4.4.0, stripped\n- 0x0000000000001344:\txor    %ebp,%ebp\n- 0x0000000000001353:\txor    %r8d,%r8d\n- 0x0000000000001356:\txor    %ecx,%ecx\n- /ctf/oracle:     file format elf64-x86-64\n\n## Ruled Out\n- Traceback (most recent call last):\n",
-    "cost_usd": 0.13512725,
-    "tokens_in": 418757,
-    "tokens_out": 15219,
-    "last_model": "gpt-5-mini"
+    "retry_summary": "# Agent Memory\n- Status: `unsolved`  Phase: `stopped`  Step: `30`\n- Repeated no-progress actions: `2`\n- Updated: `2026-09-14T19:58:54.943653Z`\n\n## Current Checkpoint\n- Summary: stopped\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 5: `exploit` - step\n- step 12: `analyze` - no-progress pivot\n- step 14: `exploit` - step\n\n## Tool Performance\n- `run_command`: 37 progress / 61 calls\n- `run_gdb`: 20 progress / 20 calls\n- `write_file`: 2 progress / 2 calls\n- `list_files`: 0 progress / 3 calls\n\n## Confirmed Facts\n- 0x0000000000001353:\txor    r8d,r8d\n- 0x0000000000001356:\txor    ecx,ecx\n- 0x0000000000001207:\txor    %ebx,%eax\n- 0x0000000000001214:\txor    %eax,%ebx\n- 0x0000000000004377:\txor    %ecx,%ecx\n- 0x0000000000004379:\txor    %edx,%edx\n- 0x0000000000004391:\txor    %eax,%eax\n- 0x00000000000043af:\txor    $0x29,%eax\n\n## Ruled Out\n- Traceback (most recent call last):\n",
+    "cost_usd": 0.1811724,
+    "tokens_in": 399671,
+    "tokens_out": 13315,
+    "last_model": "gpt-4.1-mini",
+    "flag_url": ""
   },
   {
     "id": "0c75cafa",
@@ -1256,7 +1241,7 @@
       "points": ""
     },
     "created_at": "2026-04-25T00:54:38.134297Z",
-    "last_activity_at": "2026-04-25T00:54:38.181735Z",
+    "last_activity_at": "2026-09-17T20:03:54.386221Z",
     "files": [
       "main2"
     ],
@@ -1269,10 +1254,11 @@
     "writeup_path": null,
     "writeup_ready_at": null,
     "retry_summary": null,
-    "cost_usd": 0.0,
-    "tokens_in": 0,
-    "tokens_out": 0,
-    "last_model": ""
+    "cost_usd": 0.033735,
+    "tokens_in": 25132,
+    "tokens_out": 232,
+    "last_model": "gpt-5.1",
+    "flag_url": ""
   },
   {
     "id": "18bd0de1",
@@ -1328,7 +1314,8 @@
     "cost_usd": 0.0,
     "tokens_in": 0,
     "tokens_out": 0,
-    "last_model": ""
+    "last_model": "",
+    "flag_url": ""
   },
   {
     "id": "a7b741f4",
@@ -1366,10 +1353,19 @@
       "points": ""
     },
     "created_at": "2026-04-25T00:55:34.649427Z",
-    "last_activity_at": "2026-04-25T00:55:34.698009Z",
+    "last_activity_at": "2026-09-17T20:38:30.596870Z",
     "files": [
+      "explore_pickle.py",
+      "limited_solver.py",
+      "manual_inspect.py",
+      "partial_unpickler.py",
       "pickelang.py",
-      "pickle.pkl"
+      "pickle.pkl",
+      "solve_pickle.py",
+      "test_pickle.py",
+      "test_pickle_debug.py",
+      "test_pickle_limited.py",
+      "test_pickle_limited2.py"
     ],
     "status": "unsolved",
     "flag": null,
@@ -1380,10 +1376,11 @@
     "writeup_path": null,
     "writeup_ready_at": null,
     "retry_summary": null,
-    "cost_usd": 0.0,
-    "tokens_in": 0,
-    "tokens_out": 0,
-    "last_model": ""
+    "cost_usd": 0.2153448,
+    "tokens_in": 467154,
+    "tokens_out": 17802,
+    "last_model": "gpt-4.1-mini",
+    "flag_url": ""
   },
   {
     "id": "44dfe461",
@@ -1435,7 +1432,8 @@
     "cost_usd": 0.180366,
     "tokens_in": 549864,
     "tokens_out": 21450,
-    "last_model": "gpt-5-mini"
+    "last_model": "gpt-5-mini",
+    "flag_url": ""
   },
   {
     "id": "10d4f81d",
@@ -1487,7 +1485,8 @@
     "cost_usd": 0.1365385,
     "tokens_in": 413258,
     "tokens_out": 16612,
-    "last_model": "gpt-5-mini"
+    "last_model": "gpt-5-mini",
+    "flag_url": ""
   },
   {
     "id": "458bf1d8",
@@ -1541,7 +1540,8 @@
     "cost_usd": 0.02054475,
     "tokens_in": 33747,
     "tokens_out": 6054,
-    "last_model": "gpt-5-mini"
+    "last_model": "gpt-5-mini",
+    "flag_url": ""
   },
   {
     "id": "64c1b792",
@@ -1595,7 +1595,8 @@
     "cost_usd": 0.06843425,
     "tokens_in": 198745,
     "tokens_out": 9374,
-    "last_model": "gpt-5-mini"
+    "last_model": "gpt-5-mini",
+    "flag_url": ""
   },
   {
     "id": "0820f92f",
@@ -1633,9 +1634,10 @@
       "points": ""
     },
     "created_at": "2026-04-25T02:22:41.474193Z",
-    "last_activity_at": "2026-07-21T20:13:47.552186Z",
+    "last_activity_at": "2026-09-14T19:54:12.210925Z",
     "files": [
-      "11.zip"
+      "11.zip",
+      "solve.py"
     ],
     "status": "unsolved",
     "flag": null,
@@ -1645,10 +1647,66 @@
     "writeup_md": null,
     "writeup_path": null,
     "writeup_ready_at": null,
-    "retry_summary": "# Agent Memory\n- Status: `unsolved`  Phase: `api_error`  Step: `21`\n- Repeated no-progress actions: `0`\n- Updated: `2026-07-21T20:13:47.549673Z`\n\n## Current Checkpoint\n- Summary: api_error\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 19: `exploit` - step\n- step 0: `recon` - run started\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 5: `exploit` - step\n\n## Tool Performance\n- `run_command`: 21 progress / 28 calls\n- `run_gdb`: 4 progress / 5 calls\n- `list_files`: 2 progress / 2 calls\n- `extract_artifact`: 1 progress / 1 calls\n- `write_file`: 1 progress / 1 calls\n\n## Confirmed Facts\n- /ctf/11.zip: Zip archive data, made by v3.0 UNIX, extract using at least v1.0, last modified Apr 23 2026 03:07:08, uncompressed size 0, method=store\n- 11_extracted/rev_11/1:  ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, no section header\n- 11_extracted/rev_11/2:  ASCII text, with no line terminators\n- ELF Header:\n- Size of this header:               64 (bytes)\n- Section header string table index: 0\n- /ctf/11.zip:       Zip archive data, made by v3.0 UNIX, extract using at least v1.0, last modified Apr 23 2026 03:07:08, uncompressed size 0, method=store\n- /ctf/11_extracted: directory\n\n## Ruled Out\n- Traceback (most recent call last):\n- Tool missing: qemu-aarch64\n",
-    "cost_usd": 0.265245,
-    "tokens_in": 264016,
-    "tokens_out": 13882,
-    "last_model": "gpt-5.1"
+    "retry_summary": "# Agent Memory\n- Status: `unsolved`  Phase: `stopped`  Step: `30`\n- Repeated no-progress actions: `1`\n- Updated: `2026-09-14T19:54:12.209194Z`\n\n## Current Checkpoint\n- Summary: stopped\n- Next best action: Build the smallest solver/exploit needed, run it, and inspect concrete output.\n\n## Recent Phases\n- step 18: `exploit` - step\n- step 0: `recon` - run started\n- step 0: `analyze` - auto-recon complete\n- step 1: `recon` - step\n- step 2: `analyze` - step\n- step 5: `exploit` - step\n\n## Tool Performance\n- `run_command`: 44 progress / 64 calls\n- `run_gdb`: 14 progress / 15 calls\n- `list_files`: 5 progress / 5 calls\n- `write_file`: 2 progress / 2 calls\n- `extract_artifact`: 1 progress / 1 calls\n\n## Confirmed Facts\n- Size of this header:               64 (bytes)\n- Section header string table index: 0\n- /ctf/11.zip:       Zip archive data, made by v3.0 UNIX, extract using at least v1.0, last modified Apr 23 2026 03:07:08, uncompressed size 0, method=store\n- /ctf/11_extracted: directory\n- /ctf/solve.py:     Python script, ASCII text executable\n- 11_extracted/rev_11/1: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, no section header\n- ./11_extracted/rev_11/1: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, no section header\n- 11_extracted/rev_11/2: ASCII text, with no line terminators\n\n## Ruled Out\n- Traceback (most recent call last):\n- Tool missing: qemu-aarch64\n",
+    "cost_usd": 0.11671160000000001,
+    "tokens_in": 252447,
+    "tokens_out": 9833,
+    "last_model": "gpt-4.1-mini",
+    "flag_url": ""
+  },
+  {
+    "name": "corrupt-key-1",
+    "category": "crypto",
+    "description": "Title: corrupt-key-1\nDifficulty: Hard\nAuthor: Tux \u00b7 picoMini by redpwn\nPrompt: How to fix corrupted key???\nDownloads available: private.key, msg.enc\nDebug info: [u:573285 e: p: c:207 i:1263]\nTask: Recover or repair the corrupted private key and use it to decrypt msg.enc to obtain the FLAG. Submit the flag on the site.",
+    "flag_url": "https://learn.cylabacademy.org/learning-paths/19/171",
+    "target": {
+      "url": "https://learn.cylabacademy.org/learning-paths/19/171",
+      "host": "",
+      "port": "",
+      "protocol": "",
+      "entrypoint": "",
+      "instance_label": "",
+      "username": "",
+      "password": "",
+      "access_code": "",
+      "proxy": "",
+      "http_proxy": "",
+      "https_proxy": "",
+      "socks_proxy": "",
+      "no_proxy": "",
+      "cookies": "",
+      "headers": "",
+      "extra_env": "",
+      "notes": ""
+    },
+    "source_meta": {
+      "platform": "web",
+      "event": "",
+      "challenge_id": "",
+      "points": "",
+      "source_url": "https://learn.cylabacademy.org",
+      "remote_id": "https://learn.cylabacademy.org/learning-paths/19/171"
+    },
+    "tags": [],
+    "id": "5228b476",
+    "created_at": "2026-09-17T21:08:26.586314Z",
+    "last_activity_at": "2026-09-17T21:08:26.586568Z",
+    "files": [],
+    "status": "unsolved",
+    "flag": null,
+    "flag_candidate": null,
+    "flag_how": null,
+    "approved_at": null,
+    "writeup_md": null,
+    "writeup_path": null,
+    "writeup_ready_at": null,
+    "retry_summary": null,
+    "cost_usd": 0.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "last_model": "",
+    "notes": "",
+    "credentials": [],
+    "flag_format": ""
   }
 ]

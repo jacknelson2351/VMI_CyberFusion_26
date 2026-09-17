@@ -1,0 +1,365 @@
+[2026-09-17T19:49:16Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-09-17T19:49:16Z] EXIT 0
+
+[2026-09-17T19:49:17Z] CMD if [ -f /ctf/.venv/pyvenv.cfg ] && ! grep -qi 'include-system-site-packages *= *true' /ctf/.venv/pyvenv.cfg; then rm -rf /ctf/.venv; fi
+[2026-09-17T19:49:17Z] EXIT 0
+
+[2026-09-17T19:49:18Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T19:49:18Z] EXIT 0
+
+[2026-09-17T19:49:18Z] CMD command -v objdump >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T19:49:18Z] EXIT 0
+
+[2026-09-17T19:49:19Z] CMD command -v gdb >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T19:49:19Z] EXIT 0
+
+[2026-09-17T19:49:20Z] CMD command -v rizin >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T19:49:20Z] EXIT 0
+
+[2026-09-17T19:49:21Z] CMD ls -1 /ctf/ 2>/dev/null || true
+main2
+[2026-09-17T19:49:21Z] EXIT 0
+
+[2026-09-17T19:49:21Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 484
+drwxr-xr-x 7 root root    224 Sep 17 19:49 .
+drwxr-xr-x 1 root root   4096 Sep 17 19:49 ..
+-rw-r--r-- 1 root root    960 Sep 17 19:49 .agent_live.log
+drwxr-xr-x 2 root root     64 Sep 17 19:49 .artifacts
+-rw-r--r-- 1 root root    853 Sep 17 19:49 .challenge.json
+drwxr-xr-x 2 root root     64 Sep 17 19:49 .sessions
+-rw-r--r-- 1 root root 481664 Apr 25 00:54 main2
+---
+/ctf/main2: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=9d22e4853cb5335b1b1de20ff155485b6ca76abf, for GNU/Linux 3.2.0, stripped
+[2026-09-17T19:49:21Z] EXIT 0
+
+[2026-09-17T19:49:23Z] CMD file /ctf/*
+/ctf/main2: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=9d22e4853cb5335b1b1de20ff155485b6ca76abf, for GNU/Linux 3.2.0, stripped
+[2026-09-17T19:49:23Z] EXIT 0
+
+[2026-09-17T19:49:23Z] CMD strings /ctf/* 2>/dev/null | head -50 || true
+/lib64/ld-linux-x86-64.so.2
+UH[l
+__cxa_finalize
+malloc
+__libc_start_main
+__fprintf_chk
+fputs
+localeconv
+strtol
+memset
+__ctype_b_loc
+free
+strlen
+raise
+realloc
+abort
+stderr
+memcpy
+fwrite
+__stack_chk_fail
+stdin
+setvbuf
+stdout
+fgets
+strcspn
+strcmp
+fopen
+__printf_chk
+libc.so.6
+GLIBC_2.3
+GLIBC_2.3.4
+GLIBC_2.14
+GLIBC_2.4
+GLIBC_2.34
+GLIBC_2.2.5
+_ITM_deregisterTMCloneTable
+__gmon_start__
+_ITM_registerTMCloneTable
+?d!<%
+d	<%
+D$hdH+
+[]A\A]A^A_
+D$hdH+
+[]A\A]A^A_
+[]A\A]A^A_
+]A\A]A^
+A\A]A^A_
+?I9H
+t$0H
+[]A\A]A^A_
+[2026-09-17T19:49:23Z] EXIT 0
+
+[2026-09-17T19:49:24Z] CMD readelf -h /ctf/* 2>/dev/null | grep -E 'Type|Machine|Entry' | head -10 || true
+  Type:                              DYN (Position-Independent Executable file)
+  Machine:                           Advanced Micro Devices X86-64
+  Entry point address:               0xfc70
+[2026-09-17T19:49:24Z] EXIT 0
+
+[2026-09-17T19:49:25Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T19:49:25Z] EXIT 0
+
+[2026-09-17T19:49:26Z] CMD command -v objdump >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T19:49:26Z] EXIT 0
+
+[2026-09-17T19:49:27Z] CMD command -v gdb >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T19:49:27Z] EXIT 0
+
+[2026-09-17T19:49:28Z] CMD command -v rizin >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T19:49:28Z] EXIT 0
+
+[2026-09-17T19:49:30Z] CMD cd /ctf && ls -l && file main2 && checksec main2
+total 472
+-rw-r--r-- 1 root root 481664 Apr 25 00:54 main2
+main2: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=9d22e4853cb5335b1b1de20ff155485b6ca76abf, for GNU/Linux 3.2.0, stripped
+[!] Could not populate PLT: Invalid argument (UC_ERR_ARG)
+[*] '/ctf/main2'
+    Arch:     amd64-64-little
+    RELRO:    Full RELRO
+    Stack:    Canary found
+    NX:       NX enabled
+    PIE:      PIE enabled
+[2026-09-17T19:49:30Z] EXIT 0
+
+[2026-09-17T19:49:34Z] CMD PWNDBG=$(ls /usr/share/pwndbg/gdbinit.py /opt/pwndbg/gdbinit.py 2>/dev/null | head -1); if [ -n "$PWNDBG" ]; then   gdb -batch -nx -ex "source $PWNDBG" -ex "checksec" -ex "info functions" -ex "info files" -ex "disas main" /ctf/main2 2>&1; else   gdb -batch -nx -ex "checksec" -ex "info functions" -ex "info files" -ex "disas main" /ctf/main2 2>&1; fi
+Undefined command: "checksec".  Try "help".
+All defined functions:
+
+Non-debugging symbols:
+0x0000000000001190  __cxa_finalize@plt
+0x00000000000011a0  raise@plt
+0x00000000000011b0  free@plt
+0x00000000000011c0  abort@plt
+0x00000000000011d0  puts@plt
+0x00000000000011e0  localeconv@plt
+0x00000000000011f0  strlen@plt
+0x0000000000001200  __stack_chk_fail@plt
+0x0000000000001210  fputs@plt
+0x0000000000001220  memset@plt
+0x0000000000001230  strcspn@plt
+0x0000000000001240  fgets@plt
+0x0000000000001250  strcmp@plt
+0x0000000000001260  strtol@plt
+0x0000000000001270  memcpy@plt
+0x0000000000001280  malloc@plt
+0x0000000000001290  realloc@plt
+0x00000000000012a0  __printf_chk@plt
+0x00000000000012b0  setvbuf@plt
+0x00000000000012c0  fopen@plt
+0x00000000000012d0  fwrite@plt
+0x00000000000012e0  __fprintf_chk@plt
+0x00000000000012f0  __ctype_b_loc@plt
+Symbols from "/ctf/main2".
+Local exec file:
+	`/ctf/main2', file type elf64-x86-64.
+	Entry point: 0xfc70
+	0x0000000000000350 - 0x000000000000036c is .interp
+	0x0000000000000370 - 0x00000000000003a0 is .note.gnu.property
+	0x00000000000003a0 - 0x00000000000003c4 is .note.gnu.build-id
+	0x00000000000003c4 - 0x00000000000003e4 is .note.ABI-tag
+	0x00000000000003e8 - 0x0000000000000410 is .gnu.hash
+	0x0000000000000410 - 0x00000000000006f8 is .dynsym
+	0x00000000000006f8 - 0x0000000000000870 is .dynstr
+	0x0000000000000870 - 0x00000000000008ae is .gnu.version
+	0x00000000000008b0 - 0x0000000000000920 is .gnu.version_r
+	0x0000000000000920 - 0x0000000000000d28 is .rela.dyn
+	0x0000000000000d28 - 0x0000000000000f38 is .rela.plt
+	0x0000000000001000 - 0x000000000000101b is .init
+	0x0000000000001020 - 0x0000000000001190 is .plt
+	0x0000000000001190 - 0x00000000000011a0 is .plt.got
+	0x00000000000011a0 - 0x0000000000001300 is .plt.sec
+	0x0000000000001300 - 0x0000000000060621 is .text
+	0x0000000000060624 - 0x0000000000060631 is .fini
+	0x0000000000061000 - 0x000000000006ba84 is .rodata
+	0x000000000006ba84 - 0x000000000006caa0 is .eh_frame_hdr
+	0x000000000006caa0 - 0x00000000000740c4 is .eh_frame
+	0x0000000000075b10 - 0x0000000000075b88 is .tdata
+	0x0000000000075b88 - 0x0000000000075df4 is .tbss
+	0x0000000000075b88 - 0x0000000000075b90 is .init_array
+	0x0000000000075b90 - 0x0000000000075b98 is .fini_array
+	0x0000000000075ba0 - 0x0000000000075d00 is .data.rel.ro
+	0x0000000000075d00 - 0x0000000000075ef0 is .dynamic
+	0x0000000000075ef0 - 0x0000000000075ff8 is .got
+	0x0000000000076000 - 0x0000000000076028 is .data
+	0x0000000000076040 - 0x0000000000076058 is .bss
+No symbol table is loaded.  Use the "file" command.
+[2026-09-17T19:49:34Z] EXIT 1
+
+[2026-09-17T19:49:37Z] CMD cd /ctf && strings -n 8 main2 | head -n 40
+/lib64/ld-linux-x86-64.so.2
+__cxa_finalize
+__libc_start_main
+__fprintf_chk
+localeconv
+__ctype_b_loc
+__stack_chk_fail
+__printf_chk
+libc.so.6
+GLIBC_2.3
+GLIBC_2.3.4
+GLIBC_2.14
+GLIBC_2.4
+GLIBC_2.34
+GLIBC_2.2.5
+_ITM_deregisterTMCloneTable
+__gmon_start__
+_ITM_registerTMCloneTable
+[]A\A]A^A_
+[]A\A]A^A_
+[]A\A]A^A_
+A\A]A^A_
+[]A\A]A^A_
+[]A\A]A^A_
+[]A\A]A^
+[]A\A]A^
+[]A\A]A^A_
+[]A\A]A^A_
+[]A\A]A^A_
+[]A\A]A^A_
+[]A\A]A^A_
+AVAUATUSH
+[]A\A]A^A_
+00000000H
+[A\A]A^A_]
+AWAVAUATI
+[A\A]A^A_]
+AWAVAUATI
+[A\A]A^A_]
+[A\A]A^A_]
+[2026-09-17T19:49:37Z] EXIT 0
+
+[2026-09-17T19:49:40Z] CMD python3 - '{"url": "", "host": "challs.umdctf.io", "port": "30301", "send": ["1\n", "2\n"], "recv_timeout": 8, "read_until": "", "overall_timeout": 20}' <<'PY'
+import json,sys,socket,time
+s=json.loads(sys.argv[1])
+url=(s.get('url') or '').strip()
+def log(*a): print(*a)
+if url.startswith('ws://') or url.startswith('wss://'):
+    try:
+        import websocket
+    except Exception:
+        import subprocess; subprocess.run(['pip','install','-q','websocket-client'])
+        import websocket
+    ws=websocket.create_connection(url, timeout=s['recv_timeout'])
+    log('WS CONNECTED', url)
+    try:
+        ws.settimeout(s['recv_timeout'])
+        try:
+            log('RECV<', ws.recv())
+        except Exception: pass
+        for msg in s['send']:
+            ws.send(msg); log('SEND>', msg)
+            try: log('RECV<', ws.recv())
+            except Exception as e: log('(no reply:', e, ')')
+    finally:
+        ws.close()
+else:
+    host=s.get('host') or ''; port=int(s.get('port') or 0)
+    if url.startswith('tcp://'):
+        rest=url[6:]; host=rest.split(':')[0]; port=int(rest.split(':')[1])
+    if not host or not port:
+        print('[error] no host/port'); sys.exit(0)
+    sock=socket.create_connection((host,port), timeout=s['recv_timeout'])
+    sock.settimeout(s['recv_timeout'])
+    log('TCP CONNECTED', host, port)
+    def drain():
+        buf=b''
+        try:
+            while True:
+                d=sock.recv(4096)
+                if not d: break
+                buf+=d
+                if s['read_until'] and s['read_until'].encode() in buf: break
+                if len(buf)>65536: break
+        except Exception: pass
+        return buf.decode('utf-8','replace')
+    log('RECV<', drain())
+    for line in s['send']:
+        data=(line if line.endswith(chr(10)) else line+chr(10)).encode()
+        sock.sendall(data); log('SEND>', line)
+        log('RECV<', drain())
+    sock.close()
+PY
+Traceback (most recent call last):
+  File "<stdin>", line 30, in <module>
+  File "/usr/lib/python3.13/socket.py", line 864, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.13/socket.py", line 849, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+OSError: [Errno 101] Network is unreachable
+[2026-09-17T19:49:40Z] EXIT 1
+
+[2026-09-17T19:49:59Z] CMD PWNDBG=$(ls /usr/share/pwndbg/gdbinit.py /opt/pwndbg/gdbinit.py 2>/dev/null | head -1); if [ -n "$PWNDBG" ]; then   gdb -batch -nx -ex "source $PWNDBG" -ex "start" -ex "bt" -ex "x/20i $rip" /ctf/main2 2>&1; else   gdb -batch -nx -ex "start" -ex "bt" -ex "x/20i $rip" /ctf/main2 2>&1; fi
+Function "main" not defined.
+Make breakpoint pending on future shared library load? (y or [n]) [answered N; input not from terminal]
+warning: linux_ptrace_test_ret_to_nx: Cannot PTRACE_GETREGS: Input/output error
+warning: linux_ptrace_test_ret_to_nx: PC 0x900000000 is neither near return address 0x7ffff8d6e000 nor is the return instruction 0x5555559b8329!
+Couldn't get CS register: Input/output error.
+Python Exception <class 'gdb.error'>: Couldn't get registers: Input/output error.
+Couldn't get registers: Input/output error.
+Argument required (starting display address).
+[2026-09-17T19:49:59Z] EXIT 1
+
+[2026-09-17T20:00:15Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-09-17T20:00:15Z] EXIT 0
+
+[2026-09-17T20:00:22Z] CMD if [ -f /ctf/.venv/pyvenv.cfg ] && ! grep -qi 'include-system-site-packages *= *true' /ctf/.venv/pyvenv.cfg; then rm -rf /ctf/.venv; fi
+[2026-09-17T20:00:22Z] EXIT 0
+
+[2026-09-17T20:00:27Z] CMD ls -la /ctf
+total 492
+drwxr-xr-x 7 root root    224 Sep 17 19:49 .
+drwxr-xr-x 1 root root   4096 Sep 17 19:59 ..
+-rw-r--r-- 1 root root  10999 Sep 17 20:00 .agent_live.log
+drwxr-xr-x 2 root root     64 Sep 17 19:49 .artifacts
+-rw-r--r-- 1 root root    853 Sep 17 19:59 .challenge.json
+drwxr-xr-x 2 root root     64 Sep 17 19:49 .sessions
+-rw-r--r-- 1 root root 481664 Apr 25 00:54 main2
+[2026-09-17T20:00:27Z] EXIT 0
+
+[2026-09-17T20:01:31Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-09-17T20:01:31Z] EXIT 0
+
+[2026-09-17T20:01:34Z] CMD if [ -f /ctf/.venv/pyvenv.cfg ] && ! grep -qi 'include-system-site-packages *= *true' /ctf/.venv/pyvenv.cfg; then rm -rf /ctf/.venv; fi
+[2026-09-17T20:01:34Z] EXIT 0
+
+[2026-09-17T20:01:35Z] CMD ls -lah /ctf/ 2>/dev/null || true
+total 492K
+drwxr-xr-x 7 root root  224 Sep 17 19:49 .
+drwxr-xr-x 1 root root 4.0K Sep 17 20:01 ..
+-rw-r--r-- 1 root root  12K Sep 17 20:01 .agent_live.log
+drwxr-xr-x 2 root root   64 Sep 17 19:49 .artifacts
+-rw-r--r-- 1 root root  853 Sep 17 20:01 .challenge.json
+drwxr-xr-x 2 root root   64 Sep 17 19:49 .sessions
+-rw-r--r-- 1 root root 471K Apr 25 00:54 main2
+[2026-09-17T20:01:35Z] EXIT 0
+
+[2026-09-17T20:03:51Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-09-17T20:03:51Z] EXIT 0
+
+[2026-09-17T20:03:52Z] CMD ls -A1 /ctf 2>/dev/null | grep -v '^\.' | head -1
+main2
+[2026-09-17T20:03:52Z] EXIT 0
+
+[2026-09-17T20:03:53Z] CMD if [ -f /ctf/.venv/pyvenv.cfg ] && ! grep -qi 'include-system-site-packages *= *true' /ctf/.venv/pyvenv.cfg; then rm -rf /ctf/.venv; fi
+[2026-09-17T20:03:53Z] EXIT 0
+
+[2026-09-17T20:03:54Z] CMD ls -lah /ctf/ 2>/dev/null || true
+total 496K
+drwxr-xr-x 7 root root  224 Sep 17 19:49 .
+drwxr-xr-x 1 root root 4.0K Sep 17 20:03 ..
+-rw-r--r-- 1 root root  13K Sep 17 20:03 .agent_live.log
+drwxr-xr-x 2 root root   64 Sep 17 19:49 .artifacts
+-rw-r--r-- 1 root root  853 Sep 17 20:03 .challenge.json
+drwxr-xr-x 2 root root   64 Sep 17 19:49 .sessions
+-rw-r--r-- 1 root root 471K Apr 25 00:54 main2
+[2026-09-17T20:03:54Z] EXIT 0
+

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ album.title }} - {{ settings.SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="album-view">
+    <header class="album-header">
+        <h1>{{ album.title }}</h1>
+        <div class="album-meta">
+            <a href="/u/{{ album.owner.username }}" class="meta-item">
+                <i data-lucide="user"></i> {{ album.owner.username }}
+            </a>
+            <span class="meta-item"><i data-lucide="images"></i> {{ album.image_count }} images</span>
+            <span class="meta-item"><i data-lucide="calendar"></i> {{ album.created_at.strftime('%b %d, %Y') }}</span>
+            <span class="badge badge-{{ album.visibility.value }}">
+                {% if album.visibility.value == 'public' %}
+                <i data-lucide="globe"></i>
+                {% elif album.visibility.value == 'unlisted' %}
+                <i data-lucide="link"></i>
+                {% else %}
+                <i data-lucide="lock"></i>
+                {% endif %}
+                {{ album.visibility.value }}
+            </span>
+        </div>
+        {% if album.description %}
+        <p class="album-description">{{ album.description }}</p>
+        {% endif %}
+    </header>
+
+    {% if album.images %}
+    <div class="album-images">
+        {% for img in album.images %}
+        <div class="album-item">
+            <a href="/i/{{ img.short_code }}">
+                <img src="/raw/{{ img.short_code }}" alt="{{ img.title or img.original_name }}" loading="lazy">
+            </a>
+            {% if img.title %}
+            <p class="album-item-title">{{ img.title }}</p>
+            {% endif %}
+            {% if img.description %}
+            <p class="album-item-desc">{{ img.description }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i data-lucide="image-off" class="empty-icon"></i>
+        <p>This album is empty.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

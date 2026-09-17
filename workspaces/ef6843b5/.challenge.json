@@ -1,0 +1,37 @@
+{
+  "id": "ef6843b5",
+  "name": "oracle",
+  "category": "rev",
+  "flag_format": "",
+  "description": "this just in. an undisclosed prediction market exchange abruptly went dark last night after a leaked memo suggested they'd been resolving markets before the outcomes happened. regulators were left dumbfounded. an intern mailed you a copy of oracle, the internal binary the trading floor used to release settlements, along with a staging blob. allegedly one unpublished market was still sitting in the queue when the lights went off: a wager on your team's performance. of course the resolution is already signed. produce a ticket the oracle accepts and read what the market would rather you didn't.",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-09-14T19:58:54.944816Z"
+}

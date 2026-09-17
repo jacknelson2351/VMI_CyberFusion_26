@@ -1,0 +1,37 @@
+{
+  "id": "b1c33b70",
+  "name": "road-2",
+  "category": "osint",
+  "flag_format": "",
+  "description": "i was practicing my roobet rush hour gambling on a live traffic cam. i have a screenshot but i can't remember where it was. can you tell me the intersection this is at? unfortunately the screenshot is cropped but the actual traffic cam has text indicating the intersection at the bottom. wrap that in UMDCTF{} for the flag",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-04-25T00:50:17.194587Z"
+}

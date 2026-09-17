@@ -1,0 +1,1475 @@
+[2026-04-25T01:13:37Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-04-25T01:13:37Z] EXIT 0
+
+[2026-04-25T01:13:37Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:37Z] EXIT 0
+
+[2026-04-25T01:13:38Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:38Z] EXIT 0
+
+[2026-04-25T01:13:38Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:38Z] EXIT 0
+
+[2026-04-25T01:13:38Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:38Z] EXIT 0
+
+[2026-04-25T01:13:39Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:39Z] EXIT 0
+
+[2026-04-25T01:13:39Z] CMD ls -1 /ctf/ 2>/dev/null || true
+challenge1.py
+flow.pt
+flow.py
+predictor.pt
+predictor.py
+reference_window.npy
+[2026-04-25T01:13:39Z] EXIT 0
+
+[2026-04-25T01:13:39Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 4788
+drwxr-xr-x 12 root root     384 Apr 25 01:13 .
+drwxr-xr-x  1 root root    4096 Apr 25 01:13 ..
+-rw-r--r--  1 root root     965 Apr 25 01:13 .agent_live.log
+drwxr-xr-x  2 root root      64 Apr 25 01:13 .artifacts
+-rw-r--r--  1 root root     847 Apr 25 01:13 .challenge.json
+drwxr-xr-x  2 root root      64 Apr 25 01:13 .sessions
+-rw-r--r--  1 root root    2762 Apr 25 00:44 challenge1.py
+-rw-r--r--  1 root root 4775869 Apr 25 00:44 flow.pt
+-rw-r--r--  1 root root    2611 Apr 25 00:44 flow.py
+-rw-r--r--  1 root root   98025 Apr 25 00:44 predictor.pt
+-rw-r--r--  1 root root     676 Apr 25 00:44 predictor.py
+-rw-r--r--  1 root root    1408 Apr 25 00:44 reference_window.npy
+---
+/ctf/challenge1.py:        Python script, ASCII text executable
+/ctf/flow.pt:              Zip archive data, made by v0.0, extract using at least v0.0, last modified ? 00 1980 00:00:00, uncompressed size 11258, method=store
+/ctf/flow.py:              Python script, ASCII text executable
+/ctf/predictor.pt:         Zip archive data, made by v0.0, extract using at least v0.0, last modified ? 00 1980 00:00:00, uncompressed size 782, method=store
+/ctf/predictor.py:         Python script, ASCII text executable
+/ctf/reference_window.npy: NumPy data file, version 1.0, description {'descr': '<f4', 'fortran_order': False, 'shape': (5, 64), }                                                         
+[2026-04-25T01:13:39Z] EXIT 0
+
+[2026-04-25T01:13:40Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:40Z] EXIT 0
+
+[2026-04-25T01:13:40Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:40Z] EXIT 0
+
+[2026-04-25T01:13:40Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:40Z] EXIT 0
+
+[2026-04-25T01:13:40Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:40Z] EXIT 0
+
+[2026-04-25T01:13:41Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:41Z] EXIT 0
+
+[2026-04-25T01:13:47Z] CMD sed -n '1,240p' /ctf/challenge1.py
+#!/usr/local/bin/python
+import base64
+import io
+import os
+import sys
+from pathlib import Path
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+
+from predictor import Predictor
+from flow import RealNVP
+
+HERE = Path(__file__).parent
+HANDOUT = HERE / "dist"
+
+EPS = 0.05
+CONF_FLIP = 0.80
+PURIFY_STEPS = 3
+PURIFY_ALPHA = 0.55
+FLAG = open("./flag.txt", "r").read()
+
+def load_all():
+    x_ref = np.load(HANDOUT / "reference_window.npy")
+    predictor = Predictor()
+    predictor.load_state_dict(torch.load(HANDOUT / "predictor.pt"))
+    predictor.eval()
+    d = torch.load(HANDOUT / "flow.pt")
+    flow = RealNVP(channels=d["channels"], window=d["window"], n_layers=d["n_layers"], hidden=d["hidden"])
+    flow.load_state_dict(d["state_dict"])
+    flow.eval()
+    return x_ref, predictor, flow, float(d["threshold"])
+
+
+def purify(x, flow, n_steps=PURIFY_STEPS, alpha=PURIFY_ALPHA):
+    for _ in range(n_steps):
+        z, _ = flow.forward(x)
+        x = flow.inverse(alpha * z)
+    return x
+
+def check(sub, x_ref, predictor, flow, lp_thresh):
+    if sub.shape != x_ref.shape:
+        return False, f"shape mismatch {sub.shape} vs {x_ref.shape}", None
+    if sub.dtype != np.float32:
+        sub = sub.astype(np.float32)
+
+    linf = float(np.max(np.abs(sub - x_ref)))
+    if linf > EPS + 1e-6:
+        return False, f"L-inf budget exceeded: {linf:.6f} > {EPS}", None
+
+    t = torch.from_numpy(sub[None])
+    with torch.no_grad():
+        lp = float(flow.log_prob(t).item())
+    if lp < lp_thresh:
+        return False, f"sanity log_prob too low: {lp:.2f} < {lp_thresh:.2f}", None
+
+    with torch.no_grad():
+        probs = F.softmax(predictor(purify(t, flow)), dim=1).numpy()[0]
+    if probs[1] < CONF_FLIP:
+        return False, f"post-purification prediction not flipped: p(class=1)={probs[1]:.4f} < {CONF_FLIP}", None
+    return True, f"OK  linf={linf:.5f}  log_prob={lp:.2f}  p1(purified)={probs[1]:.4f}", FLAG
+
+
+def read_submission():
+    sys.stdout.write("submit base64(numpy float32 array, shape (5, 64)):\n> ")
+    sys.stdout.flush()
+    line = sys.stdin.readline().strip()
+    if not line:
+        print("empty input"); sys.exit(2)
+    try:
+        raw = base64.b64decode(line, validate=False)
+        return np.load(io.BytesIO(raw))
+    except Exception as e:
+        print(f"could not decode submission: {e}"); sys.exit(2)
+
+
+def main():
+    x_ref, predictor, flow, lp_thresh = load_all()
+    print(f"EPS={EPS}  CONF_FLIP={CONF_FLIP}  PURIFY_STEPS={PURIFY_STEPS}  ALPHA={PURIFY_ALPHA}  LP_THRESH={lp_thresh:.2f}")
+    sub = read_submission()
+    ok, msg, flag = check(sub, x_ref, predictor, flow, lp_thresh)
+    print(f"{msg}")
+    if ok:
+        print(f"FLAG: {flag}")
+        sys.exit(0)
+    sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[2026-04-25T01:13:47Z] EXIT 0
+
+[2026-04-25T01:13:52Z] CMD sed -n '1,240p' /ctf/predictor.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class Predictor(nn.Module):
+    def __init__(self, in_ch: int = 5, width: int = 32):
+        super().__init__()
+        self.c1 = nn.Conv1d(in_ch, width, kernel_size=5, padding=2)
+        self.c2 = nn.Conv1d(width, width * 2, kernel_size=5, padding=2)
+        self.c3 = nn.Conv1d(width * 2, width * 2, kernel_size=3, padding=1)
+        self.head = nn.Linear(width * 2, 2)
+
+    def forward(self, x):
+        h = F.relu(self.c1(x))
+        h = F.max_pool1d(h, 2)
+        h = F.relu(self.c2(h))
+        h = F.max_pool1d(h, 2)
+        h = F.relu(self.c3(h))
+        h = h.mean(dim=2)
+        return self.head(h)
+[2026-04-25T01:13:52Z] EXIT 0
+
+[2026-04-25T01:13:54Z] CMD sed -n '1,240p' /ctf/flow.py
+import torch
+import torch.nn as nn
+
+class CouplingLayer(nn.Module):
+    def __init__(self, dim, mask, hidden=128):
+        super().__init__()
+        self.register_buffer("mask", mask)
+        self.s_net = nn.Sequential(
+            nn.Linear(dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, dim), nn.Tanh(),
+        )
+        self.t_net = nn.Sequential(
+            nn.Linear(dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, dim),
+        )
+
+    def forward(self, x):
+        x_masked = x * self.mask
+        s = self.s_net(x_masked) * (1 - self.mask)
+        t = self.t_net(x_masked) * (1 - self.mask)
+        z = x_masked + (1 - self.mask) * (x * torch.exp(s) + t)
+        return z, s.sum(dim=1)
+
+    def inverse(self, z):
+        z_masked = z * self.mask
+        s = self.s_net(z_masked) * (1 - self.mask)
+        t = self.t_net(z_masked) * (1 - self.mask)
+        return z_masked + (1 - self.mask) * ((z - t) * torch.exp(-s))
+
+class RealNVP(nn.Module):
+    def __init__(self, channels=5, window=64, n_layers=6, hidden=128):
+        super().__init__()
+        self.channels = channels
+        self.window = window
+        self.dim = channels * window
+        self.register_buffer("mu", torch.zeros(self.dim))
+        self.register_buffer("sigma", torch.ones(self.dim))
+        base_mask = torch.zeros(self.dim)
+        base_mask[::2] = 1
+        layers = []
+        for i in range(n_layers):
+            mask = base_mask if (i % 2 == 0) else (1 - base_mask)
+            layers.append(CouplingLayer(self.dim, mask, hidden=hidden))
+        self.layers = nn.ModuleList(layers)
+
+    def _flatten(self, x):
+        return x.reshape(x.size(0), -1)
+
+    def _unflatten(self, x_flat):
+        return x_flat.reshape(-1, self.channels, self.window)
+
+    def forward(self, x):
+        x_flat = (self._flatten(x) - self.mu) / self.sigma
+        log_det = torch.zeros(x.size(0), device=x.device)
+        z = x_flat
+        for layer in self.layers:
+            z, ld = layer(z)
+            log_det = log_det + ld
+        log_det = log_det - torch.log(self.sigma).sum().expand(x.size(0))
+        return z, log_det
+
+    def inverse(self, z):
+        x = z
+        for layer in reversed(self.layers):
+            x = layer.inverse(x)
+        x = x * self.sigma + self.mu
+        return self._unflatten(x)
+
+    def log_prob(self, x):
+        z, log_det = self.forward(x)
+        log_prior = -0.5 * (z ** 2).sum(dim=1) - 0.5 * self.dim * torch.log(torch.tensor(2.0 * torch.pi))
+        return log_prior + log_det
+[2026-04-25T01:13:54Z] EXIT 0
+
+[2026-04-25T01:14:22Z] CMD chmod +x /ctf/exploit.py
+[2026-04-25T01:14:22Z] EXIT 0
+
+[2026-04-25T01:14:24Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:14:24Z] EXIT 0
+
+[2026-04-25T01:14:27Z] CMD /ctf/.venv/bin/python exploit.py
+Traceback (most recent call last):
+  File "/ctf/exploit.py", line 6, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+[2026-04-25T01:14:27Z] EXIT 1
+
+[2026-04-25T01:14:29Z] CMD pip3 install --no-cache-dir numpy torch==1.12.0 torchvision -q
+error: externally-managed-environment
+
+× This environment is externally managed
+╰─> To install Python packages system-wide, try apt install
+    python3-xyz, where xyz is the package you are trying to
+    install.
+    
+    If you wish to install a non-Kali-packaged Python package,
+    create a virtual environment using python3 -m venv path/to/venv.
+    Then use path/to/venv/bin/python and path/to/venv/bin/pip. Make
+    sure you have pypy3-venv installed.
+    
+    If you wish to install a non-Kali-packaged Python application,
+    it may be easiest to use pipx install xyz, which will manage a
+    virtual environment for you. Make sure you have pipx installed.
+    
+    For more information, refer to the following:
+    * https://www.kali.org/docs/general-use/python3-external-packages/
+    * /usr/share/doc/python3.13/README.venv
+
+note: If you believe this is a mistake, please contact your Python installation or OS distribution provider. You can override this, at the risk of breaking your Python installation or OS, by passing --break-system-packages.
+hint: See PEP 668 for the detailed specification.
+[2026-04-25T01:14:29Z] EXIT 1
+
+[2026-04-25T01:14:33Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:14:33Z] EXIT 0
+
+[2026-04-25T01:14:33Z] CMD /ctf/.venv/bin/python -c "import torch; print(torch.__version__)"
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import torch; print(torch.__version__)
+    ^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'torch'
+[2026-04-25T01:14:33Z] EXIT 1
+
+[2026-04-25T01:14:44Z] CMD unzip -l /ctf/flow.pt || python3 - <<'PY'
+import zipfile
+p='\n'.join(zipfile.ZipFile('/ctf/flow.pt').namelist())
+print(p)
+PY
+Archive:  /ctf/flow.pt
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+    11258  1980-00-00 00:00   flow/data.pkl
+        1  1980-00-00 00:00   flow/.format_version
+        2  1980-00-00 00:00   flow/.storage_alignment
+        6  1980-00-00 00:00   flow/byteorder
+     1280  1980-00-00 00:00   flow/data/0
+     1280  1980-00-00 00:00   flow/data/1
+     1280  1980-00-00 00:00   flow/data/2
+   163840  1980-00-00 00:00   flow/data/3
+      512  1980-00-00 00:00   flow/data/4
+    65536  1980-00-00 00:00   flow/data/5
+      512  1980-00-00 00:00   flow/data/6
+   163840  1980-00-00 00:00   flow/data/7
+     1280  1980-00-00 00:00   flow/data/8
+   163840  1980-00-00 00:00   flow/data/9
+      512  1980-00-00 00:00   flow/data/10
+    65536  1980-00-00 00:00   flow/data/11
+      512  1980-00-00 00:00   flow/data/12
+   163840  1980-00-00 00:00   flow/data/13
+     1280  1980-00-00 00:00   flow/data/14
+     1280  1980-00-00 00:00   flow/data/15
+   163840  1980-00-00 00:00   flow/data/16
+      512  1980-00-00 00:00   flow/data/17
+    65536  1980-00-00 00:00   flow/data/18
+      512  1980-00-00 00:00   flow/data/19
+   163840  1980-00-00 00:00   flow/data/20
+     1280  1980-00-00 00:00   flow/data/21
+   163840  1980-00-00 00:00   flow/data/22
+      512  1980-00-00 00:00   flow/data/23
+    65536  1980-00-00 00:00   flow/data/24
+      512  1980-00-00 00:00   flow/data/25
+   163840  1980-00-00 00:00   flow/data/26
+     1280  1980-00-00 00:00   flow/data/27
+   163840  1980-00-00 00:00   flow/data/28
+      512  1980-00-00 00:00   flow/data/29
+    65536  1980-00-00 00:00   flow/data/30
+      512  1980-00-00 00:00   flow/data/31
+   163840  1980-00-00 00:00   flow/data/32
+     1280  1980-00-00 00:00   flow/data/33
+   163840  1980-00-00 00:00   flow/data/34
+      512  1980-00-00 00:00   flow/data/35
+    65536  1980-00-00 00:00   flow/data/36
+      512  1980-00-00 00:00   flow/data/37
+   163840  1980-00-00 00:00   flow/data/38
+     1280  1980-00-00 00:00   flow/data/39
+     1280  1980-00-00 00:00   flow/data/40
+   163840  1980-00-00 00:00   flow/data/41
+      512  1980-00-00 00:00   flow/data/42
+    65536  1980-00-00 00:00   flow/data/43
+      512  1980-00-00 00:00   flow/data/44
+   163840  1980-00-00 00:00   flow/data/45
+     1280  1980-00-00 00:00   flow/data/46
+   163840  1980-00-00 00:00   flow/data/47
+      512  1980-00-00 00:00   flow/data/48
+    65536  1980-00-00 00:00   flow/data/49
+      512  1980-00-00 00:00   flow/data/50
+   163840  1980-00-00 00:00   flow/data/51
+     1280  1980-00-00 00:00   flow/data/52
+   163840  1980-00-00 00:00   flow/data/53
+      512  1980-00-00 00:00   flow/data/54
+    65536  1980-00-00 00:00   flow/data/55
+      512  1980-00-00 00:00   flow/data/56
+   163840  1980-00-00 00:00   flow/data/57
+     1280  1980-00-00 00:00   flow/data/58
+   163840  1980-00-00 00:00   flow/data/59
+      512  1980-00-00 00:00   flow/data/60
+    65536  1980-00-00 00:00   flow/data/61
+      512  1980-00-00 00:00   flow/data/62
+   163840  1980-00-00 00:00   flow/data/63
+     1280  1980-00-00 00:00   flow/data/64
+     1280  1980-00-00 00:00   flow/data/65
+   163840  1980-00-00 00:00   flow/data/66
+      512  1980-00-00 00:00   flow/data/67
+    65536  1980-00-00 00:00   flow/data/68
+      512  1980-00-00 00:00   flow/data/69
+   163840  1980-00-00 00:00   flow/data/70
+     1280  1980-00-00 00:00   flow/data/71
+   163840  1980-00-00 00:00   flow/data/72
+      512  1980-00-00 00:00   flow/data/73
+    65536  1980-00-00 00:00   flow/data/74
+      512  1980-00-00 00:00   flow/data/75
+   163840  1980-00-00 00:00   flow/data/76
+     1280  1980-00-00 00:00   flow/data/77
+        2  1980-00-00 00:00   flow/version
+       40  1980-00-00 00:00   flow/.data/serialization_id
+---------                     -------
+  4765229                     84 files
+[2026-04-25T01:14:44Z] EXIT 0
+
+[2026-04-25T01:14:47Z] CMD unzip -l /ctf/predictor.pt
+Archive:  /ctf/predictor.pt
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+      782  1980-00-00 00:00   predictor/data.pkl
+        1  1980-00-00 00:00   predictor/.format_version
+        2  1980-00-00 00:00   predictor/.storage_alignment
+        6  1980-00-00 00:00   predictor/byteorder
+     3200  1980-00-00 00:00   predictor/data/0
+      128  1980-00-00 00:00   predictor/data/1
+    40960  1980-00-00 00:00   predictor/data/2
+      256  1980-00-00 00:00   predictor/data/3
+    49152  1980-00-00 00:00   predictor/data/4
+      256  1980-00-00 00:00   predictor/data/5
+      512  1980-00-00 00:00   predictor/data/6
+        8  1980-00-00 00:00   predictor/data/7
+        2  1980-00-00 00:00   predictor/version
+       40  1980-00-00 00:00   predictor/.data/serialization_id
+---------                     -------
+    95305                     14 files
+[2026-04-25T01:14:47Z] EXIT 0
+
+[2026-04-25T01:15:41Z] CMD chmod +x /ctf/exploit_remote.py
+[2026-04-25T01:15:41Z] EXIT 0
+
+[2026-04-25T01:15:49Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:15:49Z] EXIT 0
+
+[2026-04-25T01:15:49Z] CMD /ctf/.venv/bin/python exploit_remote.py
+Traceback (most recent call last):
+  File "/ctf/exploit_remote.py", line 100, in <module>
+    arr, shape = read_npy('dist/reference_window.npy')
+                 ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/ctf/exploit_remote.py", line 12, in read_npy
+    with open(path,'rb') as f:
+         ~~~~^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'dist/reference_window.npy'
+[2026-04-25T01:15:49Z] EXIT 1
+
+[2026-04-25T01:15:57Z] CMD ls -la
+total 4816
+drwxr-xr-x 14 root root     448 Apr 25 01:14 .
+drwxr-xr-x  1 root root    4096 Apr 25 01:13 ..
+-rw-r--r--  1 root root   17070 Apr 25 01:15 .agent_live.log
+drwxr-xr-x  2 root root      64 Apr 25 01:13 .artifacts
+-rw-r--r--  1 root root     847 Apr 25 01:15 .challenge.json
+drwxr-xr-x  2 root root      64 Apr 25 01:13 .sessions
+drwxr-xr-x  8 root root     256 Apr 25 01:14 .venv
+-rw-r--r--  1 root root    2762 Apr 25 00:44 challenge1.py
+-rwxr-xr-x  1 root root    3141 Apr 25 01:14 exploit.py
+-rwxr-xr-x  1 root root    6175 Apr 25 01:15 exploit_remote.py
+-rw-r--r--  1 root root 4775869 Apr 25 00:44 flow.pt
+-rw-r--r--  1 root root    2611 Apr 25 00:44 flow.py
+-rw-r--r--  1 root root   98025 Apr 25 00:44 predictor.pt
+-rw-r--r--  1 root root     676 Apr 25 00:44 predictor.py
+-rw-r--r--  1 root root    1408 Apr 25 00:44 reference_window.npy
+[2026-04-25T01:15:57Z] EXIT 0
+
+[2026-04-25T01:16:04Z] CMD sed -n '1,240p' /ctf/exploit_remote.py
+"""Remote black-box search to find a submission that passes the checks.
+Reads local reference_window.npy to get x_ref, then connects to the challenge service and sends base64-encoded .npy arrays.
+Implements random search within the L-inf EPS ball around x_ref, parsing server responses for log_prob and p1, stopping when flag returned.
+"""
+import socket, base64, struct, sys, time, random
+
+HOST = 'challs.umdctf.io'
+PORT = 30302
+
+# read local reference_window.npy without numpy
+def read_npy(path):
+    with open(path,'rb') as f:
+        magic = f.read(6)
+        if magic != b'\x93NUMPY':
+            raise Exception('not npy')
+        ver = f.read(2)
+        major, minor = ver[0], ver[1]
+        if major != 1:
+            raise Exception('only v1 supported')
+        header_len = struct.unpack('<H', f.read(2))[0]
+        header = f.read(header_len).decode('latin1')
+        # header like: {"descr": "<f4", "fortran_order": False, "shape": (5, 64), }
+        # crude parse
+        descr = "<f4"
+        shape = None
+        if "descr" in header:
+            # find shape tuple
+            i = header.find('shape')
+            j = header.find(')', i)
+            shape_text = header[i:j+1]
+            # eval safely
+            import re
+            nums = re.findall(r"\d+", shape_text)
+            shape = tuple(int(x) for x in nums)
+        # remaining bytes are data
+        data = f.read()
+        # interpret as little-endian float32
+        fmt = '<' + 'f' * (len(data)//4)
+        vals = struct.unpack(fmt, data)
+        # reshape
+        if shape is None:
+            return vals
+        arr = []
+        it = iter(vals)
+        total = 1
+        for s in shape:
+            total *= s
+        # create nested list
+        flat = list(vals[:total])
+        # convert to nested
+        if len(shape)==2:
+            rows, cols = shape
+            arr = [flat[i*cols:(i+1)*cols] for i in range(rows)]
+        else:
+            # fallback
+            arr = flat
+        return arr, shape
+
+# create .npy bytes for given 2D float32 list or flat list
+def make_npy_bytes(arr, shape):
+    # arr: flat list length product(shape)
+    descr = "<f4"
+    fortran = False
+    header = "{'descr': '%s', 'fortran_order': %s, 'shape': %s, }" % (descr, str(fortran), str(shape))
+    header = header.encode('latin1')
+    # pad header to 16-byte alignment after preamble
+    preamble = b'\x93NUMPY' + bytes([1,0])
+    # header_len must be uint16 little-endian
+    # compute padding so that len(preamble)+2+header_len is multiple of 16
+    # we'll compute header_len minimal to fit header + padding + newline
+    header_len = len(header) + 1
+    # increase until alignment
+    while (len(preamble) + 2 + header_len) % 16 != 0:
+        header_len += 1
+    # pad header with spaces then newline
+    padded = header + b' ' * (header_len - len(header) - 1) + b'\n'
+    res = bytearray()
+    res += preamble
+    res += struct.pack('<H', header_len)
+    res += padded
+    # append data
+    flat = arr
+    # pack floats
+    for v in flat:
+        res += struct.pack('<f', float(v))
+    return bytes(res)
+
+# flatten nested arr to flat list
+def flatten(arr):
+    out = []
+    if isinstance(arr[0], list) or isinstance(arr[0], tuple):
+        for row in arr:
+            out.extend([float(x) for x in row])
+    else:
+        out = [float(x) for x in arr]
+    return out
+
+
+if __name__=='__main__':
+    arr, shape = read_npy('dist/reference_window.npy')
+    flat = flatten(arr)
+    assert shape == (5,64)
+    # x_ref flat list
+    x_ref = flat
+    EPS = 0.05
+
+    s = socket.create_connection((HOST, PORT), timeout=10)
+    f = s.makefile('rw', buffering=1)
+    # read initial lines until prompt
+    intro = ''
+    for _ in range(2):
+        line = f.readline()
+        if not line:
+            print('no intro'); sys.exit(1)
+        intro += line
+    print('intro:', intro.strip())
+    # parse lp_thresh maybe printed on first line
+    import re
+    m = re.search(r'LP_THRESH=\s*([\d\.\-]+)', intro)
+    lp_thresh = None
+    if m:
+        lp_thresh = float(m.group(1))
+    else:
+        # try to extract number after LP_THRESH in any case-insensitive
+        m = re.search(r'LP_THRESH=([\d\.-]+)', intro.upper())
+        if m:
+            lp_thresh = float(m.group(1))
+    print('lp_thresh', lp_thresh)
+
+    trials = 0
+    start = time.time()
+    best_p1 = 0.0
+    best_lp = -1e9
+    # random search
+    while True:
+        # generate candidate: x_ref + uniform(-EPS,EPS)
+        cand = [x + random.uniform(-EPS, EPS) for x in x_ref]
+        b = make_npy_bytes(cand, shape)
+        b64 = base64.b64encode(b).decode()
+        # read prompt until '> '
+        line = f.readline()
+        if not line:
+            print('connection closed'); break
+        # send b64
+        f.write(b64 + '\n')
+        # read response lines until either prints OK/flag or exits
+        resp = f.readline()
+        if not resp:
+            print('no response'); break
+        print(resp.strip())
+        # check for flag
+        if resp.startswith('OK') or resp.startswith('FLAG'):
+            print('maybe success:', resp)
+        if 'FLAG:' in resp:
+            # print rest
+            print(resp.strip())
+            break
+        # parse lp and p1 from message lines; message may be "sanity log_prob too low: {lp:.2f} < {lp_thresh:.2f}" or
+        # "post-purification prediction not flipped: p(class=1)={probs[1]:.4f} < {CONF_FLIP}"
+        # Or when OK: "OK  linf=...  log_prob=...  p1(purified)=..."
+        m_ok = re.search(r'log_prob\s*=?\s*([\-0-9\.]+)', resp)
+        m_p1 = re.search(r'p1\(purified\)=([0-9\.]+)', resp)
+        if not m_p1:
+            m_p1 = re.search(r'p\(class=1\)=([0-9\.]+)', resp)
+        if m_ok:
+            lp = float(m_ok.group(1))
+        else:
+            lp = None
+        if m_p1:
+            p1 = float(m_p1.group(1))
+        else:
+            p1 = None
+        if p1 is not None and p1 > best_p1:
+            best_p1 = p1
+        if lp is not None and (lp > best_lp):
+            best_lp = lp
+        trials += 1
+        if trials % 50 == 0:
+            print(f'trials={trials} best_p1={best_p1:.4f} best_lp={best_lp:.2f} elapsed={time.time()-start:.1f}s')
+    s.close()
+[2026-04-25T01:16:04Z] EXIT 0
+
+[2026-04-25T01:16:13Z] CMD applypatch << 'PATCH'
+*** Begin Patch
+*** Update File: exploit_remote.py
+@@
+-    arr, shape = read_npy('dist/reference_window.npy')
++    # use the local reference file shipped with the challenge
++    arr, shape = read_npy('reference_window.npy')
+*** End Patch
+PATCH
+bash: line 1: applypatch: command not found
+[2026-04-25T01:16:13Z] EXIT 127
+
+[2026-04-25T01:16:22Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:16:22Z] EXIT 0
+
+[2026-04-25T01:16:23Z] CMD /ctf/.venv/bin/python - << 'PY'
+from pathlib import Path
+p=Path('exploit_remote.py')
+s=p.read_text()
+s=s.replace("read_npy('dist/reference_window.npy')","read_npy('reference_window.npy')")
+p.write_text(s)
+print('patched')
+PY
+patched
+[2026-04-25T01:16:23Z] EXIT 0
+
+[2026-04-25T01:16:41Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:16:41Z] EXIT 0
+
+[2026-04-25T01:16:42Z] CMD /ctf/.venv/bin/python exploit_remote.py
+intro: EPS=0.05  CONF_FLIP=0.8  PURIFY_STEPS=3  ALPHA=0.55  LP_THRESH=921.29
+submit base64(numpy float32 array, shape (5, 64)):
+lp_thresh 921.29
+Traceback (most recent call last):
+  File "/ctf/exploit_remote.py", line 141, in <module>
+    line = f.readline()
+  File "/usr/lib/python3.13/socket.py", line 719, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+TimeoutError: timed out
+[2026-04-25T01:16:42Z] EXIT 1
+
+[2026-04-25T01:17:05Z] CMD applypatch << 'PATCH'
+*** Begin Patch
+*** Update File: exploit_remote.py
+@@
+-    s = socket.create_connection((HOST, PORT), timeout=10)
+-    f = s.makefile('rw', buffering=1)
+-    # read initial lines until prompt
+-    intro = ''
+-    for _ in range(2):
+-        line = f.readline()
+-        if not line:
+-            print('no intro'); sys.exit(1)
+-        intro += line
++    s = socket.create_connection((HOST, PORT), timeout=20)
++    f = s.makefile('rw', buffering=1)
++    # read initial greeting lines (one or two)
++    intro = ''
++    try:
++        while True:
++            line = f.readline()
++            if not line:
++                break
++            intro += line
++            if line.strip().endswith('>') or line.strip().endswith('>:') or 'submit base64' in line:
++                break
++            # stop if we've read a couple lines
++            if intro.count('\n')>3:
++                break
++    except Exception:
++        pass
+*** End Patch
+PATCH
+bash: line 1: applypatch: command not found
+[2026-04-25T01:17:05Z] EXIT 127
+
+[2026-04-25T01:17:11Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:17:11Z] EXIT 0
+
+[2026-04-25T01:17:11Z] CMD /ctf/.venv/bin/python exploit_remote.py
+intro: EPS=0.05  CONF_FLIP=0.8  PURIFY_STEPS=3  ALPHA=0.55  LP_THRESH=921.29
+submit base64(numpy float32 array, shape (5, 64)):
+lp_thresh 921.29
+Traceback (most recent call last):
+  File "/ctf/exploit_remote.py", line 141, in <module>
+    line = f.readline()
+  File "/usr/lib/python3.13/socket.py", line 719, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+TimeoutError: timed out
+[2026-04-25T01:17:11Z] EXIT 1
+
+[2026-04-25T01:17:32Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:17:32Z] EXIT 0
+
+[2026-04-25T01:17:32Z] CMD /ctf/.venv/bin/python -u exploit_remote.py
+intro: EPS=0.05  CONF_FLIP=0.8  PURIFY_STEPS=3  ALPHA=0.55  LP_THRESH=921.29
+submit base64(numpy float32 array, shape (5, 64)):
+lp_thresh 921.29
+Traceback (most recent call last):
+  File "/ctf/exploit_remote.py", line 141, in <module>
+    line = f.readline()
+  File "/usr/lib/python3.13/socket.py", line 719, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+TimeoutError: timed out
+[2026-04-25T01:17:32Z] EXIT 1
+
+[2026-04-25T01:18:08Z] CMD applypatch << 'PATCH'
+*** Begin Patch
+*** Update File: exploit_remote.py
+@@
+-    s = socket.create_connection((HOST, PORT), timeout=20)
+-    f = s.makefile('rw', buffering=1)
+-    # read initial greeting lines (one or two)
+-    intro = ''
+-    try:
+-        while True:
+-            line = f.readline()
+-            if not line:
+-                break
+-            intro += line
+-            if line.strip().endswith('>') or line.strip().endswith('>:') or 'submit base64' in line:
+-                break
+-            # stop if we've read a couple lines
+-            if intro.count('\n')>3:
+-                break
+-    except Exception:
+-        pass
++    s = socket.create_connection((HOST, PORT), timeout=10)
++    s.settimeout(5.0)
++    # consume greeting
++    try:
++        intro = s.recv(4096).decode('utf8', errors='ignore')
++    except Exception:
++        intro = ''
++    print('intro:', intro.strip())
+@@
+-    while True:
+-        # generate candidate: x_ref + uniform(-EPS,EPS)
+-        cand = [x + random.uniform(-EPS, EPS) for x in x_ref]
+-        b = make_npy_bytes(cand, shape)
+-        b64 = base64.b64encode(b).decode()
+-        # read prompt until '> '
+-        line = f.readline()
+-        if not line:
+-            print('connection closed'); break
+-        # send b64
+-        f.write(b64 + '\n')
+-        # read response lines until either prints OK/flag or exits
+-        resp = f.readline()
+-        if not resp:
+-            print('no response'); break
+-        print(resp.strip())
++    while True:
++        # generate candidate: x_ref + uniform(-EPS,EPS)
++        cand = [x + random.uniform(-EPS, EPS) for x in x_ref]
++        b = make_npy_bytes(cand, shape)
++        b64 = base64.b64encode(b).decode()
++        # send b64
++        try:
++            s.sendall((b64 + '\n').encode())
++        except Exception as e:
++            print('send error', e); break
++        # read response
++        try:
++            resp = s.recv(4096).decode('utf8', errors='ignore')
++        except Exception as e:
++            print('recv error', e); break
++        if not resp:
++            print('no response'); break
++        print(resp.strip())
+*** End Patch
+PATCH
+bash: line 1: applypatch: command not found
+[2026-04-25T01:18:08Z] EXIT 127
+
+[2026-04-25T01:18:14Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:18:14Z] EXIT 0
+
+[2026-04-25T01:18:15Z] CMD /ctf/.venv/bin/python exploit_remote.py
+intro: EPS=0.05  CONF_FLIP=0.8  PURIFY_STEPS=3  ALPHA=0.55  LP_THRESH=921.29
+submit base64(numpy float32 array, shape (5, 64)):
+lp_thresh 921.29
+Traceback (most recent call last):
+  File "/ctf/exploit_remote.py", line 141, in <module>
+    line = f.readline()
+  File "/usr/lib/python3.13/socket.py", line 719, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+TimeoutError: timed out
+[2026-04-25T01:18:15Z] EXIT 1
+
+[2026-04-25T01:18:40Z] CMD base64 -w0 reference_window.npy | nc challs.umdctf.io 30302 -w 5
+EPS=0.05  CONF_FLIP=0.8  PURIFY_STEPS=3  ALPHA=0.55  LP_THRESH=921.29
+submit base64(numpy float32 array, shape (5, 64)):
+> [2026-04-25T01:18:40Z] EXIT 0
+
+[2026-04-25T01:19:01Z] CMD (echo "$(base64 -w0 reference_window.npy)"; sleep 1) | nc challs.umdctf.io 30302 -w 3
+EPS=0.05  CONF_FLIP=0.8  PURIFY_STEPS=3  ALPHA=0.55  LP_THRESH=921.29
+submit base64(numpy float32 array, shape (5, 64)):
+> post-purification prediction not flipped: p(class=1)=0.0236 < 0.8
+[2026-04-25T01:19:01Z] EXIT 0
+
+[2026-04-25T01:19:12Z] CMD ls -la .venv
+total 8
+drwxr-xr-x  8 root root 256 Apr 25 01:14 .
+drwxr-xr-x 14 root root 448 Apr 25 01:14 ..
+-rw-r--r--  1 root root  69 Apr 25 01:14 .gitignore
+drwxr-xr-x 12 root root 384 Apr 25 01:14 bin
+drwxr-xr-x  3 root root  96 Apr 25 01:14 include
+drwxr-xr-x  3 root root  96 Apr 25 01:14 lib
+lrwxr-xr-x  1 root root   3 Apr 25 01:14 lib64 -> lib
+-rw-r--r--  1 root root 149 Apr 25 01:14 pyvenv.cfg
+[2026-04-25T01:19:12Z] EXIT 0
+
+[2026-04-25T01:19:19Z] CMD . .venv/bin/activate && python3 -c "import torch, numpy; print('ok', torch.__version__, numpy.__version__)"
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import torch, numpy; print('ok', torch.__version__, numpy.__version__)
+    ^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'torch'
+[2026-04-25T01:19:19Z] EXIT 1
+
+[2026-04-25T01:19:28Z] CMD ls -la .venv/lib
+total 0
+drwxr-xr-x 3 root root  96 Apr 25 01:14 .
+drwxr-xr-x 8 root root 256 Apr 25 01:14 ..
+drwxr-xr-x 3 root root  96 Apr 25 01:14 python3.13
+[2026-04-25T01:19:28Z] EXIT 0
+
+[2026-04-25T01:19:36Z] CMD ls -la .venv/lib/python3.13
+total 0
+drwxr-xr-x 3 root root  96 Apr 25 01:14 .
+drwxr-xr-x 3 root root  96 Apr 25 01:14 ..
+drwxr-xr-x 4 root root 128 Apr 25 01:14 site-packages
+[2026-04-25T01:19:36Z] EXIT 0
+
+[2026-04-25T01:19:43Z] CMD ls -la .venv/lib/python3.13/site-packages
+total 0
+drwxr-xr-x  4 root root 128 Apr 25 01:14 .
+drwxr-xr-x  3 root root  96 Apr 25 01:14 ..
+drwxr-xr-x  9 root root 288 Apr 25 01:14 pip
+drwxr-xr-x 10 root root 320 Apr 25 01:14 pip-25.2.dist-info
+[2026-04-25T01:19:43Z] EXIT 0
+
+[2026-04-25T01:19:52Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:19:52Z] EXIT 0
+
+[2026-04-25T01:19:52Z] CMD /ctf/.venv/bin/python - << 'PY'
+# quick test: craft a candidate very close to reference but biased to try flip
+import base64, struct
+b=open('reference_window.npy','rb').read()
+print('len',len(b))
+# decode file header and data to modify data
+import io
+bio=io.BytesIO(b)
+magic=bio.read(6)
+ver=bio.read(2)
+hl=struct.unpack('<H',bio.read(2))[0]
+header=bio.read(hl)
+print('header:',header)
+data=bio.read()
+cnt=len(data)//4
+vals=list(struct.unpack('<%df'%cnt, data))
+# add small perturbation to first channel/time to try to flip
+for i in range(0,10):
+    vals[i]+=0.05
+nb=bytearray()
+nb+=magic+ver+struct.pack('<H',hl)+header
+for v in vals:
+    nb+=struct.pack('<f',v)
+print('newlen',len(nb))
+print(base64.b64encode(nb)[:200])
+PY
+len 1408
+header: b"{'descr': '<f4', 'fortran_order': False, 'shape': (5, 64), }                                                         \n"
+newlen 1408
+b'k05VTVBZAQB2AHsnZGVzY3InOiAnPGY0JywgJ2ZvcnRyYW5fb3JkZXInOiBGYWxzZSwgJ3NoYXBlJzogKDUsIDY0KSwgfSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAqQXmA9sWNIPaAkVT08olI9B9hUPXVw'
+[2026-04-25T01:19:52Z] EXIT 0
+
+[2026-04-25T01:19:59Z] CMD (echo "$(python3 -c "import base64; print(base64.b64encode(open('tmpb.bin','wb').write(b''))")")"
+bash: -c: line 1: unexpected EOF while looking for matching `"'
+[2026-04-25T01:19:59Z] EXIT 2
+
+[2026-09-17T18:36:02Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-09-17T18:36:02Z] EXIT 0
+
+[2026-09-17T18:36:03Z] CMD if [ -f /ctf/.venv/pyvenv.cfg ] && ! grep -qi 'include-system-site-packages *= *true' /ctf/.venv/pyvenv.cfg; then rm -rf /ctf/.venv; fi
+[2026-09-17T18:36:03Z] EXIT 0
+
+[2026-09-17T18:36:03Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T18:36:03Z] EXIT 0
+
+[2026-09-17T18:36:04Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T18:36:04Z] EXIT 0
+
+[2026-09-17T18:36:04Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T18:36:04Z] EXIT 0
+
+[2026-09-17T18:36:04Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T18:36:04Z] EXIT 0
+
+[2026-09-17T18:36:04Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T18:36:04Z] EXIT 0
+
+[2026-09-17T18:36:05Z] CMD ls -1 /ctf/ 2>/dev/null || true
+challenge1.py
+exploit.py
+exploit_remote.py
+flow.pt
+flow.py
+predictor.pt
+predictor.py
+reference_window.npy
+[2026-09-17T18:36:05Z] EXIT 0
+
+[2026-09-17T18:36:06Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 4832
+drwxr-xr-x 14 root root     448 Sep 17 18:36 .
+drwxr-xr-x  1 root root    4096 Sep 17 18:36 ..
+-rw-r--r--  1 root root   35656 Sep 17 18:36 .agent_live.log
+drwxr-xr-x  2 root root      64 Apr 25 01:13 .artifacts
+-rw-r--r--  1 root root     847 Sep 17 18:36 .challenge.json
+drwxr-xr-x  2 root root      64 Apr 25 01:13 .sessions
+-rw-r--r--  1 root root    2762 Apr 25 00:44 challenge1.py
+-rwxr-xr-x  1 root root    3141 Apr 25 01:14 exploit.py
+-rwxr-xr-x  1 root root    6170 Apr 25 01:16 exploit_remote.py
+-rw-r--r--  1 root root 4775869 Apr 25 00:44 flow.pt
+-rw-r--r--  1 root root    2611 Apr 25 00:44 flow.py
+-rw-r--r--  1 root root   98025 Apr 25 00:44 predictor.pt
+-rw-r--r--  1 root root     676 Apr 25 00:44 predictor.py
+-rw-r--r--  1 root root    1408 Apr 25 00:44 reference_window.npy
+---
+/ctf/challenge1.py:        Python script, ASCII text executable
+/ctf/exploit.py:           Python script, ASCII text executable
+/ctf/exploit_remote.py:    Python script, ASCII text executable
+/ctf/flow.pt:              Zip archive data, made by v0.0, extract using at least v0.0, last modified Jan 00 1980 00:00:00, uncompressed size 11258, method=store
+/ctf/flow.py:              Python script, ASCII text executable
+/ctf/predictor.pt:         Zip archive data, made by v0.0, extract using at least v0.0, last modified Jan 00 1980 00:00:00, uncompressed size 782, method=store
+/ctf/predictor.py:         Python script, ASCII text executable
+/ctf/reference_window.npy: NumPy data file, version 1.0, description {'descr': '<f4', 'fortran_order': False, 'shape': (5, 64), }                                                         
+[2026-09-17T18:36:06Z] EXIT 0
+
+[2026-09-17T18:36:06Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T18:36:06Z] EXIT 0
+
+[2026-09-17T18:36:06Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T18:36:06Z] EXIT 0
+
+[2026-09-17T18:36:07Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T18:36:07Z] EXIT 0
+
+[2026-09-17T18:36:07Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T18:36:07Z] EXIT 0
+
+[2026-09-17T18:36:07Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T18:36:07Z] EXIT 0
+
+[2026-09-17T18:36:50Z] CMD sed -n '1,200p' /ctf/challenge1.py
+#!/usr/local/bin/python
+import base64
+import io
+import os
+import sys
+from pathlib import Path
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+
+from predictor import Predictor
+from flow import RealNVP
+
+HERE = Path(__file__).parent
+HANDOUT = HERE / "dist"
+
+EPS = 0.05
+CONF_FLIP = 0.80
+PURIFY_STEPS = 3
+PURIFY_ALPHA = 0.55
+FLAG = open("./flag.txt", "r").read()
+
+def load_all():
+    x_ref = np.load(HANDOUT / "reference_window.npy")
+    predictor = Predictor()
+    predictor.load_state_dict(torch.load(HANDOUT / "predictor.pt"))
+    predictor.eval()
+    d = torch.load(HANDOUT / "flow.pt")
+    flow = RealNVP(channels=d["channels"], window=d["window"], n_layers=d["n_layers"], hidden=d["hidden"])
+    flow.load_state_dict(d["state_dict"])
+    flow.eval()
+    return x_ref, predictor, flow, float(d["threshold"])
+
+
+def purify(x, flow, n_steps=PURIFY_STEPS, alpha=PURIFY_ALPHA):
+    for _ in range(n_steps):
+        z, _ = flow.forward(x)
+        x = flow.inverse(alpha * z)
+    return x
+
+def check(sub, x_ref, predictor, flow, lp_thresh):
+    if sub.shape != x_ref.shape:
+        return False, f"shape mismatch {sub.shape} vs {x_ref.shape}", None
+    if sub.dtype != np.float32:
+        sub = sub.astype(np.float32)
+
+    linf = float(np.max(np.abs(sub - x_ref)))
+    if linf > EPS + 1e-6:
+        return False, f"L-inf budget exceeded: {linf:.6f} > {EPS}", None
+
+    t = torch.from_numpy(sub[None])
+    with torch.no_grad():
+        lp = float(flow.log_prob(t).item())
+    if lp < lp_thresh:
+        return False, f"sanity log_prob too low: {lp:.2f} < {lp_thresh:.2f}", None
+
+    with torch.no_grad():
+        probs = F.softmax(predictor(purify(t, flow)), dim=1).numpy()[0]
+    if probs[1] < CONF_FLIP:
+        return False, f"post-purification prediction not flipped: p(class=1)={probs[1]:.4f} < {CONF_FLIP}", None
+    return True, f"OK  linf={linf:.5f}  log_prob={lp:.2f}  p1(purified)={probs[1]:.4f}", FLAG
+
+
+def read_submission():
+    sys.stdout.write("submit base64(numpy float32 array, shape (5, 64)):\n> ")
+    sys.stdout.flush()
+    line = sys.stdin.readline().strip()
+    if not line:
+        print("empty input"); sys.exit(2)
+    try:
+        raw = base64.b64decode(line, validate=False)
+        return np.load(io.BytesIO(raw))
+    except Exception as e:
+        print(f"could not decode submission: {e}"); sys.exit(2)
+
+
+def main():
+    x_ref, predictor, flow, lp_thresh = load_all()
+    print(f"EPS={EPS}  CONF_FLIP={CONF_FLIP}  PURIFY_STEPS={PURIFY_STEPS}  ALPHA={PURIFY_ALPHA}  LP_THRESH={lp_thresh:.2f}")
+    sub = read_submission()
+    ok, msg, flag = check(sub, x_ref, predictor, flow, lp_thresh)
+    print(f"{msg}")
+    if ok:
+        print(f"FLAG: {flag}")
+        sys.exit(0)
+    sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[2026-09-17T18:36:50Z] EXIT 0
+
+[2026-09-17T18:36:54Z] CMD sed -n '1,240p' /ctf/exploit.py
+"""Attack script to find a submission array within L-inf EPS of reference that flips classifier after purification.
+Saves candidate to candidate.npy and prints base64 for manual submission.
+"""
+import base64
+import io
+import numpy as np
+import torch
+import torch.nn.functional as F
+from predictor import Predictor
+from flow import RealNVP
+from pathlib import Path
+
+HERE = Path(__file__).parent
+HANDOUT = HERE / "dist"
+EPS = 0.05
+CONF_FLIP = 0.80
+PURIFY_STEPS = 3
+PURIFY_ALPHA = 0.55
+
+# load
+x_ref = np.load(HANDOUT / "reference_window.npy")
+predictor = Predictor()
+predictor.load_state_dict(torch.load(HANDOUT / "predictor.pt"))
+predictor.eval()
+d = torch.load(HANDOUT / "flow.pt")
+flow = RealNVP(channels=d["channels"], window=d["window"], n_layers=d["n_layers"], hidden=d["hidden"])
+flow.load_state_dict(d["state_dict"])
+flow.eval()
+lp_thresh = float(d["threshold"])
+
+device = torch.device('cpu')
+
+x0 = torch.from_numpy(x_ref).to(device)
+# start at x_ref
+x = x0.clone().detach()
+x = x.requires_grad_(True)
+opt = torch.optim.Adam([x], lr=1e-2)
+
+def purify(t, flow, n_steps=PURIFY_STEPS, alpha=PURIFY_ALPHA):
+    x = t
+    for _ in range(n_steps):
+        z, _ = flow.forward(x)
+        x = flow.inverse(alpha * z)
+    return x
+
+best = None
+best_score = -1
+for restart in range(3):
+    # reinit x near x_ref with tiny noise
+    with torch.no_grad():
+        x.data = x0 + 0.001 * torch.randn_like(x0)
+    x.requires_grad_(True)
+    opt = torch.optim.Adam([x], lr=5e-3)
+    for it in range(2000):
+        opt.zero_grad()
+        t = x.unsqueeze(0)
+        # compute log_prob
+        lp = flow.log_prob(t)
+        purified = purify(t, flow)
+        logits = predictor(purified)
+        probs = F.softmax(logits, dim=1)
+        p1 = probs[0,1]
+        # objective: maximize p1, also encourage lp >= thresh
+        # use loss = -p1 + hinge on lp
+        hinge = torch.clamp(lp_thresh - lp, min=0.0)
+        loss = -p1 + 0.01 * hinge
+        loss.backward()
+        # gradient step
+        opt.step()
+        # project to L-inf ball
+        with torch.no_grad():
+            x.data = torch.max(torch.min(x, x0 + EPS), x0 - EPS)
+            # also keep as float32
+            x.data = x.data.to(torch.float32)
+        if it % 100 == 0:
+            with torch.no_grad():
+                val_lp = float(lp.item())
+                val_p1 = float(p1.item())
+            print(f"restart {restart} it {it} loss {loss.item():.4f} p1 {val_p1:.4f} lp {val_lp:.2f}")
+        # check success
+        with torch.no_grad():
+            if float(p1) >= CONF_FLIP and float(lp) >= lp_thresh:
+                print(f"Found candidate at restart {restart} it {it} p1={float(p1):.4f} lp={float(lp):.2f}")
+                cand = x.detach().cpu().numpy().astype(np.float32)
+                np.save('candidate.npy', cand)
+                # print base64
+                bio = io.BytesIO()
+                np.save(bio, cand)
+                b64 = base64.b64encode(bio.getvalue()).decode()
+                print(b64)
+                raise SystemExit(0)
+
+print("No candidate found")
+# save best attempt
+np.save('candidate.npy', x.detach().cpu().numpy().astype(np.float32))
+[2026-09-17T18:36:54Z] EXIT 0
+
+[2026-09-17T18:36:56Z] CMD sed -n '1,240p' /ctf/exploit_remote.py
+"""Remote black-box search to find a submission that passes the checks.
+Reads local reference_window.npy to get x_ref, then connects to the challenge service and sends base64-encoded .npy arrays.
+Implements random search within the L-inf EPS ball around x_ref, parsing server responses for log_prob and p1, stopping when flag returned.
+"""
+import socket, base64, struct, sys, time, random
+
+HOST = 'challs.umdctf.io'
+PORT = 30302
+
+# read local reference_window.npy without numpy
+def read_npy(path):
+    with open(path,'rb') as f:
+        magic = f.read(6)
+        if magic != b'\x93NUMPY':
+            raise Exception('not npy')
+        ver = f.read(2)
+        major, minor = ver[0], ver[1]
+        if major != 1:
+            raise Exception('only v1 supported')
+        header_len = struct.unpack('<H', f.read(2))[0]
+        header = f.read(header_len).decode('latin1')
+        # header like: {"descr": "<f4", "fortran_order": False, "shape": (5, 64), }
+        # crude parse
+        descr = "<f4"
+        shape = None
+        if "descr" in header:
+            # find shape tuple
+            i = header.find('shape')
+            j = header.find(')', i)
+            shape_text = header[i:j+1]
+            # eval safely
+            import re
+            nums = re.findall(r"\d+", shape_text)
+            shape = tuple(int(x) for x in nums)
+        # remaining bytes are data
+        data = f.read()
+        # interpret as little-endian float32
+        fmt = '<' + 'f' * (len(data)//4)
+        vals = struct.unpack(fmt, data)
+        # reshape
+        if shape is None:
+            return vals
+        arr = []
+        it = iter(vals)
+        total = 1
+        for s in shape:
+            total *= s
+        # create nested list
+        flat = list(vals[:total])
+        # convert to nested
+        if len(shape)==2:
+            rows, cols = shape
+            arr = [flat[i*cols:(i+1)*cols] for i in range(rows)]
+        else:
+            # fallback
+            arr = flat
+        return arr, shape
+
+# create .npy bytes for given 2D float32 list or flat list
+def make_npy_bytes(arr, shape):
+    # arr: flat list length product(shape)
+    descr = "<f4"
+    fortran = False
+    header = "{'descr': '%s', 'fortran_order': %s, 'shape': %s, }" % (descr, str(fortran), str(shape))
+    header = header.encode('latin1')
+    # pad header to 16-byte alignment after preamble
+    preamble = b'\x93NUMPY' + bytes([1,0])
+    # header_len must be uint16 little-endian
+    # compute padding so that len(preamble)+2+header_len is multiple of 16
+    # we'll compute header_len minimal to fit header + padding + newline
+    header_len = len(header) + 1
+    # increase until alignment
+    while (len(preamble) + 2 + header_len) % 16 != 0:
+        header_len += 1
+    # pad header with spaces then newline
+    padded = header + b' ' * (header_len - len(header) - 1) + b'\n'
+    res = bytearray()
+    res += preamble
+    res += struct.pack('<H', header_len)
+    res += padded
+    # append data
+    flat = arr
+    # pack floats
+    for v in flat:
+        res += struct.pack('<f', float(v))
+    return bytes(res)
+
+# flatten nested arr to flat list
+def flatten(arr):
+    out = []
+    if isinstance(arr[0], list) or isinstance(arr[0], tuple):
+        for row in arr:
+            out.extend([float(x) for x in row])
+    else:
+        out = [float(x) for x in arr]
+    return out
+
+
+if __name__=='__main__':
+    arr, shape = read_npy('reference_window.npy')
+    flat = flatten(arr)
+    assert shape == (5,64)
+    # x_ref flat list
+    x_ref = flat
+    EPS = 0.05
+
+    s = socket.create_connection((HOST, PORT), timeout=10)
+    f = s.makefile('rw', buffering=1)
+    # read initial lines until prompt
+    intro = ''
+    for _ in range(2):
+        line = f.readline()
+        if not line:
+            print('no intro'); sys.exit(1)
+        intro += line
+    print('intro:', intro.strip())
+    # parse lp_thresh maybe printed on first line
+    import re
+    m = re.search(r'LP_THRESH=\s*([\d\.\-]+)', intro)
+    lp_thresh = None
+    if m:
+        lp_thresh = float(m.group(1))
+    else:
+        # try to extract number after LP_THRESH in any case-insensitive
+        m = re.search(r'LP_THRESH=([\d\.-]+)', intro.upper())
+        if m:
+            lp_thresh = float(m.group(1))
+    print('lp_thresh', lp_thresh)
+
+    trials = 0
+    start = time.time()
+    best_p1 = 0.0
+    best_lp = -1e9
+    # random search
+    while True:
+        # generate candidate: x_ref + uniform(-EPS,EPS)
+        cand = [x + random.uniform(-EPS, EPS) for x in x_ref]
+        b = make_npy_bytes(cand, shape)
+        b64 = base64.b64encode(b).decode()
+        # read prompt until '> '
+        line = f.readline()
+        if not line:
+            print('connection closed'); break
+        # send b64
+        f.write(b64 + '\n')
+        # read response lines until either prints OK/flag or exits
+        resp = f.readline()
+        if not resp:
+            print('no response'); break
+        print(resp.strip())
+        # check for flag
+        if resp.startswith('OK') or resp.startswith('FLAG'):
+            print('maybe success:', resp)
+        if 'FLAG:' in resp:
+            # print rest
+            print(resp.strip())
+            break
+        # parse lp and p1 from message lines; message may be "sanity log_prob too low: {lp:.2f} < {lp_thresh:.2f}" or
+        # "post-purification prediction not flipped: p(class=1)={probs[1]:.4f} < {CONF_FLIP}"
+        # Or when OK: "OK  linf=...  log_prob=...  p1(purified)=..."
+        m_ok = re.search(r'log_prob\s*=?\s*([\-0-9\.]+)', resp)
+        m_p1 = re.search(r'p1\(purified\)=([0-9\.]+)', resp)
+        if not m_p1:
+            m_p1 = re.search(r'p\(class=1\)=([0-9\.]+)', resp)
+        if m_ok:
+            lp = float(m_ok.group(1))
+        else:
+            lp = None
+        if m_p1:
+            p1 = float(m_p1.group(1))
+        else:
+            p1 = None
+        if p1 is not None and p1 > best_p1:
+            best_p1 = p1
+        if lp is not None and (lp > best_lp):
+            best_lp = lp
+        trials += 1
+        if trials % 50 == 0:
+            print(f'trials={trials} best_p1={best_p1:.4f} best_lp={best_lp:.2f} elapsed={time.time()-start:.1f}s')
+    s.close()
+[2026-09-17T18:36:56Z] EXIT 0
+
+[2026-09-17T18:36:59Z] CMD sed -n '1,240p' /ctf/flow.py
+import torch
+import torch.nn as nn
+
+class CouplingLayer(nn.Module):
+    def __init__(self, dim, mask, hidden=128):
+        super().__init__()
+        self.register_buffer("mask", mask)
+        self.s_net = nn.Sequential(
+            nn.Linear(dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, dim), nn.Tanh(),
+        )
+        self.t_net = nn.Sequential(
+            nn.Linear(dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, dim),
+        )
+
+    def forward(self, x):
+        x_masked = x * self.mask
+        s = self.s_net(x_masked) * (1 - self.mask)
+        t = self.t_net(x_masked) * (1 - self.mask)
+        z = x_masked + (1 - self.mask) * (x * torch.exp(s) + t)
+        return z, s.sum(dim=1)
+
+    def inverse(self, z):
+        z_masked = z * self.mask
+        s = self.s_net(z_masked) * (1 - self.mask)
+        t = self.t_net(z_masked) * (1 - self.mask)
+        return z_masked + (1 - self.mask) * ((z - t) * torch.exp(-s))
+
+class RealNVP(nn.Module):
+    def __init__(self, channels=5, window=64, n_layers=6, hidden=128):
+        super().__init__()
+        self.channels = channels
+        self.window = window
+        self.dim = channels * window
+        self.register_buffer("mu", torch.zeros(self.dim))
+        self.register_buffer("sigma", torch.ones(self.dim))
+        base_mask = torch.zeros(self.dim)
+        base_mask[::2] = 1
+        layers = []
+        for i in range(n_layers):
+            mask = base_mask if (i % 2 == 0) else (1 - base_mask)
+            layers.append(CouplingLayer(self.dim, mask, hidden=hidden))
+        self.layers = nn.ModuleList(layers)
+
+    def _flatten(self, x):
+        return x.reshape(x.size(0), -1)
+
+    def _unflatten(self, x_flat):
+        return x_flat.reshape(-1, self.channels, self.window)
+
+    def forward(self, x):
+        x_flat = (self._flatten(x) - self.mu) / self.sigma
+        log_det = torch.zeros(x.size(0), device=x.device)
+        z = x_flat
+        for layer in self.layers:
+            z, ld = layer(z)
+            log_det = log_det + ld
+        log_det = log_det - torch.log(self.sigma).sum().expand(x.size(0))
+        return z, log_det
+
+    def inverse(self, z):
+        x = z
+        for layer in reversed(self.layers):
+            x = layer.inverse(x)
+        x = x * self.sigma + self.mu
+        return self._unflatten(x)
+
+    def log_prob(self, x):
+        z, log_det = self.forward(x)
+        log_prior = -0.5 * (z ** 2).sum(dim=1) - 0.5 * self.dim * torch.log(torch.tensor(2.0 * torch.pi))
+        return log_prior + log_det
+[2026-09-17T18:36:59Z] EXIT 0
+

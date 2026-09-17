@@ -1,0 +1,37 @@
+{
+  "id": "6a6c09ff",
+  "name": "road-3",
+  "category": "osint",
+  "flag_format": "",
+  "description": "i was practicing my roobet rush hour gambling on a live traffic cam. i have a screenshot but i can't remember where it was. can you tell me the name of the nearest town? flag is of form UMDCTF{College Park, MD}",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-04-25T00:49:04.924784Z"
+}

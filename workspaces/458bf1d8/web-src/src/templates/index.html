@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Markdown Renderer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+
+<body>
+  <div class="container">
+    <form method="get"> <textarea name="markdown" autofocus
+        placeholder="Type your markdown here...">{{ markdown_input }}</textarea> <button type="submit">Render</button>
+    </form>
+    {{ html_output }}
+  </div>
+</body>
+
+</html>

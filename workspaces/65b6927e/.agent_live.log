@@ -1,0 +1,640 @@
+[2026-04-25T01:14:25Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-04-25T01:14:25Z] EXIT 0
+
+[2026-04-25T01:14:25Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:14:25Z] EXIT 0
+
+[2026-04-25T01:14:26Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:14:26Z] EXIT 0
+
+[2026-04-25T01:14:26Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:14:26Z] EXIT 0
+
+[2026-04-25T01:14:26Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:14:26Z] EXIT 0
+
+[2026-04-25T01:14:27Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:14:27Z] EXIT 0
+
+[2026-04-25T01:14:27Z] CMD ls -1 /ctf/ 2>/dev/null || true
+challenge2.py
+flow1.py
+flow_0.pt
+game.py
+observations.py
+reference_window1.npy
+[2026-04-25T01:14:27Z] EXIT 0
+
+[2026-04-25T01:14:27Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 4700
+drwxr-xr-x 12 root root     384 Apr 25 01:14 .
+drwxr-xr-x  1 root root    4096 Apr 25 01:14 ..
+-rw-r--r--  1 root root     967 Apr 25 01:14 .agent_live.log
+drwxr-xr-x  2 root root      64 Apr 25 01:14 .artifacts
+-rw-r--r--  1 root root     813 Apr 25 01:14 .challenge.json
+drwxr-xr-x  2 root root      64 Apr 25 01:14 .sessions
+-rw-r--r--  1 root root    2962 Apr 25 00:45 challenge2.py
+-rw-r--r--  1 root root    2611 Apr 25 00:45 flow1.py
+-rw-r--r--  1 root root 4776037 Apr 25 00:45 flow_0.pt
+-rw-r--r--  1 root root    3048 Apr 25 00:45 game.py
+-rw-r--r--  1 root root     610 Apr 25 00:45 observations.py
+-rw-r--r--  1 root root    1408 Apr 25 00:45 reference_window1.npy
+---
+/ctf/challenge2.py:         Python script, ASCII text executable
+/ctf/flow1.py:              Python script, ASCII text executable
+/ctf/flow_0.pt:             Zip archive data, made by v0.0, extract using at least v0.0, last modified ? 00 1980 00:00:00, uncompressed size 11230, method=store
+/ctf/game.py:               Python script, ASCII text executable
+/ctf/observations.py:       Python script, ASCII text executable
+/ctf/reference_window1.npy: NumPy data file, version 1.0, description {'descr': '<f4', 'fortran_order': False, 'shape': (5, 64), }                                                         
+[2026-04-25T01:14:27Z] EXIT 0
+
+[2026-04-25T01:14:28Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:14:28Z] EXIT 0
+
+[2026-04-25T01:14:28Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:14:28Z] EXIT 0
+
+[2026-04-25T01:14:28Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:14:28Z] EXIT 0
+
+[2026-04-25T01:14:29Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:14:29Z] EXIT 0
+
+[2026-04-25T01:14:29Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:14:29Z] EXIT 0
+
+[2026-04-25T01:14:35Z] CMD sed -n '1,240p' /ctf/challenge2.py
+#!/usr/local/bin/python
+import base64
+import io
+import os
+import sys
+from pathlib import Path
+
+import numpy as np
+import torch
+
+from flow import RealNVP
+
+HERE = Path(__file__).parent
+HANDOUT = HERE / "dist"
+
+EPS = 0.08
+FLAG = open("./flag.txt", "r").read()
+
+def load_flow(name):
+    d = torch.load(HANDOUT / name)
+    flow = RealNVP(channels=d["channels"], window=d["window"], n_layers=d["n_layers"], hidden=d["hidden"])
+    flow.load_state_dict(d["state_dict"]); flow.eval()
+    return flow
+
+def log_prob_parts(flow, x):
+    z, log_det = flow.forward(x)
+    log_prior = -0.5 * (z ** 2).sum(dim=1) - 0.5 * flow.dim * np.log(2.0 * np.pi)
+    return log_prior, log_det, log_prior + log_det
+
+def check(sub, x_ref, f0, f1, cal):
+    if sub.shape != x_ref.shape:
+        return False, f"shape mismatch {sub.shape} vs {x_ref.shape}", None
+    if sub.dtype != np.float32:
+        sub = sub.astype(np.float32)
+
+    linf = float(np.max(np.abs(sub - x_ref)))
+    if linf > EPS + 1e-6:
+        return False, f"L-inf budget exceeded: {linf:.6f} > {EPS}", None
+
+    t = torch.from_numpy(sub[None])
+    with torch.no_grad():
+        _, _, lp0 = log_prob_parts(f0, t)
+        _, ld1, lp1 = log_prob_parts(f1, t)
+    lp0, lp1, ld1 = float(lp0.item()), float(lp1.item()), float(ld1.item())
+    margin = lp1 - lp0
+
+    target_margin = float(cal["target_margin"])
+    lp_thresh1 = float(cal["lp_thresh1"])
+    band1 = (float(cal["band1_lo"]), float(cal["band1_hi"]))
+
+    if margin < target_margin:
+        return False, f"margin too low: log q_1 - log q_0 = {margin:.2f} < {target_margin}", None
+    if lp1 < lp_thresh1:
+        return False, f"flow_1 rejects realism: log q_1 = {lp1:.2f} < {lp_thresh1:.2f}", None
+    if not (band1[0] <= ld1 <= band1[1]):
+        return False, f"flow_1 Jacobian out of band: log|det J_f1| = {ld1:.2f} not in {band1}", None
+    return True, f"OK  linf={linf:.5f}  margin={margin:.2f}  log_q1={lp1:.2f}  log_det1={ld1:.2f}", FLAG
+
+def read_submission():
+    sys.stdout.write("submit base64(numpy float32 array, shape (5, 64)):\n> ")
+    sys.stdout.flush()
+    line = sys.stdin.readline().strip()
+    if not line:
+        print("empty input"); sys.exit(2)
+    try:
+        raw = base64.b64decode(line, validate=False)
+        return np.load(io.BytesIO(raw))
+    except Exception as e:
+        print(f"could not decode submission: {e}"); sys.exit(2)
+
+def main():
+    x_ref = np.load(HANDOUT / "reference_window.npy")
+    f0 = load_flow("flow_0.pt"); f1 = load_flow("flow_1.pt")
+    cal = np.load(HANDOUT / "calibration.npz")
+    print(f"EPS={EPS}  target_margin={float(cal['target_margin'])}  "
+          f"lp_thresh1={float(cal['lp_thresh1']):.2f}  "
+          f"band1=({float(cal['band1_lo']):.2f}, {float(cal['band1_hi']):.2f})")
+    sub = read_submission()
+    ok, msg, flag = check(sub, x_ref, f0, f1, cal)
+    print(f"{msg}")
+    if ok:
+        print(f"FLAG: {flag}")
+        sys.exit(0)
+    sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+[2026-04-25T01:14:35Z] EXIT 0
+
+[2026-04-25T01:14:44Z] CMD sed -n '1,240p' /ctf/flow1.py
+import torch
+import torch.nn as nn
+
+class CouplingLayer(nn.Module):
+    def __init__(self, dim, mask, hidden=128):
+        super().__init__()
+        self.register_buffer("mask", mask)
+        self.s_net = nn.Sequential(
+            nn.Linear(dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, dim), nn.Tanh(),
+        )
+        self.t_net = nn.Sequential(
+            nn.Linear(dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, dim),
+        )
+
+    def forward(self, x):
+        x_masked = x * self.mask
+        s = self.s_net(x_masked) * (1 - self.mask)
+        t = self.t_net(x_masked) * (1 - self.mask)
+        z = x_masked + (1 - self.mask) * (x * torch.exp(s) + t)
+        return z, s.sum(dim=1)
+
+    def inverse(self, z):
+        z_masked = z * self.mask
+        s = self.s_net(z_masked) * (1 - self.mask)
+        t = self.t_net(z_masked) * (1 - self.mask)
+        return z_masked + (1 - self.mask) * ((z - t) * torch.exp(-s))
+
+class RealNVP(nn.Module):
+    def __init__(self, channels=5, window=64, n_layers=6, hidden=128):
+        super().__init__()
+        self.channels = channels
+        self.window = window
+        self.dim = channels * window
+        self.register_buffer("mu", torch.zeros(self.dim))
+        self.register_buffer("sigma", torch.ones(self.dim))
+        base_mask = torch.zeros(self.dim)
+        base_mask[::2] = 1
+        layers = []
+        for i in range(n_layers):
+            mask = base_mask if (i % 2 == 0) else (1 - base_mask)
+            layers.append(CouplingLayer(self.dim, mask, hidden=hidden))
+        self.layers = nn.ModuleList(layers)
+
+    def _flatten(self, x):
+        return x.reshape(x.size(0), -1)
+
+    def _unflatten(self, x_flat):
+        return x_flat.reshape(-1, self.channels, self.window)
+
+    def forward(self, x):
+        x_flat = (self._flatten(x) - self.mu) / self.sigma
+        log_det = torch.zeros(x.size(0), device=x.device)
+        z = x_flat
+        for layer in self.layers:
+            z, ld = layer(z)
+            log_det = log_det + ld
+        log_det = log_det - torch.log(self.sigma).sum().expand(x.size(0))
+        return z, log_det
+
+    def inverse(self, z):
+        x = z
+        for layer in reversed(self.layers):
+            x = layer.inverse(x)
+        x = x * self.sigma + self.mu
+        return self._unflatten(x)
+
+    def log_prob(self, x):
+        z, log_det = self.forward(x)
+        log_prior = -0.5 * (z ** 2).sum(dim=1) - 0.5 * self.dim * torch.log(torch.tensor(2.0 * torch.pi))
+        return log_prior + log_det
+[2026-04-25T01:14:44Z] EXIT 0
+
+[2026-04-25T01:14:50Z] CMD ls -la /ctf || true; sed -n '1,240p' /ctf/game.py; sed -n '1,240p' /ctf/observations.py
+total 4708
+drwxr-xr-x 12 root root     384 Apr 25 01:14 .
+drwxr-xr-x  1 root root    4096 Apr 25 01:14 ..
+-rw-r--r--  1 root root    8782 Apr 25 01:14 .agent_live.log
+drwxr-xr-x  2 root root      64 Apr 25 01:14 .artifacts
+-rw-r--r--  1 root root     813 Apr 25 01:14 .challenge.json
+drwxr-xr-x  2 root root      64 Apr 25 01:14 .sessions
+-rw-r--r--  1 root root    2962 Apr 25 00:45 challenge2.py
+-rw-r--r--  1 root root    2611 Apr 25 00:45 flow1.py
+-rw-r--r--  1 root root 4776037 Apr 25 00:45 flow_0.pt
+-rw-r--r--  1 root root    3048 Apr 25 00:45 game.py
+-rw-r--r--  1 root root     610 Apr 25 00:45 observations.py
+-rw-r--r--  1 root root    1408 Apr 25 00:45 reference_window1.npy
+import numpy as np
+from physics import CarState, initial_car, step_car
+from observations import OBS_DIM, generate_observation
+from policy import Policy
+from attack import AttackModel
+
+LEGIT_GOAL = (-20.0, -20.0)
+CTF_GOAL = (18.5, -24.5)
+CTF_RADIUS = 2.0
+EPISODE_TIMEOUT = 60.0
+
+FLAG = "UMDCTF{fake_flag}"
+
+
+class GameState:
+    def __init__(self, policy: Policy):
+        self.policy = policy
+        self.attack: AttackModel | None = None
+        self.attack_error: str | None = None
+        self.car: CarState = initial_car()
+        self.time = 0.0
+        self.last_obs = np.zeros(OBS_DIM, dtype=np.float32)
+        self.last_delta = np.zeros(8, dtype=np.float32)
+        self.goal_reached = False
+        self.timed_out = False
+        self.flag: str | None = None
+
+    def reset(self) -> None:
+        self.car = initial_car()
+        self.time = 0.0
+        self.goal_reached = False
+        self.timed_out = False
+        self.flag = None
+        self.last_delta = np.zeros(8, dtype=np.float32)
+
+    def install_attack(self, model: AttackModel | None) -> None:
+        self.attack = model
+        self.attack_error = None
+        self.reset()
+
+    def set_attack_error(self, err: str) -> None:
+        self.attack = None
+        self.attack_error = err
+
+    def step(self, dt: float) -> None:
+        if self.goal_reached or self.timed_out:
+            return
+
+        obs = generate_observation(self.car, LEGIT_GOAL)
+        self.last_obs = obs
+
+        if self.attack is not None:
+            delta = self.attack(obs)
+            self.last_delta = delta
+            policy_input = obs + delta
+        else:
+            self.last_delta = np.zeros(8, dtype=np.float32)
+            policy_input = obs
+
+        raw_t, steer = self.policy(policy_input)
+        action = np.clip(np.array([raw_t, steer], dtype=np.float32), -1.0, 1.0)
+
+        throttle = float(max(0.0, action[0]))
+        brake = float(max(0.0, -action[0]))
+        step_car(self.car, dt, throttle, brake, float(action[1]))
+        self.time += dt
+
+        dx = self.car.x - CTF_GOAL[0]
+        dz = self.car.z - CTF_GOAL[1]
+        if dx * dx + dz * dz < CTF_RADIUS * CTF_RADIUS:
+            self.goal_reached = True
+            self.flag = FLAG
+        elif self.time > EPISODE_TIMEOUT:
+            self.timed_out = True
+
+    def to_state_dict(self) -> dict:
+        if self.attack is not None:
+            attack_status = "active"
+        elif self.attack_error is not None:
+            attack_status = "error"
+        else:
+            attack_status = "none"
+
+        return {
+            "type": "state",
+            "t": self.time,
+            "x": self.car.x,
+            "z": self.car.z,
+            "heading": self.car.heading,
+            "speed": self.car.speed,
+            "obs": self.last_obs.tolist(),
+            "obsDelta": self.last_delta.tolist(),
+            "attack": attack_status,
+            "attackError": self.attack_error,
+            "goalReached": self.goal_reached,
+            "timedOut": self.timed_out,
+            "flag": self.flag,
+        }
+import math
+import numpy as np
+from physics import CarState
+
+OBS_DIM = 8
+
+
+def generate_observation(car: CarState, goal: tuple[float, float]) -> np.ndarray:
+    dx = goal[0] - car.x
+    dz = goal[1] - car.z
+    ch = math.cos(car.heading)
+    sh = math.sin(car.heading)
+
+    goal_fwd = dx * ch + dz * sh
+    goal_right = -dx * sh + dz * ch
+    goal_dist = math.hypot(dx, dz)
+
+    return np.array([
+        car.speed / 10.0,
+        car.steer_angle / 28.0,
+        ch,
+        sh,
+        goal_fwd / 30.0,
+        goal_right / 30.0,
+        math.log(goal_dist + 1.0) / 5.0,
+        1.0,
+    ], dtype=np.float32)
+[2026-04-25T01:14:50Z] EXIT 0
+
+[2026-04-25T01:14:51Z] CMD sed -n '240,520p' /ctf/game.py
+[2026-04-25T01:14:51Z] EXIT 0
+
+[2026-04-25T01:14:59Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:14:59Z] EXIT 0
+
+[2026-04-25T01:15:03Z] CMD /ctf/.venv/bin/python - << 'PY'
+import torch
+print(torch.__version__)
+PY
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+ModuleNotFoundError: No module named 'torch'
+[2026-04-25T01:15:03Z] EXIT 1
+
+[2026-04-25T01:15:08Z] CMD mkdir -p '/ctf/flow0_extracted' && binwalk --run-as=root -e -C '/ctf/flow0_extracted' '/ctf/flow_0.pt' 2>&1 && find '/ctf/flow0_extracted' -maxdepth 4 -type f | sed 's#^/ctf/##' | sort | head -80
+
+DECIMAL       HEXADECIMAL     DESCRIPTION
+--------------------------------------------------------------------------------
+0             0x0             Zip archive data, v0.0 name: flow_0/data.pkl
+11310         0x2C2E          Zip archive data, v0.0 name: flow_0/.format_version
+11409         0x2C91          Zip archive data, v0.0 name: flow_0/.storage_alignment
+11538         0x2D12          Zip archive data, v0.0 name: flow_0/byteorder
+11670         0x2D96          Zip archive data, v0.0 name: flow_0/data/0
+13072         0x3310          Zip archive data, v0.0 name: flow_0/data/1
+14416         0x3850          Zip archive data, v0.0 name: flow_0/data/2
+15760         0x3D90          Zip archive data, v0.0 name: flow_0/data/3
+179664        0x2BDD0         Zip archive data, v0.0 name: flow_0/data/4
+180240        0x2C010         Zip archive data, v0.0 name: flow_0/data/5
+245840        0x3C050         Zip archive data, v0.0 name: flow_0/data/6
+246416        0x3C290         Zip archive data, v0.0 name: flow_0/data/7
+410320        0x642D0         Zip archive data, v0.0 name: flow_0/data/8
+411664        0x64810         Zip archive data, v0.0 name: flow_0/data/9
+575568        0x8C850         Zip archive data, v0.0 name: flow_0/data/10
+576144        0x8CA90         Zip archive data, v0.0 name: flow_0/data/11
+641744        0x9CAD0         Zip archive data, v0.0 name: flow_0/data/12
+642320        0x9CD10         Zip archive data, v0.0 name: flow_0/data/13
+806224        0xC4D50         Zip archive data, v0.0 name: flow_0/data/14
+807568        0xC5290         Zip archive data, v0.0 name: flow_0/data/15
+808912        0xC57D0         Zip archive data, v0.0 name: flow_0/data/16
+972816        0xED810         Zip archive data, v0.0 name: flow_0/data/17
+973392        0xEDA50         Zip archive data, v0.0 name: flow_0/data/18
+1038992       0xFDA90         Zip archive data, v0.0 name: flow_0/data/19
+1039568       0xFDCD0         Zip archive data, v0.0 name: flow_0/data/20
+1203472       0x125D10        Zip archive data, v0.0 name: flow_0/data/21
+1204816       0x126250        Zip archive data, v0.0 name: flow_0/data/22
+1368720       0x14E290        Zip archive data, v0.0 name: flow_0/data/23
+1369296       0x14E4D0        Zip archive data, v0.0 name: flow_0/data/24
+1434896       0x15E510        Zip archive data, v0.0 name: flow_0/data/25
+1435472       0x15E750        Zip archive data, v0.0 name: flow_0/data/26
+1599376       0x186790        Zip archive data, v0.0 name: flow_0/data/27
+1600720       0x186CD0        Zip archive data, v0.0 name: flow_0/data/28
+1764624       0x1AED10        Zip archive data, v0.0 name: flow_0/data/29
+1765200       0x1AEF50        Zip archive data, v0.0 name: flow_0/data/30
+1830800       0x1BEF90        Zip archive data, v0.0 name: flow_0/data/31
+1831376       0x1BF1D0        Zip archive data, v0.0 name: flow_0/data/32
+1995280       0x1E7210        Zip archive data, v0.0 name: flow_0/data/33
+1996624       0x1E7750        Zip archive data, v0.0 name: flow_0/data/34
+2160528       0x20F790        Zip archive data, v0.0 name: flow_0/data/35
+2161104       0x20F9D0        Zip archive data, v0.0 name: flow_0/data/36
+2226704       0x21FA10        Zip archive data, v0.0 name: flow_0/data/37
+2227280       0x21FC50        Zip archive data, v0.0 name: flow_0/data/38
+2391184       0x247C90        Zip archive data, v0.0 name: flow_0/data/39
+2392528       0x2481D0        Zip archive data, v0.0 name: flow_0/data/40
+2393872       0x248710        Zip archive data, v0.0 name: flow_0/data/41
+2557776       0x270750        Zip archive data, v0.0 name: flow_0/data/42
+2558352       0x270990        Zip archive data, v0.0 name: flow_0/data/43
+2623952       0x2809D0        Zip archive data, v0.0 name: flow_0/data/44
+2624528       0x280C10        Zip archive data, v0.0 name: flow_0/data/45
+2788432       0x2A8C50        Zip archive data, v0.0 name: flow_0/data/46
+2789776       0x2A9190        Zip archive data, v0.0 name: flow_0/data/47
+2953680       0x2D11D0        Zip archive data, v0.0 name: flow_0/data/48
+2954256       0x2D1410        Zip archive data, v0.0 name: flow_0/data/49
+3019856       0x2E1450        Zip archive data, v0.0 name: flow_0/data/50
+3020432       0x2E1690        Zip archive data, v0.0 name: flow_0/data/51
+3184336       0x3096D0        Zip archive data, v0.0 name: flow_0/data/52
+3185680       0x309C10        Zip archive data, v0.0 name: flow_0/data/53
+3349584       0x331C50        Zip archive data, v0.0 name: flow_0/data/54
+3350160       0x331E90        Zip archive data, v0.0 name: flow_0/data/55
+3415760       0x341ED0        Zip archive data, v0.0 name: flow_0/data/56
+3416336       0x342110        Zip archive data, v0.0 name: flow_0/data/57
+3580240       0x36A150        Zip archive data, v0.0 name: flow_0/data/58
+3581584       0x36A690        Zip archive data, v0.0 name: flow_0/data/59
+3745488       0x3926D0        Zip archive data, v0.0 name: flow_0/data/60
+3746064       0x392910        Zip archive data, v0.0 name: flow_0/data/61
+3811664       0x3A2950        Zip archive data, v0.0 name: flow_0/data/62
+3812240       0x3A2B90        Zip archive data, v0.0 name: flow_0/data/63
+3976144       0x3CABD0        Zip archive data, v0.0 name: flow_0/data/64
+3977488       0x3CB110        Zip archive data, v0.0 name: flow_0/data/65
+3978832       0x3CB650        Zip archive data, v0.0 name: flow_0/data/66
+4142736       0x3F3690        Zip archive data, v0.0 name: flow_0/data/67
+4143312       0x3F38D0        Zip archive data, v0.0 name: flow_0/data/68
+4208912       0x403910        Zip archive data, v0.0 name: flow_0/data/69
+4209488       0x403B50        Zip archive data, v0.0 name: flow_0/data/70
+4373392       0x42BB90        Zip archive data, v0.0 name: flow_0/data/71
+4374736       0x42C0D0        Zip archive data, v0.0 name: flow_0/data/72
+4538640       0x454110        Zip archive data, v0.0 name: flow_0/data/73
+4539216       0x454350        Zip archive data, v0.0 name: flow_0/data/74
+4604816       0x464390        Zip archive data, v0.0 name: flow_0/data/75
+4605392       0x4645D0        Zip archive data, v0.0 name: flow_0/data/76
+4769296       0x48C610        Zip archive data, v0.0 name: flow_0/data/77
+4770640       0x48CB50        Zip archive data, v0.0 name: flow_0/version
+4770706       0x48CB92        Zip archive data, v0.0 name: flow_0/.data/serialization_id
+
+WARNING: One or more files failed to extract: either no utility was found or it's unimplemented
+
+flow0_extracted/_flow_0.pt.extracted/0.zip
+flow0_extracted/_flow_0.pt.extracted/flow_0/.data/serialization_id
+flow0_extracted/_flow_0.pt.extracted/flow_0/.format_version
+flow0_extracted/_flow_0.pt.extracted/flow_0/.storage_alignment
+flow0_extracted/_flow_0.pt.extracted/flow_0/byteorder
+flow0_extracted/_flow_0.pt.extracted/flow_0/data.pkl
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/0
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/1
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/10
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/11
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/12
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/13
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/14
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/15
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/16
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/17
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/18
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/19
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/2
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/20
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/21
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/22
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/23
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/24
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/25
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/26
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/27
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/28
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/29
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/3
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/30
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/31
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/32
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/33
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/34
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/35
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/36
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/37
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/38
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/39
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/4
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/40
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/41
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/42
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/43
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/44
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/45
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/46
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/47
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/48
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/49
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/5
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/50
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/51
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/52
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/53
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/54
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/55
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/56
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/57
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/58
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/59
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/6
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/60
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/61
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/62
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/63
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/64
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/65
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/66
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/67
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/68
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/69
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/7
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/70
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/71
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/72
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/73
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/74
+flow0_extracted/_flow_0.pt.extracted/flow_0/data/75
+[2026-04-25T01:15:08Z] EXIT 0
+
+[2026-04-25T01:15:12Z] CMD grep -rE '[A-Za-z0-9_]{2,24}\{[^{}\n]{1,220}\}' '/ctf/flow0_extracted' 2>/dev/null | head -30
+[2026-04-25T01:15:12Z] EXIT 0
+
+[2026-04-25T01:15:17Z] CMD sed -n '1,240p' /ctf/observations.py
+import math
+import numpy as np
+from physics import CarState
+
+OBS_DIM = 8
+
+
+def generate_observation(car: CarState, goal: tuple[float, float]) -> np.ndarray:
+    dx = goal[0] - car.x
+    dz = goal[1] - car.z
+    ch = math.cos(car.heading)
+    sh = math.sin(car.heading)
+
+    goal_fwd = dx * ch + dz * sh
+    goal_right = -dx * sh + dz * ch
+    goal_dist = math.hypot(dx, dz)
+
+    return np.array([
+        car.speed / 10.0,
+        car.steer_angle / 28.0,
+        ch,
+        sh,
+        goal_fwd / 30.0,
+        goal_right / 30.0,
+        math.log(goal_dist + 1.0) / 5.0,
+        1.0,
+    ], dtype=np.float32)
+[2026-04-25T01:15:17Z] EXIT 0
+
+[2026-04-25T01:15:21Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:15:21Z] EXIT 0
+
+[2026-04-25T01:15:22Z] CMD /ctf/.venv/bin/python - << 'PY'
+import numpy as np
+arr = np.load('/ctf/reference_window1.npy')
+print(arr.shape, arr.dtype)
+print('min',arr.min(),'max',arr.max())
+print(arr.flatten()[:20])
+PY
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+ModuleNotFoundError: No module named 'numpy'
+[2026-04-25T01:15:22Z] EXIT 1
+
+[2026-04-25T01:16:05Z] CMD chmod +x /ctf/solver.py
+[2026-04-25T01:16:05Z] EXIT 0
+
+[2026-04-25T01:16:12Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:16:12Z] EXIT 0
+
+[2026-04-25T01:16:13Z] CMD /ctf/.venv/bin/python solver.py
+[2026-04-25T01:16:13Z] EXIT 124
+
+[2026-04-25T01:17:20Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:17:20Z] EXIT 0
+
+[2026-04-25T01:17:21Z] CMD /ctf/.venv/bin/python solver.py
+[2026-04-25T01:17:21Z] EXIT 124
+
+[2026-04-25T01:19:28Z] CMD grep -r --include='*' -E 'UMDCTF{' /ctf/ 2>/dev/null | head -50; ec=$?; if [ $ec -eq 2 ]; then grep -r --include='*' -F 'UMDCTF{' /ctf/ 2>/dev/null | head -50; fi
+/ctf/.agent_live.log:FLAG = "UMDCTF{fake_flag}"
+/ctf/.agent_live.log:[2026-04-25T01:19:28Z] CMD grep -r --include='*' -E 'UMDCTF{' /ctf/ 2>/dev/null | head -50; ec=$?; if [ $ec -eq 2 ]; then grep -r --include='*' -F 'UMDCTF{' /ctf/ 2>/dev/null | head -50; fi
+/ctf/game.py:FLAG = "UMDCTF{fake_flag}"
+[2026-04-25T01:19:28Z] EXIT 0
+

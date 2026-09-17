@@ -143,6 +143,31 @@ Container helper:
 python scripts/container_cli.py <challenge_id> --both
 ```
 
+## Agent Control Improvements
+
+The agent now uses an AIRecon-inspired soft phase model tailored for CTFs:
+`recon -> analyze -> exploit -> verify -> report`.
+
+- Phase guidance is soft. The model is guided toward the right tool mix, but tools are not hard-blocked by phase.
+- Checkpoints run every 5 solver steps by default, self-evaluation runs every 10 steps, and context compression is considered every 15 steps.
+- Per-challenge memory records phase history, checkpoint summaries, next best action, repeated no-progress count, and tool performance.
+- Adaptive tool ranking reorders tool definitions using category, phase, and local success/error history so repeated dead ends are deprioritized.
+- Launch readiness checks report missing API keys, missing model packages, LangGraph availability, Docker image state, and category tool availability.
+
+These values can be adjusted in Settings or `config.json`:
+
+```json
+{
+  "checkpoint_interval": 5,
+  "self_eval_interval": 10,
+  "context_compression_interval": 15,
+  "adaptive_tool_ranking": true
+}
+```
+
+Reference repo used for these takeaways: `https://github.com/pikpikcu/airecon`.
+When cloned locally, it should live under `_reference/airecon/`; `_reference/` is ignored by git.
+
 ## Troubleshooting
 
 - `Docker not running`: start Docker Desktop/Engine.

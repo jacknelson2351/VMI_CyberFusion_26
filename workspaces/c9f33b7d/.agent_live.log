@@ -1,0 +1,1415 @@
+[2026-04-25T01:15:06Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-04-25T01:15:06Z] EXIT 0
+
+[2026-04-25T01:15:07Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:15:07Z] EXIT 0
+
+[2026-04-25T01:15:07Z] CMD command -v objdump >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:15:07Z] EXIT 0
+
+[2026-04-25T01:15:08Z] CMD command -v gdb >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:15:08Z] EXIT 0
+
+[2026-04-25T01:15:08Z] CMD command -v rizin >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:15:08Z] EXIT 0
+
+[2026-04-25T01:15:08Z] CMD ls -1 /ctf/ 2>/dev/null || true
+rainbet.py
+rainbet_gen.wasm
+[2026-04-25T01:15:08Z] EXIT 0
+
+[2026-04-25T01:15:09Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 20
+drwxr-xr-x 8 root root  256 Apr 25 01:15 .
+drwxr-xr-x 1 root root 4096 Apr 25 01:15 ..
+-rw-r--r-- 1 root root  788 Apr 25 01:15 .agent_live.log
+drwxr-xr-x 2 root root   64 Apr 25 01:15 .artifacts
+-rw-r--r-- 1 root root  869 Apr 25 01:15 .challenge.json
+drwxr-xr-x 2 root root   64 Apr 25 01:15 .sessions
+-rw-r--r-- 1 root root 3694 Apr 25 00:53 rainbet.py
+-rw-r--r-- 1 root root 2688 Apr 25 00:53 rainbet_gen.wasm
+---
+/ctf/rainbet.py:       Python script, ASCII text executable
+/ctf/rainbet_gen.wasm: WebAssembly (wasm) binary module version 0x1 (MVP)
+[2026-04-25T01:15:09Z] EXIT 0
+
+[2026-04-25T01:15:10Z] CMD file /ctf/*
+/ctf/rainbet.py:       Python script, ASCII text executable
+/ctf/rainbet_gen.wasm: WebAssembly (wasm) binary module version 0x1 (MVP)
+[2026-04-25T01:15:10Z] EXIT 0
+
+[2026-04-25T01:15:10Z] CMD strings /ctf/* 2>/dev/null | head -50 || true
+import os
+from typing import Sequence
+import wasmtime
+CHICKEN_STEPS = 24
+RISK_NAMES = ("Easy", "Medium", "Hard", "Daredevil")
+CHICKEN_MULT_TABLES = (
+    (1.03, 1.08, 1.14, 1.21, 1.30, 1.40, 1.52, 1.66, 1.82, 2.01,
+     2.24, 2.52, 2.86, 3.27, 3.77, 4.40, 5.21, 6.26, 7.65, 9.52,
+     12.12, 15.75, 20.93, 28.52),
+    (1.14, 1.38, 1.67, 2.01, 2.43, 2.93, 3.54, 4.28, 5.17, 6.24,
+     7.54, 9.10, 10.99, 13.28, 16.04, 19.37, 23.40, 28.25, 34.11, 41.19,
+     49.75, 60.08, 72.55, 87.61),
+    (1.60, 2.74, 4.85, 8.90, 16.98, 33.97, 70.23, 150.50, 333.87, 768.41,
+     1835.50, 4558.50, 11815.00, 31929.00, 91101.00, 275088.00, 882501.00, 3014100.00, 11047000.00, 43692000.00,
+     189060000.00, 903960000.00, 4855700000.00, 30242000000.00),
+    (2.50, 6.85, 18.96, 52.65, 146.5, 408.0, 1139.0, 3187.0, 8932.0, 25072.0,
+     70450.0, 198158.0, 557930.0, 1571000.0, 4427000.0, 12482000.0, 35223000.0, 99455000.0, 281096000.0, 794796000.0,
+     2248571000.0, 6362800000.0, 18000000000.0, 50930000000.0),
+_WASM_PATH = os.path.join(os.path.dirname(__file__), "rainbet_gen.wasm")
+_engine = wasmtime.Engine()
+_module = wasmtime.Module.from_file(_engine, _WASM_PATH)
+def _instance():
+    store = wasmtime.Store(_engine)
+    inst = wasmtime.Instance(store, _module, [])
+    exports = inst.exports(store)
+    return store, exports
+def _call_generate(session_id: str, round_idx: int) -> bytes:
+    store, exports = _instance()
+    memory = exports["memory"]
+    sid_bytes = session_id.encode("ascii")
+    if len(sid_bytes) > 64:
+        raise ValueError("session_id too long")
+    sid_ptr = exports["sid_buf_ptr"](store)
+    out_ptr = exports["out_buf_ptr"](store)
+    memory.write(store, sid_bytes, sid_ptr)
+    n = exports["generate"](store, len(sid_bytes), round_idx)
+    return bytes(memory.read(store, out_ptr, out_ptr + n))
+def generate_game(session_id: str, round_idx: int) -> dict:
+    raw = _call_generate(session_id, round_idx)
+    gtype = raw[0]
+    if gtype == 0:
+        grid_size = raw[1]
+        num_mines = raw[2]
+        mines = list(raw[3:3 + num_mines])
+        return {
+            "type": "mines",
+            "grid_size": grid_size,
+            "num_mines": num_mines,
+            "mines": mines,
+            "max_reveals": grid_size * grid_size - num_mines,
+[2026-04-25T01:15:10Z] EXIT 0
+
+[2026-04-25T01:15:10Z] CMD readelf -h /ctf/* 2>/dev/null | grep -E 'Type|Machine|Entry' | head -10 || true
+[2026-04-25T01:15:10Z] EXIT 0
+
+[2026-04-25T01:15:11Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:15:11Z] EXIT 0
+
+[2026-04-25T01:15:12Z] CMD command -v objdump >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:15:12Z] EXIT 0
+
+[2026-04-25T01:15:13Z] CMD command -v gdb >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:15:13Z] EXIT 0
+
+[2026-04-25T01:15:14Z] CMD command -v rizin >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:15:14Z] EXIT 0
+
+[2026-04-25T01:15:31Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:15:31Z] EXIT 0
+
+[2026-04-25T01:15:34Z] CMD /ctf/.venv/bin/python - <<'PY'
+import json
+try:
+    import rainbet
+    g1 = rainbet.generate_game('TESTSESSION', 0)
+    g2 = rainbet.generate_game('TESTSESSION', 0)
+    print('OK')
+    print(json.dumps(g1))
+    print(json.dumps(g2))
+except Exception as e:
+    print('ERR', type(e).__name__, e)
+PY
+ERR ModuleNotFoundError No module named 'wasmtime'
+[2026-04-25T01:15:34Z] EXIT 0
+
+[2026-04-25T01:15:41Z] CMD pip3 install wasmtime --quiet
+error: externally-managed-environment
+
+× This environment is externally managed
+╰─> To install Python packages system-wide, try apt install
+    python3-xyz, where xyz is the package you are trying to
+    install.
+    
+    If you wish to install a non-Kali-packaged Python package,
+    create a virtual environment using python3 -m venv path/to/venv.
+    Then use path/to/venv/bin/python and path/to/venv/bin/pip. Make
+    sure you have pypy3-venv installed.
+    
+    If you wish to install a non-Kali-packaged Python application,
+    it may be easiest to use pipx install xyz, which will manage a
+    virtual environment for you. Make sure you have pipx installed.
+    
+    For more information, refer to the following:
+    * https://www.kali.org/docs/general-use/python3-external-packages/
+    * /usr/share/doc/python3.13/README.venv
+
+note: If you believe this is a mistake, please contact your Python installation or OS distribution provider. You can override this, at the risk of breaking your Python installation or OS, by passing --break-system-packages.
+hint: See PEP 668 for the detailed specification.
+[2026-04-25T01:15:41Z] EXIT 1
+
+[2026-04-25T01:15:43Z] CMD which wasmtime || echo NO_WASMTIME
+NO_WASMTIME
+[2026-04-25T01:15:43Z] EXIT 0
+
+[2026-04-25T01:15:47Z] CMD strings rainbet_gen.wasm | sed -n '1,200p'
+memory
+generate
+out_buf_ptr
+sid_buf_ptr
+__data_end
+__heap_base
+Axj!
+A A 
+{462
+}:&Z
+p N#=
+Qi|"cP
+]eTw
+[2026-04-25T01:15:47Z] EXIT 0
+
+[2026-04-25T01:15:50Z] CMD wasm2wat --version || wat2wasm --version || echo NO_WABT
+bash: line 1: wasm2wat: command not found
+bash: line 1: wat2wasm: command not found
+NO_WABT
+[2026-04-25T01:15:50Z] EXIT 0
+
+[2026-04-25T01:15:52Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:15:52Z] EXIT 0
+
+[2026-04-25T01:15:53Z] CMD /ctf/.venv/bin/python - <<'PY'
+# Quick wasm parser using wasm decode from python's wasmtime isn't available.
+# Use 'wasm' module? Not available. Instead, use 'xxd' to hexdump and locate function indices? Simpler: run 'strings -n 1' printed exports.
+print('exports seen above; will try to implement a minimal Wasm runner?')
+PY
+exports seen above; will try to implement a minimal Wasm runner?
+[2026-04-25T01:15:53Z] EXIT 0
+
+[2026-04-25T01:15:55Z] CMD node -v || echo NO_NODE
+bash: line 1: node: command not found
+NO_NODE
+[2026-04-25T01:15:55Z] EXIT 0
+
+[2026-04-25T01:15:58Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:15:58Z] EXIT 0
+
+[2026-04-25T01:15:58Z] CMD /ctf/.venv/bin/python - <<'PY'
+# Try using wasmer (pip) instead of wasmtime. Create venv to install wasmtime/wasmer.
+import subprocess, sys
+print('creating venv')
+subprocess.run([sys.executable,'-m','venv','venv'])
+print('pip install wasmtime in venv')
+subprocess.run(['venv/bin/pip','install','wasmtime'], check=False)
+print('done')
+PY
+Collecting wasmtime
+  Downloading wasmtime-44.0.0-py3-none-manylinux1_x86_64.whl.metadata (5.1 kB)
+Downloading wasmtime-44.0.0-py3-none-manylinux1_x86_64.whl (9.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9.0/9.0 MB 15.1 MB/s  0:00:00
+Installing collected packages: wasmtime
+Successfully installed wasmtime-44.0.0
+creating venv
+pip install wasmtime in venv
+done
+[2026-04-25T01:15:58Z] EXIT 0
+
+[2026-04-25T01:16:09Z] CMD venv/bin/python - <<'PY'
+import json
+import sys
+sys.path.append('.')
+import rainbet
+print(json.dumps(rainbet.generate_game('TESTSESSION',0)))
+PY
+{"type": "mines", "grid_size": 8, "num_mines": 12, "mines": [6, 12, 15, 19, 25, 31, 36, 38, 42, 46, 55, 61], "max_reveals": 52}
+[2026-04-25T01:16:09Z] EXIT 0
+
+[2026-04-25T01:16:17Z] CMD sed -n '1,240p' rainbet.py
+import os
+from typing import Sequence
+
+import wasmtime
+
+CHICKEN_STEPS = 24
+RISK_NAMES = ("Easy", "Medium", "Hard", "Daredevil")
+
+CHICKEN_MULT_TABLES = (
+    (1.03, 1.08, 1.14, 1.21, 1.30, 1.40, 1.52, 1.66, 1.82, 2.01,
+     2.24, 2.52, 2.86, 3.27, 3.77, 4.40, 5.21, 6.26, 7.65, 9.52,
+     12.12, 15.75, 20.93, 28.52),
+    (1.14, 1.38, 1.67, 2.01, 2.43, 2.93, 3.54, 4.28, 5.17, 6.24,
+     7.54, 9.10, 10.99, 13.28, 16.04, 19.37, 23.40, 28.25, 34.11, 41.19,
+     49.75, 60.08, 72.55, 87.61),
+    (1.60, 2.74, 4.85, 8.90, 16.98, 33.97, 70.23, 150.50, 333.87, 768.41,
+     1835.50, 4558.50, 11815.00, 31929.00, 91101.00, 275088.00, 882501.00, 3014100.00, 11047000.00, 43692000.00,
+     189060000.00, 903960000.00, 4855700000.00, 30242000000.00),
+    (2.50, 6.85, 18.96, 52.65, 146.5, 408.0, 1139.0, 3187.0, 8932.0, 25072.0,
+     70450.0, 198158.0, 557930.0, 1571000.0, 4427000.0, 12482000.0, 35223000.0, 99455000.0, 281096000.0, 794796000.0,
+     2248571000.0, 6362800000.0, 18000000000.0, 50930000000.0),
+)
+
+_WASM_PATH = os.path.join(os.path.dirname(__file__), "rainbet_gen.wasm")
+_engine = wasmtime.Engine()
+_module = wasmtime.Module.from_file(_engine, _WASM_PATH)
+
+
+def _instance():
+    store = wasmtime.Store(_engine)
+    inst = wasmtime.Instance(store, _module, [])
+    exports = inst.exports(store)
+    return store, exports
+
+
+def _call_generate(session_id: str, round_idx: int) -> bytes:
+    store, exports = _instance()
+    memory = exports["memory"]
+    sid_bytes = session_id.encode("ascii")
+    if len(sid_bytes) > 64:
+        raise ValueError("session_id too long")
+
+    sid_ptr = exports["sid_buf_ptr"](store)
+    out_ptr = exports["out_buf_ptr"](store)
+    memory.write(store, sid_bytes, sid_ptr)
+
+    n = exports["generate"](store, len(sid_bytes), round_idx)
+    return bytes(memory.read(store, out_ptr, out_ptr + n))
+
+
+def generate_game(session_id: str, round_idx: int) -> dict:
+    raw = _call_generate(session_id, round_idx)
+    gtype = raw[0]
+    if gtype == 0:
+        grid_size = raw[1]
+        num_mines = raw[2]
+        mines = list(raw[3:3 + num_mines])
+        return {
+            "type": "mines",
+            "grid_size": grid_size,
+            "num_mines": num_mines,
+            "mines": mines,
+            "max_reveals": grid_size * grid_size - num_mines,
+        }
+    if gtype == 1:
+        risk_idx = raw[1]
+        num_cars = raw[2]
+        cars = list(raw[3:3 + num_cars])
+        return {
+            "type": "chicken",
+            "steps": CHICKEN_STEPS,
+            "risk_idx": risk_idx,
+            "risk": RISK_NAMES[risk_idx],
+            "multipliers": list(CHICKEN_MULT_TABLES[risk_idx]),
+            "cars": cars,
+        }
+    raise RuntimeError(f"unknown game type {gtype}")
+
+
+def max_safe_steps(cars: Sequence[int]) -> int:
+    car_set = set(cars)
+    for i in range(CHICKEN_STEPS):
+        if i in car_set:
+            return i
+    return CHICKEN_STEPS
+
+
+def is_mines_max_win(game: dict, moves) -> bool:
+    if game["type"] != "mines" or not isinstance(moves, list):
+        return False
+    total = game["grid_size"] ** 2
+    max_reveals = total - game["num_mines"]
+    if len(moves) != max_reveals:
+        return False
+    mines = set(game["mines"])
+    seen = set()
+    for m in moves:
+        if not isinstance(m, int) or m < 0 or m >= total:
+            return False
+        if m in mines or m in seen:
+            return False
+        seen.add(m)
+    return True
+
+
+def is_chicken_max_win(game: dict, cash_out_at) -> bool:
+    if game["type"] != "chicken" or not isinstance(cash_out_at, int):
+        return False
+    if cash_out_at < 0 or cash_out_at > CHICKEN_STEPS:
+        return False
+    return cash_out_at == max_safe_steps(game["cars"])
+[2026-04-25T01:16:17Z] EXIT 0
+
+[2026-04-25T01:16:25Z] CMD sed -n '240,520p' rainbet.py
+[2026-04-25T01:16:25Z] EXIT 0
+
+[2026-04-25T01:16:39Z] CMD grep -r --include='*' -E 'UMDCTF{' /ctf/ 2>/dev/null | head -50; ec=$?; if [ $ec -eq 2 ]; then grep -r --include='*' -F 'UMDCTF{' /ctf/ 2>/dev/null | head -50; fi
+/ctf/.agent_live.log:[2026-04-25T01:16:39Z] CMD grep -r --include='*' -E 'UMDCTF{' /ctf/ 2>/dev/null | head -50; ec=$?; if [ $ec -eq 2 ]; then grep -r --include='*' -F 'UMDCTF{' /ctf/ 2>/dev/null | head -50; fi
+[2026-04-25T01:16:39Z] EXIT 0
+
+[2026-04-25T01:17:02Z] CMD python3 - '{"url": "https://rainbet.challs.umdctf.io/", "method": "GET", "headers": {}, "body": null, "json_body": null, "form": {}, "files": {}, "save_to": "", "session_name": "default", "follow_redirects": true, "timeout": 20}' <<'PY'
+import json, sys
+from pathlib import Path
+from http.cookiejar import MozillaCookieJar
+import requests
+spec = json.loads(sys.argv[1])
+session_name = spec.get('session_name') or 'default'
+session_dir = Path('/ctf/.sessions')
+session_dir.mkdir(parents=True, exist_ok=True)
+cookie_path = session_dir / f"{session_name}.cookies.txt"
+jar = MozillaCookieJar(str(cookie_path))
+if cookie_path.exists():
+    try:
+        jar.load(ignore_discard=True, ignore_expires=True)
+    except Exception:
+        pass
+sess = requests.Session()
+sess.cookies = jar
+files_spec = spec.get('files') or {}
+req_files = None
+opened_handles = []
+def ctf_path(value):
+    raw = str(value or '')
+    if raw.startswith('/ctf/'):
+        return Path(raw)
+    return Path('/ctf') / raw.lstrip('/')
+if files_spec:
+    req_files = {}
+    for field, val in files_spec.items():
+        if isinstance(val, dict):
+            fpath_full = ctf_path(val.get('path'))
+            fname = val.get('filename') or fpath_full.name
+            mime = val.get('mime_type') or val.get('mime') or 'application/octet-stream'
+            fh = open(fpath_full, 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fname, fh, mime)
+        elif isinstance(val, list) and len(val) >= 2:
+            fname, fpath = val[0], val[1]
+            mime = val[2] if len(val) > 2 else 'application/octet-stream'
+            fh = open(ctf_path(fpath), 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fname, fh, mime)
+        else:
+            fpath_full = ctf_path(val)
+            fh = open(fpath_full, 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fpath_full.name, fh, 'application/octet-stream')
+try:
+    if req_files:
+        resp = sess.request(
+            spec.get('method', 'GET').upper(),
+            spec['url'],
+            headers=spec.get('headers') or None,
+            data=spec.get('form') or None,
+            files=req_files,
+            allow_redirects=bool(spec.get('follow_redirects', True)),
+            timeout=int(spec.get('timeout') or 20),
+        )
+    else:
+        resp = sess.request(
+            spec.get('method', 'GET').upper(),
+            spec['url'],
+            headers=spec.get('headers') or None,
+            data=spec.get('body') if spec.get('body') is not None else (spec.get('form') or None),
+            json=spec.get('json_body'),
+            allow_redirects=bool(spec.get('follow_redirects', True)),
+            timeout=int(spec.get('timeout') or 20),
+        )
+finally:
+    for fh in opened_handles:
+        try: fh.close()
+        except Exception: pass
+sess.cookies.save(ignore_discard=True, ignore_expires=True)
+save_to = (spec.get('save_to') or '').lstrip('/')
+saved_path = ''
+if save_to:
+    dest = Path('/ctf') / save_to
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(resp.content)
+    saved_path = str(dest)
+print(f'STATUS {resp.status_code}')
+print(f'FINAL_URL {resp.url}')
+print(f'COOKIE_JAR {cookie_path}')
+if saved_path:
+    print(f'SAVED_TO {saved_path}')
+for key, value in list(resp.headers.items())[:20]:
+    print(f'HEADER {key}: {value}')
+print('')
+print('BODY_PREVIEW')
+text = resp.text[:4000]
+print(text)
+PY
+STATUS 200
+FINAL_URL https://rainbet.challs.umdctf.io/
+COOKIE_JAR /ctf/.sessions/default.cookies.txt
+HEADER Content-Length: 18133
+HEADER Content-Type: text/html; charset=utf-8
+HEADER Date: Sat, 25 Apr 2026 01:17:04 GMT
+HEADER Server: gunicorn
+
+BODY_PREVIEW
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>rainbet — 25 in a row</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">rainbet</div>
+    <div class="streak-pill">
+      <span class="streak-label">streak</span>
+      <span class="streak-val"><span id="streak-n">0</span> <span class="sep">/</span> <span id="streak-t">25</span></span>
+    </div>
+  </header>
+
+  <main id="stage">
+    <!-- ================================================================= -->
+    <!-- Mines                                                              -->
+    <!-- ================================================================= -->
+    <section id="mines" class="mines-container hidden">
+      <div class="side-bar">
+        <div class="bet-type-toggle">
+          <button type="button" class="toggle-button active" tabindex="-1">
+            <div class="bg-gradient"></div><span>Manual</span>
+          </button>
+          <button type="button" class="toggle-button" tabindex="-1">
+            <div class="bg-gradient"></div><span>Auto</span>
+          </button>
+        </div>
+
+        <form onsubmit="return false;">
+          <div class="top-fields">
+            <div class="bet-input-field">
+              <label class="bet-label"><span>Bet Amount</span></label>
+              <div class="bet-input-content">
+                <label class="currency-icon"><span>$</span></label>
+                <input type="text" value="max-win" readonly aria-readonly="true">
+                <div class="bet-adjust">
+                  <button type="button" tabindex="-1"><span>1/2</span></button>
+                  <button type="button" tabindex="-1"><span>2x</span></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-setting">
+              <div class="label-heading"><p class="label"><span>Grid Size</span></p></div>
+              <div class="grid-tabs" id="mines-grid-tabs">
+                <button type="button" class="tab" data-size="25" tabindex="-1"><div class="bg-gradient"></div><span>25</span></button>
+                <button type="button" class="tab" data-size="36" tabindex="-1"><div class="bg-gradient"></div><span>36</span></button>
+                <button type="button" class="tab" data-size="49" tabindex="-1"><div class="bg-gradient"></div><span>49</span></button>
+                <button type="button" class="tab" data-size="64" tabindex="-1"><div class="bg-gradient"></div><span>64</span></button>
+              </div>
+            </div>
+
+            <div class="mines-count-input">
+              <div class="label-heading"><p class="label"><span>Number of Mines</span></p></div>
+              <div class="mines-slider">
+                <div class="item-icon gem"><img src="/static/assets/diamond.png" width="18" height="14" alt=""><span class="count" id="mines-gem-count">0</span></div>
+                <div class="slider-track">
+                  <div class="slider-range" id="mines-slider-range"></div>
+                  <div class="slider-thumb" id="mines-slider-thumb"><div class="slits"><i></i><i></i><i></i></div></div>
+                </div>
+                <div class="item-icon bomb">
+                  <span class="count" id="mines-bomb-count">0</span>
+                  <div class="bomb-icon"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <div class="bet-control">
+          <button id="mines-cashout" class="bet-button" type="button"><span>Cash Out</span></button>
+        </div>
+      </div>
+
+      <div class="game-display">
+        <div class="game-header">
+          <button class="info-btn" type="button" tabindex="-1" aria-label="info">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 0C3.58 0 0 3.58 0 8C0 12.42 3.58 16 8 16C12.42 16 16 12.42 16 8C16
+[2026-04-25T01:17:02Z] EXIT 0
+
+[2026-04-25T01:17:11Z] CMD python3 - '{"url": "https://rainbet.challs.umdctf.io/", "method": "GET", "headers": {}, "body": null, "json_body": null, "form": {}, "files": {}, "save_to": "index.html", "session_name": "default", "follow_redirects": true, "timeout": 20}' <<'PY'
+import json, sys
+from pathlib import Path
+from http.cookiejar import MozillaCookieJar
+import requests
+spec = json.loads(sys.argv[1])
+session_name = spec.get('session_name') or 'default'
+session_dir = Path('/ctf/.sessions')
+session_dir.mkdir(parents=True, exist_ok=True)
+cookie_path = session_dir / f"{session_name}.cookies.txt"
+jar = MozillaCookieJar(str(cookie_path))
+if cookie_path.exists():
+    try:
+        jar.load(ignore_discard=True, ignore_expires=True)
+    except Exception:
+        pass
+sess = requests.Session()
+sess.cookies = jar
+files_spec = spec.get('files') or {}
+req_files = None
+opened_handles = []
+def ctf_path(value):
+    raw = str(value or '')
+    if raw.startswith('/ctf/'):
+        return Path(raw)
+    return Path('/ctf') / raw.lstrip('/')
+if files_spec:
+    req_files = {}
+    for field, val in files_spec.items():
+        if isinstance(val, dict):
+            fpath_full = ctf_path(val.get('path'))
+            fname = val.get('filename') or fpath_full.name
+            mime = val.get('mime_type') or val.get('mime') or 'application/octet-stream'
+            fh = open(fpath_full, 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fname, fh, mime)
+        elif isinstance(val, list) and len(val) >= 2:
+            fname, fpath = val[0], val[1]
+            mime = val[2] if len(val) > 2 else 'application/octet-stream'
+            fh = open(ctf_path(fpath), 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fname, fh, mime)
+        else:
+            fpath_full = ctf_path(val)
+            fh = open(fpath_full, 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fpath_full.name, fh, 'application/octet-stream')
+try:
+    if req_files:
+        resp = sess.request(
+            spec.get('method', 'GET').upper(),
+            spec['url'],
+            headers=spec.get('headers') or None,
+            data=spec.get('form') or None,
+            files=req_files,
+            allow_redirects=bool(spec.get('follow_redirects', True)),
+            timeout=int(spec.get('timeout') or 20),
+        )
+    else:
+        resp = sess.request(
+            spec.get('method', 'GET').upper(),
+            spec['url'],
+            headers=spec.get('headers') or None,
+            data=spec.get('body') if spec.get('body') is not None else (spec.get('form') or None),
+            json=spec.get('json_body'),
+            allow_redirects=bool(spec.get('follow_redirects', True)),
+            timeout=int(spec.get('timeout') or 20),
+        )
+finally:
+    for fh in opened_handles:
+        try: fh.close()
+        except Exception: pass
+sess.cookies.save(ignore_discard=True, ignore_expires=True)
+save_to = (spec.get('save_to') or '').lstrip('/')
+saved_path = ''
+if save_to:
+    dest = Path('/ctf') / save_to
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(resp.content)
+    saved_path = str(dest)
+print(f'STATUS {resp.status_code}')
+print(f'FINAL_URL {resp.url}')
+print(f'COOKIE_JAR {cookie_path}')
+if saved_path:
+    print(f'SAVED_TO {saved_path}')
+for key, value in list(resp.headers.items())[:20]:
+    print(f'HEADER {key}: {value}')
+print('')
+print('BODY_PREVIEW')
+text = resp.text[:4000]
+print(text)
+PY
+STATUS 200
+FINAL_URL https://rainbet.challs.umdctf.io/
+COOKIE_JAR /ctf/.sessions/default.cookies.txt
+SAVED_TO /ctf/index.html
+HEADER Content-Length: 18133
+HEADER Content-Type: text/html; charset=utf-8
+HEADER Date: Sat, 25 Apr 2026 01:17:13 GMT
+HEADER Server: gunicorn
+
+BODY_PREVIEW
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>rainbet — 25 in a row</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">rainbet</div>
+    <div class="streak-pill">
+      <span class="streak-label">streak</span>
+      <span class="streak-val"><span id="streak-n">0</span> <span class="sep">/</span> <span id="streak-t">25</span></span>
+    </div>
+  </header>
+
+  <main id="stage">
+    <!-- ================================================================= -->
+    <!-- Mines                                                              -->
+    <!-- ================================================================= -->
+    <section id="mines" class="mines-container hidden">
+      <div class="side-bar">
+        <div class="bet-type-toggle">
+          <button type="button" class="toggle-button active" tabindex="-1">
+            <div class="bg-gradient"></div><span>Manual</span>
+          </button>
+          <button type="button" class="toggle-button" tabindex="-1">
+            <div class="bg-gradient"></div><span>Auto</span>
+          </button>
+        </div>
+
+        <form onsubmit="return false;">
+          <div class="top-fields">
+            <div class="bet-input-field">
+              <label class="bet-label"><span>Bet Amount</span></label>
+              <div class="bet-input-content">
+                <label class="currency-icon"><span>$</span></label>
+                <input type="text" value="max-win" readonly aria-readonly="true">
+                <div class="bet-adjust">
+                  <button type="button" tabindex="-1"><span>1/2</span></button>
+                  <button type="button" tabindex="-1"><span>2x</span></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-setting">
+              <div class="label-heading"><p class="label"><span>Grid Size</span></p></div>
+              <div class="grid-tabs" id="mines-grid-tabs">
+                <button type="button" class="tab" data-size="25" tabindex="-1"><div class="bg-gradient"></div><span>25</span></button>
+                <button type="button" class="tab" data-size="36" tabindex="-1"><div class="bg-gradient"></div><span>36</span></button>
+                <button type="button" class="tab" data-size="49" tabindex="-1"><div class="bg-gradient"></div><span>49</span></button>
+                <button type="button" class="tab" data-size="64" tabindex="-1"><div class="bg-gradient"></div><span>64</span></button>
+              </div>
+            </div>
+
+            <div class="mines-count-input">
+              <div class="label-heading"><p class="label"><span>Number of Mines</span></p></div>
+              <div class="mines-slider">
+                <div class="item-icon gem"><img src="/static/assets/diamond.png" width="18" height="14" alt=""><span class="count" id="mines-gem-count">0</span></div>
+                <div class="slider-track">
+                  <div class="slider-range" id="mines-slider-range"></div>
+                  <div class="slider-thumb" id="mines-slider-thumb"><div class="slits"><i></i><i></i><i></i></div></div>
+                </div>
+                <div class="item-icon bomb">
+                  <span class="count" id="mines-bomb-count">0</span>
+                  <div class="bomb-icon"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <div class="bet-control">
+          <button id="mines-cashout" class="bet-button" type="button"><span>Cash Out</span></button>
+        </div>
+      </div>
+
+      <div class="game-display">
+        <div class="game-header">
+          <button class="info-btn" type="button" tabindex="-1" aria-label="info">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 0C3.58 0 0 3.58 0 8C0 12.42 3.58 16 8 16C12.42 16 16 12.42 16 8C16
+[2026-04-25T01:17:11Z] EXIT 0
+
+[2026-04-25T01:17:19Z] CMD sed -n '1,240p' index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>rainbet — 25 in a row</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">rainbet</div>
+    <div class="streak-pill">
+      <span class="streak-label">streak</span>
+      <span class="streak-val"><span id="streak-n">0</span> <span class="sep">/</span> <span id="streak-t">25</span></span>
+    </div>
+  </header>
+
+  <main id="stage">
+    <!-- ================================================================= -->
+    <!-- Mines                                                              -->
+    <!-- ================================================================= -->
+    <section id="mines" class="mines-container hidden">
+      <div class="side-bar">
+        <div class="bet-type-toggle">
+          <button type="button" class="toggle-button active" tabindex="-1">
+            <div class="bg-gradient"></div><span>Manual</span>
+          </button>
+          <button type="button" class="toggle-button" tabindex="-1">
+            <div class="bg-gradient"></div><span>Auto</span>
+          </button>
+        </div>
+
+        <form onsubmit="return false;">
+          <div class="top-fields">
+            <div class="bet-input-field">
+              <label class="bet-label"><span>Bet Amount</span></label>
+              <div class="bet-input-content">
+                <label class="currency-icon"><span>$</span></label>
+                <input type="text" value="max-win" readonly aria-readonly="true">
+                <div class="bet-adjust">
+                  <button type="button" tabindex="-1"><span>1/2</span></button>
+                  <button type="button" tabindex="-1"><span>2x</span></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-setting">
+              <div class="label-heading"><p class="label"><span>Grid Size</span></p></div>
+              <div class="grid-tabs" id="mines-grid-tabs">
+                <button type="button" class="tab" data-size="25" tabindex="-1"><div class="bg-gradient"></div><span>25</span></button>
+                <button type="button" class="tab" data-size="36" tabindex="-1"><div class="bg-gradient"></div><span>36</span></button>
+                <button type="button" class="tab" data-size="49" tabindex="-1"><div class="bg-gradient"></div><span>49</span></button>
+                <button type="button" class="tab" data-size="64" tabindex="-1"><div class="bg-gradient"></div><span>64</span></button>
+              </div>
+            </div>
+
+            <div class="mines-count-input">
+              <div class="label-heading"><p class="label"><span>Number of Mines</span></p></div>
+              <div class="mines-slider">
+                <div class="item-icon gem"><img src="/static/assets/diamond.png" width="18" height="14" alt=""><span class="count" id="mines-gem-count">0</span></div>
+                <div class="slider-track">
+                  <div class="slider-range" id="mines-slider-range"></div>
+                  <div class="slider-thumb" id="mines-slider-thumb"><div class="slits"><i></i><i></i><i></i></div></div>
+                </div>
+                <div class="item-icon bomb">
+                  <span class="count" id="mines-bomb-count">0</span>
+                  <div class="bomb-icon"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <div class="bet-control">
+          <button id="mines-cashout" class="bet-button" type="button"><span>Cash Out</span></button>
+        </div>
+      </div>
+
+      <div class="game-display">
+        <div class="game-header">
+          <button class="info-btn" type="button" tabindex="-1" aria-label="info">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 0C3.58 0 0 3.58 0 8C0 12.42 3.58 16 8 16C12.42 16 16 12.42 16 8C16 3.58 12.42 0 8 0ZM8 14.55C4.4 14.55 1.45 11.6 1.45 8C1.45 4.4 4.4 1.45 8 1.45C11.6 1.45 14.55 4.4 14.55 8C14.55 11.6 11.6 14.55 8 14.55Z" fill="#E8E5FF" fill-opacity="0.5"/>
+              <path d="M8 3.4C7.47 3.4 7.03 3.83 7.03 4.37C7.03 4.9 7.47 5.33 8 5.33C8.53 5.33 8.97 4.9 8.97 4.37C8.97 3.83 8.53 3.4 8 3.4ZM8 6.77C7.6 6.77 7.27 7.1 7.27 7.5V11.86C7.27 12.26 7.6 12.59 8 12.59C8.4 12.59 8.73 12.26 8.73 11.86V7.5C8.73 7.1 8.4 6.77 8 6.77Z" fill="#E8E5FF" fill-opacity="0.5"/>
+            </svg>
+          </button>
+          <div class="sponsor">
+            <div class="game-icon">
+              <svg width="18" height="16" viewBox="0 0 18 16" fill="none">
+                <path fill="#7D7E97" d="M17.713 1.501c-1.559-.998-2.886-.799-4.042-.14C12.66.497 11.711.47 11.711.47l-1.443 1.443C7.601.63 4.308 1.086 2.098 3.296a7.167 7.167 0 0 0 10.135 10.135c2.21-2.21 2.668-5.504 1.386-8.17l1.443-1.443s-.02-.678-.545-1.498c.799-.384 1.59-.373 2.526.227a.622.622 0 0 0 .67-1.046M6.667 3.925c-.14.03-3.457.766-3.91 3.833a.621.621 0 1 1-1.23-.184c.582-3.934 4.712-4.83 4.888-4.866a.623.623 0 0 1 .645.95.62.62 0 0 1-.393.267m2.128-.395a.615.615 0 1 1-.87-.87.615.615 0 0 1 .87.87"/>
+              </svg>
+            </div>
+            <span class="title">mines</span>
+          </div>
+          <a class="fairplay" href="#" onclick="return false;">
+            <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
+              <path d="M13.554 6.245L13.003 2.666C9.003 2.666 7.003 0.666 7.003 0.666C7.003 0.666 5.003 2.666 1.003 2.666L0.453 6.245C0.223 7.735 0.459 9.26 1.127 10.612C1.796 11.964 2.865 13.077 4.189 13.8L7.003 15.333L9.817 13.8C11.141 13.077 12.211 11.964 12.879 10.612C13.548 9.26 13.784 7.735 13.554 6.245ZM10.141 6.471L6.141 10.471C6.016 10.596 5.847 10.666 5.67 10.666C5.493 10.666 5.324 10.596 5.199 10.471L3.865 9.137C3.802 9.076 3.751 9.002 3.716 8.921C3.681 8.84 3.663 8.752 3.662 8.664C3.661 8.575 3.678 8.487 3.711 8.405C3.745 8.323 3.795 8.249 3.857 8.186C3.920 8.124 3.994 8.074 4.076 8.041C4.158 8.007 4.246 7.990 4.334 7.991C4.423 7.992 4.510 8.010 4.592 8.045C4.673 8.080 4.747 8.131 4.808 8.195L5.67 9.057L9.199 5.528C9.324 5.407 9.493 5.339 9.668 5.341C9.842 5.342 10.010 5.413 10.133 5.536C10.257 5.660 10.327 5.827 10.328 6.002C10.330 6.177 10.263 6.345 10.141 6.471Z" fill="white"/>
+            </svg>
+            <span>Fair Play</span>
+          </a>
+        </div>
+
+        <div class="game-content">
+          <div id="mines-grid" class="mines-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- Chicken Cross                                                      -->
+    <!-- ================================================================= -->
+    <section id="chicken" class="chicken-frame hidden">
+      <div class="chicken-bet-bar">
+        <div class="bet-bar-row">
+          <div class="manual-bet-input">
+            <div class="bet-input-field">
+              <label class="bet-label"><span>Bet Amount</span></label>
+              <div class="bet-input-content">
+                <label class="currency-icon"><span>$</span></label>
+                <input type="text" value="max-win" readonly aria-readonly="true">
+                <div class="bet-adjust">
+                  <button type="button" tabindex="-1"><span>1/2</span></button>
+                  <button type="button" tabindex="-1"><span>2x</span></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bet-cashout-group">
+            <div class="chicken-action">
+              <button id="chicken-cross" class="cross-btn" type="button">
+                <span>Cross</span>
+              </button>
+            </div>
+            <div class="payout-and-action">
+              <div class="payout-display">
+                <div class="payout-value"><span id="chicken-payout-label">current payout</span></div>
+                <span class="payout-multiplier" id="chicken-multiplier">1.00x</span>
+              </div>
+              <button id="chicken-cashout" class="cashout-btn" type="button">
+                <div class="inner"><span>Cash Out</span></div>
+                <div class="gradient"></div>
+              </button>
+            </div>
+          </div>
+
+          <div class="difficulty-select">
+            <span class="select-label">Risk</span>
+            <button type="button" class="difficulty-trigger" tabindex="-1">
+              <span class="difficulty-name" id="chicken-risk-name">Easy</span>
+              <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-header chicken-header">
+        <button class="info-btn" type="button" tabindex="-1" aria-label="info">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path fill="#E8E5FF" fill-opacity="0.5" d="M8 0C3.58 0 0 3.58 0 8C0 12.42 3.58 16 8 16C12.42 16 16 12.42 16 8C16 3.58 12.42 0 8 0ZM8 14.55C4.4 14.55 1.45 11.6 1.45 8C1.45 4.4 4.4 1.45 8 1.45C11.6 1.45 14.55 4.4 14.55 8C14.55 11.6 11.6 14.55 8 14.55Z"/>
+            <path fill="#E8E5FF" fill-opacity="0.5" d="M8 3.4C7.47 3.4 7.03 3.83 7.03 4.37C7.03 4.9 7.47 5.33 8 5.33C8.53 5.33 8.97 4.9 8.97 4.37C8.97 3.83 8.53 3.4 8 3.4ZM8 6.77C7.6 6.77 7.27 7.1 7.27 7.5V11.86C7.27 12.26 7.6 12.59 8 12.59C8.4 12.59 8.73 12.26 8.73 11.86V7.5C8.73 7.1 8.4 6.77 8 6.77Z"/>
+          </svg>
+        </button>
+        <div class="sponsor">
+          <div class="game-icon chicken-icon">
+            <svg fill="none" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16.968 9.627c.58 1.218.452 2.706.229 3.75-.207.966-1.231 2.181-2.822 2.909a1.39 1.39 0 0 1-.72 1.044l-.005.003a1 1 0 0 1-.066.033l.196 1.146.05.297h.003l-.037-.301.838-.203a.614.614 0 0 1 .757.602.617.617 0 0 1-.586.618l-2.052.092a.42.42 0 0 1-.116-.828l.455-.11-.144-1.19a1.37 1.37 0 0 1-1.098-.641c-.367.013-.728.005-1.066-.016-.225.46-.694.776-1.236.776h-.034l-.003.015-.215 1.067.859.075a.618.618 0 1 1-.22 1.211l-.294-.084-1.682-.482a.42.42 0 0 1 .15-.823l.465.04.223-1.109a.76.76 0 0 1-.26-.357 1.4 1.4 0 0 1-.364-.896c-3.202-1.437-3.37-4.786-3.376-5.36-.115.031-.183.029-.183.029s-1.99.237-2.113-.658c-.037-.684 1.203-.819 1.263-.825-.056.004-1.141.075-1.213-.824.098-.741 1.237-.344 1.256-.338-.017-.017-.732-.78-.732-1.482s1.033-2.094 2.22-1.197c.645.548 1.104 2.31 1.12 2.546.562-.247 1.154-.366 1.154-.366 1.099-.292 2.248-.407 3.296-.424.359-.62.374-1.508.612-3.269q.03-.215.074-.402c-.23-.2-.938-.154-.835-.877.177-1.234 1.35-.65 1.35-.65s-.791-.89-.315-1.37c.766-.798 1.534.485 1.534.485S13.23 0 14.149 0c.92 0 .846 1.574.846 1.574s.54-.552.91-.277c.495.848-.228 1.193-.457 1.456.175.32.271.68.33 1.01.053.012.105.045.17.06.41.098 1.134.08 1.552.707l-.24.082c-.31.1-.615.16-.91.226-.095.022-.19.046-.258.071l.068.112.193.244c.187.25.329.444.28.543-.142.327-.407.094-.587-.027.198.915.458 1.326.661 1.949.274.842.473 1.749.261 1.896zm-5.13 5.312q.311-.122.575-.303c-2.241.314-2.871-.3-2.871-.3.137-.036 1.144-.69 1.144-.69-2.065.15-2.72-1.282-2.72-1.282.263-.025 1.261-.484 1.261-.484-2.322-.97-2.05-1.897-2.042-2.187-.243-.075-.789-.164-1.014-.331 0 0-.296 1.748 1.59 2.471 0 0-.812.295-.975.105 0 0 .174 1.802 2.238 1.963 0 0-.774.339-.914.354 0 0 1.063 1.726 3.728.684" fill="#fff"/>
+            </svg>
+          </div>
+          <span class="title">chicken cross</span>
+        </div>
+        <a class="fairplay" href="#" onclick="return false;">
+          <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
+            <path d="M13.554 6.245L13.003 2.666C9.003 2.666 7.003 0.666 7.003 0.666C7.003 0.666 5.003 2.666 1.003 2.666L0.453 6.245C0.223 7.735 0.459 9.26 1.127 10.612C1.796 11.964 2.865 13.077 4.189 13.8L7.003 15.333L9.817 13.8C11.141 13.077 12.211 11.964 12.879 10.612C13.548 9.26 13.784 7.735 13.554 6.245ZM10.141 6.471L6.141 10.471C6.016 10.596 5.847 10.666 5.67 10.666C5.493 10.666 5.324 10.596 5.199 10.471L3.865 9.137C3.802 9.076 3.751 9.002 3.716 8.921C3.681 8.84 3.663 8.752 3.662 8.664C3.661 8.575 3.678 8.487 3.711 8.405C3.745 8.323 3.795 8.249 3.857 8.186C3.920 8.124 3.994 8.074 4.076 8.041C4.158 8.007 4.246 7.990 4.334 7.991C4.423 7.992 4.510 8.010 4.592 8.045C4.673 8.080 4.747 8.131 4.808 8.195L5.67 9.057L9.199 5.528C9.324 5.407 9.493 5.339 9.668 5.341C9.842 5.342 10.010 5.413 10.133 5.536C10.257 5.660 10.327 5.827 10.328 6.002C10.330 6.177 10.263 6.345 10.141 6.471Z" fill="white"/>
+          </svg>
+          <span>Fair Play</span>
+        </a>
+      </div>
+
+      <div class="chicken-content">
+        <div class="chicken-track" id="chicken-track">
+          <div id="chicken-row" class="chicken-lanes"></div>
+          <div id="chicken-marker" class="chicken-marker">
+            <svg viewBox="0 0 20 20" fill="none" width="28" height="28">
+              <path d="M16.968 9.627c.58 1.218.452 2.706.229 3.75-.207.966-1.231 2.181-2.822 2.909a1.39 1.39 0 0 1-.72 1.044l-.005.003a1 1 0 0 1-.066.033l.196 1.146.05.297h.003l-.037-.301.838-.203a.614.614 0 0 1 .757.602.617.617 0 0 1-.586.618l-2.052.092a.42.42 0 0 1-.116-.828l.455-.11-.144-1.19a1.37 1.37 0 0 1-1.098-.641c-.367.013-.728.005-1.066-.016-.225.46-.694.776-1.236.776h-.034l-.003.015-.215 1.067.859.075a.618.618 0 1 1-.22 1.211l-.294-.084-1.682-.482a.42.42 0 0 1 .15-.823l.465.04.223-1.109a.76.76 0 0 1-.26-.357 1.4 1.4 0 0 1-.364-.896c-3.202-1.437-3.37-4.786-3.376-5.36-.115.031-.183.029-.183.029s-1.99.237-2.113-.658c-.037-.684 1.203-.819 1.263-.825-.056.004-1.141.075-1.213-.824.098-.741 1.237-.344 1.256-.338-.017-.017-.732-.78-.732-1.482s1.033-2.094 2.22-1.197c.645.548 1.104 2.31 1.12 2.546.562-.247 1.154-.366 1.154-.366 1.099-.292 2.248-.407 3.296-.424.359-.62.374-1.508.612-3.269q.03-.215.074-.402c-.23-.2-.938-.154-.835-.877.177-1.234 1.35-.65 1.35-.65s-.791-.89-.315-1.37c.766-.798 1.534.485 1.534.485S13.23 0 14.149 0c.92 0 .846 1.574.846 1.574s.54-.552.91-.277c.495.848-.228 1.193-.457 1.456.175.32.271.68.33 1.01.053.012.105.045.17.06.41.098 1.134.08 1.552.707l-.24.082c-.31.1-.615.16-.91.226-.095.022-.19.046-.258.071l.068.112.193.244c.187.25.329.444.28.543-.142.327-.407.094-.587-.027.198.915.458 1.326.661 1.949.274.842.473 1.749.261 1.896zm-5.13 5.312q.311-.122.575-.303c-2.241.314-2.871-.3-2.871-.3.137-.036 1.144-.69 1.144-.69-2.065.15-2.72-1.282-2.72-1.282.263-.025 1.261-.484 1.261-.484-2.322-.97-2.05-1.897-2.042-2.187-.243-.075-.789-.164-1.014-.331 0 0-.296 1.748 1.59 2.471 0 0-.812.295-.975.105 0 0 .174 1.802 2.238 1.963 0 0-.774.339-.914.354 0 0 1.063 1.726 3.728.684" fill="#ffd358"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="chicken-footer">
+        <div class="footer-controls">
+          <button type="button" tabindex="-1" class="footer-icon-btn" aria-label="settings">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path fill="#E8E5FF" d="M15.31 9.75l-1.47-1.15c.02-.18.04-.38.04-.6s-.02-.43-.04-.6l1.47-1.15a.72.72 0 00.17-.92l-1.53-2.65a.71.71 0 00-.88-.32l-1.74.7a5.95 5.95 0 00-1.04-.6L10.03.6A.71.71 0 009.32 0H6.26a.71.71 0 00-.7.6l-.27 1.85c-.35.16-.69.36-1.04.6l-1.74-.7a.72.72 0 00-.88.32L.1 5.33a.72.72 0 00.17.92l1.47 1.15c-.02.22-.03.42-.03.6s.01.38.03.6l-1.47 1.15a.72.72 0 00-.17.92l1.53 2.65c.17.3.54.44.88.32l1.74-.7c.33.24.68.44 1.04.6l.26 1.84a.71.71 0 00.71.62h3.06a.71.71 0 00.71-.6l.26-1.85c.35-.16.69-.36 1.04-.6l1.74.7a.7.7 0 00.88-.31l1.54-2.66a.72.72 0 00-.18-.91zm-7.52.92A2.67 2.67 0 015.13 8a2.67 2.67 0 012.67-2.67A2.67 2.67 0 0110.46 8a2.67 2.67 0 01-2.67 2.67z"/>
+            </svg>
+          </button>
+          <button type="button" tabindex="-1" class="footer-icon-btn" aria-label="hotkeys">
+            <svg width="17" height="16" viewBox="0 0 17 16" fill="#E8E5FF" fill-opacity="0.6">
+              <path d="M16.56 13.34V7.52a2.18 2.18 0 00-2.18-2.18H2.74A2.18 2.18 0 00.56 7.52v5.82a2.18 2.18 0 002.18 2.18h11.64a2.18 2.18 0 002.18-2.18zM4.2 10.79a1.09 1.09 0 110 2.18 1.09 1.09 0 010-2.18zm8.73 0a1.09 1.09 0 110 2.18 1.09 1.09 0 010-2.18zM7.1 12.61h2.91a.73.73 0 000-1.46H7.1a.73.73 0 100 1.46zM4.2 7.88a1.09 1.09 0 110 2.18 1.09 1.09 0 010-2.18zm2.9 0a1.09 1.09 0 11-.01 2.18 1.09 1.09 0 010-2.18zm2.91 0a1.09 1.09 0 11-.01 2.18 1.09 1.09 0 010-2.18zm2.9 0a1.09 1.09 0 11-.01 2.18 1.09 1.09 0 010-2.18z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="faded-logo">
+          <img src="/static/assets/logo.webp" alt="rainbet" width="90" height="26">
+        </div>
+        <div class="footer-toggle">
+          <button type="button" tabindex="-1" class="toggle-button active">
+            <div class="bg-gradient"></div><span>Manual</span>
+          </button>
+          <button type="button" tabindex="-1" class="toggle-button">
+            <div class="bg-gradient"></div><span>Auto</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- Finished                                                           -->
+    <!-- ================================================================= -->
+    <section id="finished" class="finished-card hidden">
+      <div class="card-head"><span class="title">flag</span></div>
+      <pre id="flag"></pre>
+    </section>
+  </main>
+
+  <!-- hidden bomb SVG used for reveal state, cloned into tiles -->
+  <template id="tile-template">
+    <button class="grid-item" type="button">
+      <div class="reveal-transition"></div>
+      <div class="grid-icon grid-icon-gem">
+        <div class="gem-inner">
+          <img alt="" src="/static/assets/diamond.png">
+        </div>
+      </div>
+      <div class="grid-icon grid-icon-bomb"></div>
+      <div class="grid-item-hover"></div>
+    </button>
+[2026-04-25T01:17:19Z] EXIT 0
+
+[2026-04-25T01:17:32Z] CMD grep -n "generate" -n index.html || true
+[2026-04-25T01:17:32Z] EXIT 0
+
+[2026-04-25T01:17:39Z] CMD grep -n "session" index.html || true
+[2026-04-25T01:17:39Z] EXIT 0
+
+[2026-04-25T01:17:48Z] CMD sed -n '240,520p' index.html
+    </button>
+  </template>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>[2026-04-25T01:17:48Z] EXIT 0
+
+[2026-04-25T01:17:55Z] CMD python3 - '{"url": "https://rainbet.challs.umdctf.io/static/app.js", "method": "GET", "headers": {}, "body": null, "json_body": null, "form": {}, "files": {}, "save_to": "app.js", "session_name": "default", "follow_redirects": true, "timeout": 20}' <<'PY'
+import json, sys
+from pathlib import Path
+from http.cookiejar import MozillaCookieJar
+import requests
+spec = json.loads(sys.argv[1])
+session_name = spec.get('session_name') or 'default'
+session_dir = Path('/ctf/.sessions')
+session_dir.mkdir(parents=True, exist_ok=True)
+cookie_path = session_dir / f"{session_name}.cookies.txt"
+jar = MozillaCookieJar(str(cookie_path))
+if cookie_path.exists():
+    try:
+        jar.load(ignore_discard=True, ignore_expires=True)
+    except Exception:
+        pass
+sess = requests.Session()
+sess.cookies = jar
+files_spec = spec.get('files') or {}
+req_files = None
+opened_handles = []
+def ctf_path(value):
+    raw = str(value or '')
+    if raw.startswith('/ctf/'):
+        return Path(raw)
+    return Path('/ctf') / raw.lstrip('/')
+if files_spec:
+    req_files = {}
+    for field, val in files_spec.items():
+        if isinstance(val, dict):
+            fpath_full = ctf_path(val.get('path'))
+            fname = val.get('filename') or fpath_full.name
+            mime = val.get('mime_type') or val.get('mime') or 'application/octet-stream'
+            fh = open(fpath_full, 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fname, fh, mime)
+        elif isinstance(val, list) and len(val) >= 2:
+            fname, fpath = val[0], val[1]
+            mime = val[2] if len(val) > 2 else 'application/octet-stream'
+            fh = open(ctf_path(fpath), 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fname, fh, mime)
+        else:
+            fpath_full = ctf_path(val)
+            fh = open(fpath_full, 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fpath_full.name, fh, 'application/octet-stream')
+try:
+    if req_files:
+        resp = sess.request(
+            spec.get('method', 'GET').upper(),
+            spec['url'],
+            headers=spec.get('headers') or None,
+            data=spec.get('form') or None,
+            files=req_files,
+            allow_redirects=bool(spec.get('follow_redirects', True)),
+            timeout=int(spec.get('timeout') or 20),
+        )
+    else:
+        resp = sess.request(
+            spec.get('method', 'GET').upper(),
+            spec['url'],
+            headers=spec.get('headers') or None,
+            data=spec.get('body') if spec.get('body') is not None else (spec.get('form') or None),
+            json=spec.get('json_body'),
+            allow_redirects=bool(spec.get('follow_redirects', True)),
+            timeout=int(spec.get('timeout') or 20),
+        )
+finally:
+    for fh in opened_handles:
+        try: fh.close()
+        except Exception: pass
+sess.cookies.save(ignore_discard=True, ignore_expires=True)
+save_to = (spec.get('save_to') or '').lstrip('/')
+saved_path = ''
+if save_to:
+    dest = Path('/ctf') / save_to
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(resp.content)
+    saved_path = str(dest)
+print(f'STATUS {resp.status_code}')
+print(f'FINAL_URL {resp.url}')
+print(f'COOKIE_JAR {cookie_path}')
+if saved_path:
+    print(f'SAVED_TO {saved_path}')
+for key, value in list(resp.headers.items())[:20]:
+    print(f'HEADER {key}: {value}')
+print('')
+print('BODY_PREVIEW')
+text = resp.text[:4000]
+print(text)
+PY
+STATUS 200
+FINAL_URL https://rainbet.challs.umdctf.io/static/app.js
+COOKIE_JAR /ctf/.sessions/default.cookies.txt
+SAVED_TO /ctf/app.js
+HEADER Accept-Ranges: bytes
+HEADER Cache-Control: no-cache
+HEADER Content-Disposition: inline; filename=app.js
+HEADER Content-Length: 9320
+HEADER Content-Type: text/javascript; charset=utf-8
+HEADER Date: Sat, 25 Apr 2026 01:17:57 GMT
+HEADER Etag: "1777024373.0-9320-1040582307"
+HEADER Last-Modified: Fri, 24 Apr 2026 09:52:53 GMT
+HEADER Server: gunicorn
+
+BODY_PREVIEW
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+
+const state = {
+  sid: null,
+  secret: null,
+  streak: 0,
+  target: 25,
+  game: null,
+  progress: { revealed: [], crossed: 0 },
+};
+let ws = null;
+let pending = false;
+
+// ---- crypto ---------------------------------------------------------------
+
+async function hmacHex(secretHex, msg) {
+  const key = new Uint8Array(secretHex.match(/../g).map((b) => parseInt(b, 16)));
+  const ck = await crypto.subtle.importKey(
+    "raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", ck, new TextEncoder().encode(msg));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function canonView() {
+  const g = state.game;
+  if (g.type === "mines") {
+    const rev = [...state.progress.revealed].sort((a, b) => a - b).join(",");
+    return `mines:${state.streak}:${g.grid_size}:${g.num_mines}:${rev}`;
+  }
+  return `chicken:${state.streak}:${g.steps}:${state.progress.crossed}`;
+}
+
+async function sendMove(action, extra = {}) {
+  if (pending || !ws || ws.readyState !== WebSocket.OPEN) return;
+  pending = true;
+  const view = canonView();
+  const sig = await hmacHex(state.secret, view);
+  ws.send(JSON.stringify({ action, view, sig, ...extra }));
+}
+
+// ---- UI -------------------------------------------------------------------
+
+function toast(msg, ms = 2000) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.add("hidden"), ms);
+}
+
+function setStreak(n, target) {
+  state.streak = n;
+  state.target = target;
+  $("streak-n").textContent = n;
+  $("streak-t").textContent = target;
+}
+
+function showSection(id) {
+  for (const s of ["mines", "chicken", "finished"]) {
+    $(s).classList.toggle("hidden", s !== id);
+  }
+}
+
+function updateMinesSidebar() {
+  const g = state.game;
+  if (!g || g.type !== "mines") return;
+  const total = g.grid_size * g.grid_size;
+  const safe = total - g.num_mines;
+  const remaining = safe - state.progress.revealed.length;
+  $("mines-gem-count").textContent = remaining;
+  $("mines-bomb-count").textContent = g.num_mines;
+
+  // Grid Size tabs: highlight the active one
+  const tabs = $("mines-grid-tabs");
+  if (tabs) {
+    for (const tab of tabs.children) {
+      tab.classList.toggle("active", Number(tab.dataset.size) === total);
+    }
+  }
+
+  // Slider: position thumb based on mines / (total - 1)
+  const pct = (g.num_mines / (total - 1)) * 100;
+  const thumb = $("mines-slider-thumb");
+  const range = $("mines-slider-range");
+  if (thumb) thumb.style.left = `${pct}%`;
+  if (range) range.style.width = `${pct}%`;
+}
+
+function renderMines() {
+  const g = state.game;
+  const grid = $("mines-grid");
+  grid.innerHTML = "";
+  grid.style.setProperty("--grid-size", g.grid_size);
+  const total = g.grid_size * g.grid_size;
+  const revealed = new Set(state.progress.revealed);
+  const tpl = $("tile-template");
+  for (let i = 0; i < total; i++) {
+    const node = tpl.content.firstElementChild.cloneNode(true);
+    node.dataset.tile = i;
+    if (revealed.has(i)) {
+      node.classList.add("revealed");
+      node.disabled = true;
+    }
+    node.addEventListener("click", () => {
+      if (node.disabled) return;
+      sendMove("reveal", { tile: i });
+    });
+    grid.appendChild(node);
+  }
+  updateMinesSidebar();
+}
+
+const LANE_WIDTH_PX = 52;
+const LANE_GAP_PX = 4;
+const LANE_STEP_PX = LANE_WIDTH_PX + LANE_GAP_PX;
+const CHICKEN_TRACK_PAD_PX = 28;
+
+function positionChickenMarker() {
+  const marker = $("chicken-marker");
+  if (!marker) return;
+  const crossed = state.progress.crossed;
+  let x;
+  if (crossed === 0) x = CHICKEN_TRACK_PAD_PX / 2;
+  else x = CHICKEN_TRACK_PAD_PX + (crossed - 1) * LANE_STEP_PX + LANE_WIDTH_PX / 2;
+  marker.style.left = `${x}px`;
+
+  const track = $("chicken-track");
+  if (track) {
+    const tw = track.clientWidth;
+    const sl = track.scrollLeft;
+    if (x > sl + tw - 120 || x <
+[2026-04-25T01:17:55Z] EXIT 0
+
+[2026-04-25T01:18:03Z] CMD sed -n '240,520p' app.js
+      break;
+    case "state":
+      setStreak(m.streak, state.target);
+      if ("revealed" in m) {
+        const newly = m.revealed.filter((x) => !state.progress.revealed.includes(x));
+        state.progress.revealed = m.revealed;
+        for (const t of newly) flashTile(t, "revealed");
+        updateMinesSidebar();
+      }
+      if ("crossed" in m) {
+        const prev = state.progress.crossed;
+        state.progress.crossed = m.crossed;
+        const row = $("chicken-row");
+        for (let i = prev; i < m.crossed; i++) {
+          row.children[i]?.classList.add("crossed");
+        }
+        positionChickenMarker();
+        updateChickenPayout();
+      }
+      break;
+    case "result":
+      if (m.reveal) showReveal(m.reveal);
+      if (m.session_id && m.secret) {
+        state.sid = m.session_id;
+        state.secret = m.secret;
+      }
+      if (m.result === "win" && m.complete) { setStreak(m.streak, m.target); showFlag(m.flag); return; }
+      if (m.result === "complete") { showFlag(m.flag); return; }
+      if (m.next_game) {
+        const delay = m.result === "lose" ? 1600 : 600;
+        if (m.result === "lose") toast("streak reset", 2200);
+        setTimeout(() => applyNextGame(m.next_game), delay);
+      }
+      break;
+    case "error":
+      toast(m.error + (m.expected_view ? ` (expected: ${m.expected_view})` : ""), 3200);
+      break;
+  }
+  pending = false;
+}
+
+// ---- bootstrap ------------------------------------------------------------
+
+async function init() {
+  $("mines-cashout").addEventListener("click", () => sendMove("cashout"));
+  const cx = $("chicken-cross");
+  if (cx) cx.addEventListener("click", () => sendMove("cross"));
+  const cc = $("chicken-cashout");
+  if (cc) cc.addEventListener("click", () => sendMove("cashout"));
+
+  const info = await fetch("/api/sessioninfo", { credentials: "same-origin" }).then((r) => r.json());
+  state.sid = info.session_id;
+  state.secret = info.secret;
+
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.addEventListener("message", (e) => handleMessage(JSON.parse(e.data)));
+  ws.addEventListener("close", () => toast("connection closed — refresh to reconnect", 5000));
+  ws.addEventListener("error", () => toast("ws error", 3000));
+}
+
+init();
+[2026-04-25T01:18:03Z] EXIT 0
+
+[2026-04-25T01:18:03Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/.sessions/default.cookies.txt
+/ctf/.venv/.gitignore
+/ctf/.venv/pyvenv.cfg
+/ctf/__pycache__/rainbet.cpython-313.pyc
+/ctf/app.js
+/ctf/index.html
+/ctf/rainbet.py
+/ctf/rainbet_gen.wasm
+/ctf/venv/.gitignore
+/ctf/venv/pyvenv.cfg
+[2026-04-25T01:18:03Z] EXIT 0
+
+[2026-04-25T01:18:32Z] CMD python3 - '{"url": "https://rainbet.challs.umdctf.io/api/sessioninfo", "method": "GET", "headers": {}, "body": null, "json_body": null, "form": {}, "files": {}, "save_to": "", "session_name": "default", "follow_redirects": true, "timeout": 20}' <<'PY'
+import json, sys
+from pathlib import Path
+from http.cookiejar import MozillaCookieJar
+import requests
+spec = json.loads(sys.argv[1])
+session_name = spec.get('session_name') or 'default'
+session_dir = Path('/ctf/.sessions')
+session_dir.mkdir(parents=True, exist_ok=True)
+cookie_path = session_dir / f"{session_name}.cookies.txt"
+jar = MozillaCookieJar(str(cookie_path))
+if cookie_path.exists():
+    try:
+        jar.load(ignore_discard=True, ignore_expires=True)
+    except Exception:
+        pass
+sess = requests.Session()
+sess.cookies = jar
+files_spec = spec.get('files') or {}
+req_files = None
+opened_handles = []
+def ctf_path(value):
+    raw = str(value or '')
+    if raw.startswith('/ctf/'):
+        return Path(raw)
+    return Path('/ctf') / raw.lstrip('/')
+if files_spec:
+    req_files = {}
+    for field, val in files_spec.items():
+        if isinstance(val, dict):
+            fpath_full = ctf_path(val.get('path'))
+            fname = val.get('filename') or fpath_full.name
+            mime = val.get('mime_type') or val.get('mime') or 'application/octet-stream'
+            fh = open(fpath_full, 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fname, fh, mime)
+        elif isinstance(val, list) and len(val) >= 2:
+            fname, fpath = val[0], val[1]
+            mime = val[2] if len(val) > 2 else 'application/octet-stream'
+            fh = open(ctf_path(fpath), 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fname, fh, mime)
+        else:
+            fpath_full = ctf_path(val)
+            fh = open(fpath_full, 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fpath_full.name, fh, 'application/octet-stream')
+try:
+    if req_files:
+        resp = sess.request(
+            spec.get('method', 'GET').upper(),
+            spec['url'],
+            headers=spec.get('headers') or None,
+            data=spec.get('form') or None,
+            files=req_files,
+            allow_redirects=bool(spec.get('follow_redirects', True)),
+            timeout=int(spec.get('timeout') or 20),
+        )
+    else:
+        resp = sess.request(
+            spec.get('method', 'GET').upper(),
+            spec['url'],
+            headers=spec.get('headers') or None,
+            data=spec.get('body') if spec.get('body') is not None else (spec.get('form') or None),
+            json=spec.get('json_body'),
+            allow_redirects=bool(spec.get('follow_redirects', True)),
+            timeout=int(spec.get('timeout') or 20),
+        )
+finally:
+    for fh in opened_handles:
+        try: fh.close()
+        except Exception: pass
+sess.cookies.save(ignore_discard=True, ignore_expires=True)
+save_to = (spec.get('save_to') or '').lstrip('/')
+saved_path = ''
+if save_to:
+    dest = Path('/ctf') / save_to
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(resp.content)
+    saved_path = str(dest)
+print(f'STATUS {resp.status_code}')
+print(f'FINAL_URL {resp.url}')
+print(f'COOKIE_JAR {cookie_path}')
+if saved_path:
+    print(f'SAVED_TO {saved_path}')
+for key, value in list(resp.headers.items())[:20]:
+    print(f'HEADER {key}: {value}')
+print('')
+print('BODY_PREVIEW')
+text = resp.text[:4000]
+print(text)
+PY
+STATUS 200
+FINAL_URL https://rainbet.challs.umdctf.io/api/sessioninfo
+COOKIE_JAR /ctf/.sessions/default.cookies.txt
+HEADER Content-Length: 110
+HEADER Content-Type: application/json
+HEADER Date: Sat, 25 Apr 2026 01:18:33 GMT
+HEADER Server: gunicorn
+HEADER Set-Cookie: sid=9f7bcd946eaae147; Path=/; SameSite=Lax
+
+BODY_PREVIEW
+{"secret":"5ef07e39ddda75fbd4fe9734d9c15aaf4549c5018dc511804ba43c3d79b17758","session_id":"9f7bcd946eaae147"}
+
+[2026-04-25T01:18:32Z] EXIT 0
+

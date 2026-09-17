@@ -1,69 +1,14 @@
-<svg width="220" height="128" viewBox="0 0 220 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="containerBlue" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#55C4FF"/>
-      <stop offset="1" stop-color="#0D58C7"/>
-    </linearGradient>
-    <linearGradient id="whaleBlue" x1="42" y1="36" x2="182" y2="98" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#67D2FF"/>
-      <stop offset="0.48" stop-color="#2896E9"/>
-      <stop offset="1" stop-color="#103EAF"/>
-    </linearGradient>
-    <linearGradient id="finBlue" x1="116" y1="72" x2="166" y2="98" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#8BE1FF"/>
-      <stop offset="1" stop-color="#1267D5"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="56" y1="93" x2="168" y2="122" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F6D25D"/>
-      <stop offset="1" stop-color="#D99A12"/>
-    </linearGradient>
-    <filter id="glow" x="0" y="0" width="220" height="128" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="7" result="blur"/>
-      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.12 0 0 0 0 0.42 0 0 0 0 0.96 0 0 0 0.32 0"/>
-      <feBlend in="SourceGraphic" in2="blur" mode="screen"/>
-    </filter>
-  </defs>
-
-  <g filter="url(#glow)">
-    <g stroke="#0A218B" stroke-width="3">
-      <rect x="96" y="18" width="34" height="20" fill="url(#containerBlue)"/>
-      <rect x="76" y="38" width="34" height="20" fill="url(#containerBlue)"/>
-      <rect x="110" y="38" width="34" height="20" fill="url(#containerBlue)"/>
-      <rect x="144" y="44" width="24" height="18" fill="url(#containerBlue)"/>
-      <rect x="88" y="58" width="28" height="16" fill="url(#containerBlue)"/>
-      <rect x="116" y="58" width="28" height="16" fill="url(#containerBlue)"/>
-      <rect x="144" y="58" width="24" height="16" fill="url(#containerBlue)"/>
-      <g stroke-width="1.6" opacity="0.5">
-        <path d="M104 20V38M112 20V38M120 20V38" />
-        <path d="M84 40V58M92 40V58M100 40V58" />
-        <path d="M118 40V58M126 40V58M134 40V58" />
-        <path d="M150 45V62M158 45V62" />
-        <path d="M96 59V74M104 59V74" />
-        <path d="M124 59V74M132 59V74" />
-        <path d="M151 59V74M159 59V74" />
-      </g>
-    </g>
-
-    <g fill="#FF9F1B" stroke="#0A218B" stroke-width="3.2" stroke-linejoin="round">
-      <path d="M28 30H37V24H47V30H57V24H67V30H77V40H67V47H57V40H47V47H37V40H28V30Z"/>
-      <rect x="47" y="47" width="10" height="8" fill="#1B439E"/>
-    </g>
-
-    <g>
-      <path d="M22 66C42 57 70 54 97 56C114 44 136 40 157 46C163 41 170 42 176 51C189 48 201 49 208 52C202 62 194 70 181 71C174 80 164 84 152 83C143 89 132 92 119 91C93 98 63 99 41 89C30 84 24 76 22 66Z" fill="url(#whaleBlue)" stroke="#0A218B" stroke-width="3.2" stroke-linejoin="round"/>
-      <path d="M156 46C161 31 171 28 178 45C192 41 206 41 214 45C206 55 195 61 181 60" fill="#6EE1FF" stroke="#0A218B" stroke-width="3.2" stroke-linejoin="round"/>
-      <path d="M163 46C166 34 173 32 178 44C188 42 197 43 203 45C196 51 189 55 181 56" fill="#2EA6F2" opacity="0.72"/>
-      <path d="M111 78C127 73 142 75 155 84C143 94 128 95 112 87" fill="url(#finBlue)" stroke="#0A218B" stroke-width="3.2" stroke-linejoin="round"/>
-      <path d="M26 68C43 76 56 78 72 77C82 76 89 72 95 67C80 64 65 62 49 63C38 64 31 65 26 68Z" fill="#1A6FD8" opacity="0.56"/>
-      <path d="M30 77C52 82 74 82 91 77C100 90 112 97 129 99C100 104 60 103 38 93C34 89 31 84 30 77Z" fill="#F7FAFF" stroke="#0A218B" stroke-width="3.2" stroke-linejoin="round"/>
-      <path d="M43 81L52 92M52 80L61 92M61 79L70 92M70 78L79 90" stroke="#B9D8FF" stroke-width="3"/>
-      <circle cx="67" cy="68" r="5.6" fill="#0B1A3D"/>
-      <circle cx="65.4" cy="66.4" r="1.4" fill="#F8FDFF"/>
-    </g>
-
-    <g paint-order="stroke fill markers">
-      <text x="53" y="118" font-family="Arial Black, Arial, sans-serif" font-size="50" font-weight="900" letter-spacing="2" fill="url(#gold)" stroke="#3A1D90" stroke-width="8">JMU</text>
-      <text x="53" y="118" font-family="Arial Black, Arial, sans-serif" font-size="50" font-weight="900" letter-spacing="2" fill="url(#gold)" stroke="#F8F3E6" stroke-width="2.2">JMU</text>
-    </g>
-  </g>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">Beer mug logo</title>
+  <path d="M332 229H398C434.451 229 464 258.549 464 295V376C464 412.451 434.451 442 398 442H332V404H398C413.464 404 426 391.464 426 376V295C426 279.536 413.464 267 398 267H332V229Z" fill="#DDEEF3"/>
+  <path d="M83 181H363V492C363 503.046 354.046 512 343 512H103C91.9543 512 83 503.046 83 492V181Z" fill="#FFE579"/>
+  <path d="M331 181H363V512H331V181Z" fill="#FFC247"/>
+  <path d="M83 472H363V492C363 503.046 354.046 512 343 512H103C91.9543 512 83 503.046 83 492V472Z" fill="#E9F4F7"/>
+  <path d="M331 472H363V492C363 503.046 354.046 512 343 512H331V472Z" fill="#DDEEF3"/>
+  <path d="M49 145C49 106.34 79.6142 76.2472 118.25 75.0477C123.782 47.8231 147.854 28 176 28C185.756 28 195.222 30.3874 203.665 34.7904C214.28 13.8977 235.975 0 260 0C294.794 0 323 28.2061 323 63C323 65.2312 322.885 67.4358 322.657 69.6081C325.09 69.2055 327.586 69 330 69C368.108 69 399 99.8924 399 138C399 176.108 368.108 207 330 207C314.73 207 300.498 201.998 288.948 193.503C279.283 202.886 266.094 208.667 251.545 208.667C237.007 208.667 223.828 202.894 214.165 193.524C204.437 202.87 191.24 208.667 176.667 208.667C161.974 208.667 148.68 202.773 138.929 193.288C132.431 199.208 123.81 202.667 114.333 202.667H103V276C103 294.225 88.2254 309 70 309C51.7746 309 37 294.225 37 276V190.454C29.3867 178.665 49 158.611 49 145Z" fill="#EAF3F6"/>
+  <path d="M291.347 1.512C311.022 12.419 324.333 33.381 324.333 57.455C324.333 59.705 324.219 61.924 323.991 64.11C326.405 63.706 328.886 63.5 331.333 63.5C369.441 63.5 400.333 94.392 400.333 132.5C400.333 170.608 369.441 201.5 331.333 201.5C316.063 201.5 301.831 196.498 290.281 188.003C280.616 197.386 267.427 203.167 252.878 203.167C238.34 203.167 225.161 197.394 215.498 188.024C205.77 197.37 192.573 203.167 178 203.167C168.614 203.167 159.798 200.759 152.128 196.527C158.777 204.069 168.51 208.833 179.333 208.833C193.907 208.833 207.104 203.036 216.831 193.69C226.494 203.061 239.674 208.833 254.212 208.833C268.76 208.833 281.949 203.052 291.614 193.669C303.164 202.165 317.397 207.167 332.667 207.167C370.775 207.167 401.667 176.274 401.667 138.167C401.667 100.059 370.775 69.167 332.667 69.167C330.253 69.167 327.757 69.372 325.324 69.775C325.552 67.603 325.667 65.398 325.667 63.167C325.667 33.417 304.995 8.495 277.222 1.939C281.823 0.673 286.672 0 291.347 1.512Z" fill="#DDEEF3" opacity="0.74"/>
+  <path d="M60 341C76.0163 341 89 353.984 89 370V383C89 399.016 76.0163 412 60 412C43.9837 412 31 399.016 31 383V370C31 353.984 43.9837 341 60 341Z" fill="#EAF3F6"/>
+  <path d="M91 341C107.016 341 120 353.984 120 370V383C120 399.016 107.016 412 91 412H60C76.0163 412 89 399.016 89 383V370C89 353.984 76.0163 341 60 341H91Z" fill="#DDEEF3"/>
+  <path d="M159 239C159 229.611 166.611 222 176 222C185.389 222 193 229.611 193 239V395C193 404.389 185.389 412 176 412C166.611 412 159 404.389 159 395V239Z" fill="#FFC247"/>
+  <path d="M255 239C255 229.611 262.611 222 272 222C281.389 222 289 229.611 289 239V395C289 404.389 281.389 412 272 412C262.611 412 255 404.389 255 395V239Z" fill="#FFC247"/>
 </svg>

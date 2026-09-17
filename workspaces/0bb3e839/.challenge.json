@@ -1,0 +1,37 @@
+{
+  "id": "0bb3e839",
+  "name": "bookmaker",
+  "category": "pwn",
+  "flag_format": "",
+  "description": "the bookies are contesting: will Tahmid finish a fifth web challenge on time?\n\nnc challs.umdctf.io 30307",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-04-25T00:51:09.239479Z"
+}

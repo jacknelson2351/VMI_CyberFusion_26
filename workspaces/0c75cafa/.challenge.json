@@ -1,0 +1,37 @@
+{
+  "id": "0c75cafa",
+  "name": "nuclear_codes",
+  "category": "rev",
+  "flag_format": "",
+  "description": "I put $100000000000 on a bet that there would be nuclear war before the CTF ends, please help me find the nuclear codes so I can win big\n\nnc challs.umdctf.io 30301",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-09-17T20:03:54.386379Z"
+}

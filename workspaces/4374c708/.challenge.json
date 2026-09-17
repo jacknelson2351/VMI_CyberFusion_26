@@ -1,0 +1,37 @@
+{
+  "id": "4374c708",
+  "name": "french-baguette",
+  "category": "misc",
+  "flag_format": "",
+  "description": "some french guy made this weird program. it takes an image as input and returns some file. i inputted the flag into the program. you can have the output :)",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-09-17T20:27:56.710120Z"
+}

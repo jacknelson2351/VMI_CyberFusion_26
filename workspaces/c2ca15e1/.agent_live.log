@@ -1,0 +1,951 @@
+[2026-04-25T01:13:44Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-04-25T01:13:44Z] EXIT 0
+
+[2026-04-25T01:13:44Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:44Z] EXIT 0
+
+[2026-04-25T01:13:45Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:45Z] EXIT 0
+
+[2026-04-25T01:13:45Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:45Z] EXIT 0
+
+[2026-04-25T01:13:45Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:45Z] EXIT 0
+
+[2026-04-25T01:13:46Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:46Z] EXIT 0
+
+[2026-04-25T01:13:46Z] CMD ls -1 /ctf/ 2>/dev/null || true
+attack.py
+game.py
+observations.py
+physics.py
+policy.py
+weights.npz
+[2026-04-25T01:13:46Z] EXIT 0
+
+[2026-04-25T01:13:46Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 40
+drwxr-xr-x 12 root root  384 Apr 25 01:13 .
+drwxr-xr-x  1 root root 4096 Apr 25 01:13 ..
+-rw-r--r--  1 root root  955 Apr 25 01:13 .agent_live.log
+drwxr-xr-x  2 root root   64 Apr 25 01:13 .artifacts
+-rw-r--r--  1 root root 1166 Apr 25 01:13 .challenge.json
+drwxr-xr-x  2 root root   64 Apr 25 01:13 .sessions
+-rw-r--r--  1 root root 2460 Apr 25 00:45 attack.py
+-rw-r--r--  1 root root 3048 Apr 25 00:45 game.py
+-rw-r--r--  1 root root  610 Apr 25 00:45 observations.py
+-rw-r--r--  1 root root 2031 Apr 25 00:45 physics.py
+-rw-r--r--  1 root root  720 Apr 25 00:45 policy.py
+-rw-r--r--  1 root root 7078 Apr 25 00:45 weights.npz
+---
+/ctf/attack.py:       Python script, ASCII text executable
+/ctf/game.py:         Python script, ASCII text executable
+/ctf/observations.py: Python script, ASCII text executable
+/ctf/physics.py:      Python script, ASCII text executable
+/ctf/policy.py:       Python script, ASCII text executable
+/ctf/weights.npz:     Zip archive data, made by v4.5 UNIX, extract using at least v4.5, last modified Jan 01 1980 00:00:00, uncompressed size 1152, method=store
+[2026-04-25T01:13:46Z] EXIT 0
+
+[2026-04-25T01:13:47Z] CMD command -v python3 >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:47Z] EXIT 0
+
+[2026-04-25T01:13:47Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:47Z] EXIT 0
+
+[2026-04-25T01:13:47Z] CMD command -v file >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:47Z] EXIT 0
+
+[2026-04-25T01:13:48Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:48Z] EXIT 0
+
+[2026-04-25T01:13:48Z] CMD command -v zbarimg >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T01:13:48Z] EXIT 0
+
+[2026-04-25T01:13:55Z] CMD sed -n '1,240p' attack.py
+import base64
+import io
+import numpy as np
+
+ATTACK_HIDDEN = 16
+ATTACK_OUTPUT = 8
+MAX_WEIGHT = 10.0
+MAX_DELTA_L2 = 0.5
+MAX_FILE_SIZE = 100_000
+
+
+class InvalidAttack(Exception):
+    pass
+
+
+class AttackModel:
+    def __init__(self, arrays):
+        try:
+            W0 = np.asarray(arrays["W0"], dtype=np.float32)
+            b0 = np.asarray(arrays["b0"], dtype=np.float32)
+            W1 = np.asarray(arrays["W1"], dtype=np.float32)
+            b1 = np.asarray(arrays["b1"], dtype=np.float32)
+        except KeyError as e:
+            raise InvalidAttack(f"missing key: {e}")
+
+        if W0.shape != (ATTACK_HIDDEN, 8):
+            raise InvalidAttack(f"W0 shape {W0.shape} != ({ATTACK_HIDDEN}, 8)")
+        if b0.shape != (ATTACK_HIDDEN,):
+            raise InvalidAttack(f"b0 shape {b0.shape} != ({ATTACK_HIDDEN},)")
+        if W1.shape != (ATTACK_OUTPUT, ATTACK_HIDDEN):
+            raise InvalidAttack(f"W1 shape {W1.shape} != ({ATTACK_OUTPUT}, {ATTACK_HIDDEN})")
+        if b1.shape != (ATTACK_OUTPUT,):
+            raise InvalidAttack(f"b1 shape {b1.shape} != ({ATTACK_OUTPUT},)")
+
+        for name, arr in [("W0", W0), ("b0", b0), ("W1", W1), ("b1", b1)]:
+            if not np.all(np.isfinite(arr)):
+                raise InvalidAttack(f"{name} contains non-finite values")
+            if np.any(np.abs(arr) > MAX_WEIGHT):
+                raise InvalidAttack(f"{name} exceeds max weight magnitude {MAX_WEIGHT}")
+
+        self.W0, self.b0, self.W1, self.b1 = W0, b0, W1, b1
+
+    def __call__(self, obs: np.ndarray) -> np.ndarray:
+        h = np.tanh(self.W0 @ obs + self.b0)
+        y = np.tanh(self.W1 @ h + self.b1)
+        norm = float(np.linalg.norm(y))
+        if norm > MAX_DELTA_L2:
+            y = y * (MAX_DELTA_L2 / norm)
+        return y.astype(np.float32)
+
+
+def load_from_base64(b64_str: str) -> AttackModel:
+    if not isinstance(b64_str, str):
+        raise InvalidAttack("npz_b64 must be a string")
+    if len(b64_str) > MAX_FILE_SIZE * 2:
+        raise InvalidAttack(f"file too large (> {MAX_FILE_SIZE} bytes)")
+    try:
+        data = base64.b64decode(b64_str, validate=True)
+    except Exception as e:
+        raise InvalidAttack(f"bad base64: {e}")
+    if len(data) > MAX_FILE_SIZE:
+        raise InvalidAttack(f"file too large (> {MAX_FILE_SIZE} bytes)")
+    try:
+        arrays = np.load(io.BytesIO(data), allow_pickle=False)
+    except Exception as e:
+        raise InvalidAttack(f"bad npz file: {e}")
+    return AttackModel(arrays)
+[2026-04-25T01:13:55Z] EXIT 0
+
+[2026-04-25T01:13:55Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/attack.py
+/ctf/game.py
+/ctf/observations.py
+/ctf/physics.py
+/ctf/policy.py
+/ctf/weights.npz
+[2026-04-25T01:13:55Z] EXIT 0
+
+[2026-04-25T01:13:58Z] CMD sed -n '1,240p' policy.py
+import os
+import numpy as np
+
+ARCH = [8, 32, 32, 2]
+
+
+class Policy:
+    def __init__(self, weights_path: str):
+        data = np.load(weights_path)
+        self.W = [data[f"W{i}"].astype(np.float32) for i in range(len(ARCH) - 1)]
+        self.b = [data[f"b{i}"].astype(np.float32) for i in range(len(ARCH) - 1)]
+
+    def __call__(self, obs: np.ndarray) -> tuple[float, float]:
+        x = obs
+        for i in range(len(self.W) - 1):
+            x = np.tanh(self.W[i] @ x + self.b[i])
+        y = np.tanh(self.W[-1] @ x + self.b[-1])
+        return float(y[0]), float(y[1])
+
+
+def load_default_policy() -> Policy:
+    here = os.path.dirname(os.path.abspath(__file__))
+    return Policy(os.path.join(here, "weights.npz"))
+[2026-04-25T01:13:58Z] EXIT 0
+
+[2026-04-25T01:13:58Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/attack.py
+/ctf/game.py
+/ctf/observations.py
+/ctf/physics.py
+/ctf/policy.py
+/ctf/weights.npz
+[2026-04-25T01:13:58Z] EXIT 0
+
+[2026-04-25T01:14:00Z] CMD sed -n '1,240p' game.py
+import numpy as np
+from physics import CarState, initial_car, step_car
+from observations import OBS_DIM, generate_observation
+from policy import Policy
+from attack import AttackModel
+
+LEGIT_GOAL = (-20.0, -20.0)
+CTF_GOAL = (18.5, -24.5)
+CTF_RADIUS = 2.0
+EPISODE_TIMEOUT = 60.0
+
+FLAG = "UMDCTF{fake_flag}"
+
+
+class GameState:
+    def __init__(self, policy: Policy):
+        self.policy = policy
+        self.attack: AttackModel | None = None
+        self.attack_error: str | None = None
+        self.car: CarState = initial_car()
+        self.time = 0.0
+        self.last_obs = np.zeros(OBS_DIM, dtype=np.float32)
+        self.last_delta = np.zeros(8, dtype=np.float32)
+        self.goal_reached = False
+        self.timed_out = False
+        self.flag: str | None = None
+
+    def reset(self) -> None:
+        self.car = initial_car()
+        self.time = 0.0
+        self.goal_reached = False
+        self.timed_out = False
+        self.flag = None
+        self.last_delta = np.zeros(8, dtype=np.float32)
+
+    def install_attack(self, model: AttackModel | None) -> None:
+        self.attack = model
+        self.attack_error = None
+        self.reset()
+
+    def set_attack_error(self, err: str) -> None:
+        self.attack = None
+        self.attack_error = err
+
+    def step(self, dt: float) -> None:
+        if self.goal_reached or self.timed_out:
+            return
+
+        obs = generate_observation(self.car, LEGIT_GOAL)
+        self.last_obs = obs
+
+        if self.attack is not None:
+            delta = self.attack(obs)
+            self.last_delta = delta
+            policy_input = obs + delta
+        else:
+            self.last_delta = np.zeros(8, dtype=np.float32)
+            policy_input = obs
+
+        raw_t, steer = self.policy(policy_input)
+        action = np.clip(np.array([raw_t, steer], dtype=np.float32), -1.0, 1.0)
+
+        throttle = float(max(0.0, action[0]))
+        brake = float(max(0.0, -action[0]))
+        step_car(self.car, dt, throttle, brake, float(action[1]))
+        self.time += dt
+
+        dx = self.car.x - CTF_GOAL[0]
+        dz = self.car.z - CTF_GOAL[1]
+        if dx * dx + dz * dz < CTF_RADIUS * CTF_RADIUS:
+            self.goal_reached = True
+            self.flag = FLAG
+        elif self.time > EPISODE_TIMEOUT:
+            self.timed_out = True
+
+    def to_state_dict(self) -> dict:
+        if self.attack is not None:
+            attack_status = "active"
+        elif self.attack_error is not None:
+            attack_status = "error"
+        else:
+            attack_status = "none"
+
+        return {
+            "type": "state",
+            "t": self.time,
+            "x": self.car.x,
+            "z": self.car.z,
+            "heading": self.car.heading,
+            "speed": self.car.speed,
+            "obs": self.last_obs.tolist(),
+            "obsDelta": self.last_delta.tolist(),
+            "attack": attack_status,
+            "attackError": self.attack_error,
+            "goalReached": self.goal_reached,
+            "timedOut": self.timed_out,
+            "flag": self.flag,
+        }
+[2026-04-25T01:14:00Z] EXIT 0
+
+[2026-04-25T01:14:00Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/attack.py
+/ctf/game.py
+/ctf/observations.py
+/ctf/physics.py
+/ctf/policy.py
+/ctf/weights.npz
+[2026-04-25T01:14:00Z] EXIT 0
+
+[2026-04-25T01:14:01Z] CMD sed -n '1,240p' observations.py
+import math
+import numpy as np
+from physics import CarState
+
+OBS_DIM = 8
+
+
+def generate_observation(car: CarState, goal: tuple[float, float]) -> np.ndarray:
+    dx = goal[0] - car.x
+    dz = goal[1] - car.z
+    ch = math.cos(car.heading)
+    sh = math.sin(car.heading)
+
+    goal_fwd = dx * ch + dz * sh
+    goal_right = -dx * sh + dz * ch
+    goal_dist = math.hypot(dx, dz)
+
+    return np.array([
+        car.speed / 10.0,
+        car.steer_angle / 28.0,
+        ch,
+        sh,
+        goal_fwd / 30.0,
+        goal_right / 30.0,
+        math.log(goal_dist + 1.0) / 5.0,
+        1.0,
+    ], dtype=np.float32)
+[2026-04-25T01:14:01Z] EXIT 0
+
+[2026-04-25T01:14:02Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/attack.py
+/ctf/game.py
+/ctf/observations.py
+/ctf/physics.py
+/ctf/policy.py
+/ctf/weights.npz
+[2026-04-25T01:14:02Z] EXIT 0
+
+[2026-04-25T01:14:03Z] CMD sed -n '1,240p' physics.py
+from dataclasses import dataclass
+import math
+
+CAR_LENGTH = 2.5
+MAX_SPEED = 30.0
+ACCEL_FORCE = 10.0
+BRAKE_FORCE = 14.0
+HANDBRAKE_FORCE = 25.0
+DRAG = 0.3
+MAX_STEER_ANGLE = 28.0
+STEER_SPEED = 70.0
+STEER_RETURN = 120.0
+
+
+@dataclass
+class CarState:
+    x: float = 7.0
+    z: float = 23.7
+    heading: float = -3 * math.pi / 4
+    speed: float = 0.0
+    steer_angle: float = 0.0
+
+
+def initial_car() -> CarState:
+    return CarState()
+
+
+def step_car(car: CarState, dt: float, throttle: float, brake: float, steer: float, handbrake: bool = False) -> None:
+    throttle = max(0.0, min(1.0, throttle))
+    brake = max(0.0, min(1.0, brake))
+    steer = max(-1.0, min(1.0, steer))
+
+    steer_target = steer * MAX_STEER_ANGLE
+    if abs(steer_target) > 0.1:
+        diff = steer_target - car.steer_angle
+        step = STEER_SPEED * dt
+        if abs(diff) < step:
+            car.steer_angle = steer_target
+        else:
+            car.steer_angle += math.copysign(step, diff)
+    else:
+        step = STEER_RETURN * dt
+        if abs(car.steer_angle) < step:
+            car.steer_angle = 0.0
+        else:
+            car.steer_angle -= math.copysign(step, car.steer_angle)
+
+    accel = 0.0
+    if handbrake:
+        accel = -math.copysign(HANDBRAKE_FORCE, car.speed) if car.speed != 0 else 0.0
+    else:
+        accel += throttle * ACCEL_FORCE
+        accel -= brake * BRAKE_FORCE * (math.copysign(1.0, car.speed) if car.speed != 0 else 1.0)
+    accel -= DRAG * car.speed
+
+    car.speed += accel * dt
+    car.speed = max(-MAX_SPEED * 0.3, min(MAX_SPEED, car.speed))
+    if abs(car.speed) < 0.05 and throttle == 0:
+        car.speed = 0.0
+
+    speed_factor = 1.0 / (1.0 + 0.006 * car.speed * car.speed)
+    steer_rad = car.steer_angle * speed_factor * (math.pi / 180.0)
+    if abs(steer_rad) > 0.001 and abs(car.speed) > 0.01:
+        angular_vel = car.speed * math.tan(steer_rad) / CAR_LENGTH
+        car.heading += angular_vel * dt
+
+    car.x += math.cos(car.heading) * car.speed * dt
+    car.z += math.sin(car.heading) * car.speed * dt
+[2026-04-25T01:14:03Z] EXIT 0
+
+[2026-04-25T01:14:04Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/attack.py
+/ctf/game.py
+/ctf/observations.py
+/ctf/physics.py
+/ctf/policy.py
+/ctf/weights.npz
+[2026-04-25T01:14:04Z] EXIT 0
+
+[2026-04-25T01:14:26Z] CMD chmod +x /ctf/exploit.py
+[2026-04-25T01:14:26Z] EXIT 0
+
+[2026-04-25T01:14:27Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:14:27Z] EXIT 0
+
+[2026-04-25T01:14:31Z] CMD /ctf/.venv/bin/python exploit.py
+Traceback (most recent call last):
+  File "/ctf/exploit.py", line 1, in <module>
+    from policy import load_default_policy
+  File "/ctf/policy.py", line 2, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+[2026-04-25T01:14:31Z] EXIT 1
+
+[2026-04-25T01:14:31Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/.venv/.gitignore
+/ctf/.venv/pyvenv.cfg
+/ctf/__pycache__/policy.cpython-313.pyc
+/ctf/attack.py
+/ctf/exploit.py
+/ctf/game.py
+/ctf/observations.py
+/ctf/physics.py
+/ctf/policy.py
+/ctf/weights.npz
+[2026-04-25T01:14:31Z] EXIT 0
+
+[2026-04-25T01:14:36Z] CMD apt-get update && apt-get install -y python3-numpy
+Get:1 http://kali.download/kali kali-last-snapshot InRelease [34.0 kB]
+Get:2 http://kali.download/kali kali-last-snapshot/non-free amd64 Packages [184 kB]
+Get:3 http://kali.download/kali kali-last-snapshot/non-free-firmware amd64 Packages [14.3 kB]
+Get:4 http://kali.download/kali kali-last-snapshot/contrib amd64 Packages [117 kB]
+Get:5 http://kali.download/kali kali-last-snapshot/main amd64 Packages [20.9 MB]
+Fetched 21.2 MB in 3s (8282 kB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Solving dependencies...
+The following package was automatically installed and is no longer required:
+  libcrypt-dev
+Use 'apt autoremove' to remove it.
+The following additional packages will be installed:
+  cpp-15 cpp-15-x86-64-linux-gnu g++-15 g++-15-x86-64-linux-gnu gcc-15
+  gcc-15-base gcc-15-x86-64-linux-gnu libasan8 libatomic1 libcc1-0
+  libgcc-15-dev libgcc-s1 libgfortran5 libgomp1 libhwasan0 libitm1 liblapack3
+  liblsan0 libquadmath0 libstdc++-15-dev libstdc++6 libtsan2 libubsan1
+  python3-numpy-dev
+Suggested packages:
+  gfortran python-numpy-doc python3-pytest
+The following NEW packages will be installed:
+  libgfortran5 liblapack3 python3-numpy python3-numpy-dev
+The following packages will be upgraded:
+  cpp-15 cpp-15-x86-64-linux-gnu g++-15 g++-15-x86-64-linux-gnu gcc-15
+  gcc-15-base gcc-15-x86-64-linux-gnu libasan8 libatomic1 libcc1-0
+  libgcc-15-dev libgcc-s1 libgomp1 libhwasan0 libitm1 liblsan0 libquadmath0
+  libstdc++-15-dev libstdc++6 libtsan2 libubsan1
+21 upgraded, 4 newly installed, 0 to remove and 321 not upgraded.
+Need to get 75.7 MB of archives.
+After this operation, 55.5 MB of additional disk space will be used.
+Get:1 http://http.kali.org/kali kali-last-snapshot/main amd64 python3-numpy-dev amd64 1:2.3.5+ds-3 [138 kB]
+Get:2 http://kali.download/kali kali-last-snapshot/main amd64 libcc1-0 amd64 15.2.0-14 [42.6 kB]
+Get:3 http://kali.download/kali kali-last-snapshot/main amd64 gcc-15-base amd64 15.2.0-14 [55.0 kB]
+Get:5 http://kali.download/kali kali-last-snapshot/main amd64 libgomp1 amd64 15.2.0-14 [140 kB]
+Get:7 http://kali.download/kali kali-last-snapshot/main amd64 libatomic1 amd64 15.2.0-14 [9536 B]
+Get:8 http://kali.download/kali kali-last-snapshot/main amd64 libasan8 amd64 15.2.0-14 [2779 kB]
+Get:9 http://mirror.us.cdn-perfprod.com/kali kali-last-snapshot/main amd64 liblsan0 amd64 15.2.0-14 [1249 kB]
+Get:4 http://kali.mirror.rafal.ca/kali kali-last-snapshot/main amd64 libgcc-s1 amd64 15.2.0-14 [71.5 kB]
+Get:10 http://kali.download/kali kali-last-snapshot/main amd64 libtsan2 amd64 15.2.0-14 [2491 kB]
+Get:11 http://kali.download/kali kali-last-snapshot/main amd64 libubsan1 amd64 15.2.0-14 [1108 kB]
+Get:12 http://kali.download/kali kali-last-snapshot/main amd64 libhwasan0 amd64 15.2.0-14 [1538 kB]
+Get:14 http://kali.download/kali kali-last-snapshot/main amd64 gcc-15 amd64 15.2.0-14 [536 kB]
+Get:6 http://kali.mirror.rafal.ca/kali kali-last-snapshot/main amd64 libitm1 amd64 15.2.0-14 [26.5 kB]
+Get:15 http://http.kali.org/kali kali-last-snapshot/main amd64 g++-15 amd64 15.2.0-14 [26.1 kB]
+Get:16 http://http.kali.org/kali kali-last-snapshot/main amd64 g++-15-x86-64-linux-gnu amd64 15.2.0-14 [13.2 MB]
+Get:17 http://http.kali.org/kali kali-last-snapshot/main amd64 libstdc++-15-dev amd64 15.2.0-14 [2446 kB]
+Get:18 http://kali.download/kali kali-last-snapshot/main amd64 libgcc-15-dev amd64 15.2.0-14 [2718 kB]
+Get:20 http://kali.download/kali kali-last-snapshot/main amd64 cpp-15-x86-64-linux-gnu amd64 15.2.0-14 [12.1 MB]
+Get:13 http://mirror.us.cdn-perfprod.com/kali kali-last-snapshot/main amd64 libquadmath0 amd64 15.2.0-14 [145 kB]
+Get:19 http://mirror.us.cdn-perfprod.com/kali kali-last-snapshot/main amd64 gcc-15-x86-64-linux-gnu amd64 15.2.0-14 [23.4 MB]
+Get:21 http://kali.download/kali kali-last-snapshot/main amd64 cpp-15 amd64 15.2.0-14 [1276 B]
+Get:22 http://http.kali.org/kali kali-last-snapshot/main amd64 libstdc++6 amd64 15.2.0-14 [736 kB]
+Get:23 http://kali.download/kali kali-last-snapshot/main amd64 libgfortran5 amd64 15.2.0-14 [862 kB]
+Get:24 http://http.kali.org/kali kali-last-snapshot/main amd64 liblapack3 amd64 3.12.1-7+b1 [2550 kB]
+Get:25 http://http.kali.org/kali kali-last-snapshot/main amd64 python3-numpy amd64 1:2.3.5+ds-3 [7487 kB]
+Fetched 75.7 MB in 5s (15.1 MB/s)
+Selecting previously unselected package python3-numpy-dev:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 41851 files and directories currently installed.)
+Preparing to unpack .../python3-numpy-dev_1%3a2.3.5+ds-3_amd64.deb ...
+Unpacking python3-numpy-dev:amd64 (1:2.3.5+ds-3) ...
+Preparing to unpack .../libcc1-0_15.2.0-14_amd64.deb ...
+Unpacking libcc1-0:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../gcc-15-base_15.2.0-14_amd64.deb ...
+Unpacking gcc-15-base:amd64 (15.2.0-14) over (15.2.0-7) ...
+Setting up gcc-15-base:amd64 (15.2.0-14) ...
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 41909 files and directories currently installed.)
+Preparing to unpack .../libgcc-s1_15.2.0-14_amd64.deb ...
+Unpacking libgcc-s1:amd64 (15.2.0-14) over (15.2.0-7) ...
+Setting up libgcc-s1:amd64 (15.2.0-14) ...
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 41909 files and directories currently installed.)
+Preparing to unpack .../00-libgomp1_15.2.0-14_amd64.deb ...
+Unpacking libgomp1:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../01-libitm1_15.2.0-14_amd64.deb ...
+Unpacking libitm1:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../02-libatomic1_15.2.0-14_amd64.deb ...
+Unpacking libatomic1:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../03-libasan8_15.2.0-14_amd64.deb ...
+Unpacking libasan8:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../04-liblsan0_15.2.0-14_amd64.deb ...
+Unpacking liblsan0:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../05-libtsan2_15.2.0-14_amd64.deb ...
+Unpacking libtsan2:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../06-libubsan1_15.2.0-14_amd64.deb ...
+Unpacking libubsan1:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../07-libhwasan0_15.2.0-14_amd64.deb ...
+Unpacking libhwasan0:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../08-libquadmath0_15.2.0-14_amd64.deb ...
+Unpacking libquadmath0:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../09-gcc-15_15.2.0-14_amd64.deb ...
+Unpacking gcc-15 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../10-g++-15_15.2.0-14_amd64.deb ...
+Unpacking g++-15 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../11-g++-15-x86-64-linux-gnu_15.2.0-14_amd64.deb ...
+Unpacking g++-15-x86-64-linux-gnu (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../12-libstdc++-15-dev_15.2.0-14_amd64.deb ...
+Unpacking libstdc++-15-dev:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../13-libgcc-15-dev_15.2.0-14_amd64.deb ...
+Unpacking libgcc-15-dev:amd64 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../14-gcc-15-x86-64-linux-gnu_15.2.0-14_amd64.deb ...
+Unpacking gcc-15-x86-64-linux-gnu (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../15-cpp-15-x86-64-linux-gnu_15.2.0-14_amd64.deb ...
+Unpacking cpp-15-x86-64-linux-gnu (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../16-cpp-15_15.2.0-14_amd64.deb ...
+Unpacking cpp-15 (15.2.0-14) over (15.2.0-7) ...
+Preparing to unpack .../17-libstdc++6_15.2.0-14_amd64.deb ...
+Unpacking libstdc++6:amd64 (15.2.0-14) over (15.2.0-7) ...
+Setting up libstdc++6:amd64 (15.2.0-14) ...
+Selecting previously unselected package libgfortran5:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 41909 files and directories currently installed.)
+Preparing to unpack .../libgfortran5_15.2.0-14_amd64.deb ...
+Unpacking libgfortran5:amd64 (15.2.0-14) ...
+Selecting previously unselected package liblapack3:amd64.
+Preparing to unpack .../liblapack3_3.12.1-7+b1_amd64.deb ...
+Unpacking liblapack3:amd64 (3.12.1-7+b1) ...
+Selecting previously unselected package python3-numpy.
+Preparing to unpack .../python3-numpy_1%3a2.3.5+ds-3_amd64.deb ...
+Unpacking python3-numpy (1:2.3.5+ds-3) ...
+Setting up cpp-15-x86-64-linux-gnu (15.2.0-14) ...
+Setting up libgomp1:amd64 (15.2.0-14) ...
+Setting up libquadmath0:amd64 (15.2.0-14) ...
+Setting up python3-numpy-dev:amd64 (1:2.3.5+ds-3) ...
+Setting up libatomic1:amd64 (15.2.0-14) ...
+Setting up libgfortran5:amd64 (15.2.0-14) ...
+Setting up libubsan1:amd64 (15.2.0-14) ...
+Setting up cpp-15 (15.2.0-14) ...
+Setting up libhwasan0:amd64 (15.2.0-14) ...
+Setting up libasan8:amd64 (15.2.0-14) ...
+Setting up libtsan2:amd64 (15.2.0-14) ...
+Setting up libcc1-0:amd64 (15.2.0-14) ...
+Setting up liblsan0:amd64 (15.2.0-14) ...
+Setting up libitm1:amd64 (15.2.0-14) ...
+Setting up liblapack3:amd64 (3.12.1-7+b1) ...
+update-alternatives: using /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3 to provide /usr/lib/x86_64-linux-gnu/liblapack.so.3 (liblapack.so.3-x86_64-linux-gnu) in auto mode
+Setting up libgcc-15-dev:amd64 (15.2.0-14) ...
+Setting up gcc-15-x86-64-linux-gnu (15.2.0-14) ...
+Setting up gcc-15 (15.2.0-14) ...
+Setting up libstdc++-15-dev:amd64 (15.2.0-14) ...
+Setting up python3-numpy (1:2.3.5+ds-3) ...
+Setting up g++-15-x86-64-linux-gnu (15.2.0-14) ...
+Setting up g++-15 (15.2.0-14) ...
+Processing triggers for libc-bin (2.42-13) ...
+[2026-04-25T01:14:36Z] EXIT 0
+
+[2026-04-25T01:15:00Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/.venv/.gitignore
+/ctf/.venv/pyvenv.cfg
+/ctf/__pycache__/policy.cpython-313.pyc
+/ctf/attack.py
+/ctf/exploit.py
+/ctf/game.py
+/ctf/observations.py
+/ctf/physics.py
+/ctf/policy.py
+/ctf/weights.npz
+[2026-04-25T01:15:00Z] EXIT 0
+
+[2026-04-25T01:15:03Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:15:03Z] EXIT 0
+
+[2026-04-25T01:15:04Z] CMD /ctf/.venv/bin/python exploit.py
+Traceback (most recent call last):
+  File "/ctf/exploit.py", line 1, in <module>
+    from policy import load_default_policy
+  File "/ctf/policy.py", line 2, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+[2026-04-25T01:15:04Z] EXIT 1
+
+[2026-04-25T01:15:11Z] CMD sed -n '1,240p' exploit.py
+from policy import load_default_policy
+from attack import AttackModel, load_from_base64
+from observations import generate_observation, OBS_DIM
+from physics import initial_car
+from game import GameState, CTF_GOAL, LEGIT_GOAL
+import numpy as np
+import base64
+import io
+
+# compute initial obs for LEGIT_GOAL and CTF_GOAL
+car = initial_car()
+obs_legit = generate_observation(car, LEGIT_GOAL)
+obs_ctf = generate_observation(car, CTF_GOAL)
+delta = obs_ctf - obs_legit
+print('obs_legit =', obs_legit)
+print('obs_ctf  =', obs_ctf)
+print('delta    =', delta)
+print('delta L2 =', np.linalg.norm(delta))
+
+# build simple attack: constant output equal to delta, if small enough
+MAX_DELTA_L2 = 0.5
+if np.linalg.norm(delta) > MAX_DELTA_L2:
+    print('delta too large, scaling down to max L2')
+    delta = delta * (MAX_DELTA_L2 / np.linalg.norm(delta))
+    print('scaled delta L2 =', np.linalg.norm(delta))
+
+# create arrays for AttackModel: W0 (16,8), b0 (16,), W1 (8,16), b1 (8,)
+W0 = np.zeros((16,8), dtype=np.float32)
+b0 = np.zeros((16,), dtype=np.float32)
+W1 = np.zeros((8,16), dtype=np.float32)
+# set b1 = arctanh(delta) but ensure |delta_i|<1
+if np.any(np.abs(delta) >= 1.0):
+    raise SystemExit('delta component >=1, cannot invert tanh')
+b1 = np.arctanh(delta).astype(np.float32)
+
+# save to npz in memory
+buf = io.BytesIO()
+np.savez(buf, W0=W0, b0=b0, W1=W1, b1=b1)
+raw = buf.getvalue()
+b64 = base64.b64encode(raw).decode()
+print('npz size', len(raw))
+
+# try loading via AttackModel loader
+try:
+    attack_model = load_from_base64(b64)
+    print('AttackModel loaded')
+except Exception as e:
+    print('Failed to load attack:', e)
+    raise
+
+# simulate game with this attack
+policy = load_default_policy()
+from game import GameState
+G = GameState(policy)
+G.install_attack(attack_model)
+
+# run simulation step until timeout or goal reached
+dt = 0.1
+for i in range(1000):
+    G.step(dt)
+    if G.goal_reached:
+        print('Goal reached, flag =', G.flag)
+        break
+    if G.timed_out:
+        print('Timed out at t=', G.time)
+        break
+else:
+    print('No terminal state after steps, time=', G.time)
+
+# print final position
+print('final pos', G.car.x, G.car.z, 'time', G.time)
+[2026-04-25T01:15:11Z] EXIT 0
+
+[2026-04-25T01:15:12Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/.venv/.gitignore
+/ctf/.venv/pyvenv.cfg
+/ctf/__pycache__/policy.cpython-313.pyc
+/ctf/attack.py
+/ctf/exploit.py
+/ctf/game.py
+/ctf/observations.py
+/ctf/physics.py
+/ctf/policy.py
+/ctf/weights.npz
+[2026-04-25T01:15:12Z] EXIT 0
+
+[2026-04-25T01:15:26Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:15:26Z] EXIT 0
+
+[2026-04-25T01:15:26Z] CMD /ctf/.venv/bin/python exploit.py
+Traceback (most recent call last):
+  File "/ctf/exploit.py", line 1, in <module>
+    from policy import load_default_policy
+  File "/ctf/policy.py", line 2, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+[2026-04-25T01:15:26Z] EXIT 1
+
+[2026-04-25T01:15:36Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:15:36Z] EXIT 0
+
+[2026-04-25T01:15:36Z] CMD /ctf/.venv/bin/python -c "import numpy as np; print(np.__version__)"
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import numpy as np; print(np.__version__)
+    ^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'numpy'
+[2026-04-25T01:15:36Z] EXIT 1
+
+[2026-04-25T01:15:47Z] CMD pip3 install --user numpy
+error: externally-managed-environment
+
+× This environment is externally managed
+╰─> To install Python packages system-wide, try apt install
+    python3-xyz, where xyz is the package you are trying to
+    install.
+    
+    If you wish to install a non-Kali-packaged Python package,
+    create a virtual environment using python3 -m venv path/to/venv.
+    Then use path/to/venv/bin/python and path/to/venv/bin/pip. Make
+    sure you have pypy3-venv installed.
+    
+    If you wish to install a non-Kali-packaged Python application,
+    it may be easiest to use pipx install xyz, which will manage a
+    virtual environment for you. Make sure you have pipx installed.
+    
+    For more information, refer to the following:
+    * https://www.kali.org/docs/general-use/python3-external-packages/
+    * /usr/share/doc/python3.13/README.venv
+
+note: If you believe this is a mistake, please contact your Python installation or OS distribution provider. You can override this, at the risk of breaking your Python installation or OS, by passing --break-system-packages.
+hint: See PEP 668 for the detailed specification.
+[2026-04-25T01:15:47Z] EXIT 1
+
+[2026-04-25T01:15:48Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/.venv/.gitignore
+/ctf/.venv/pyvenv.cfg
+/ctf/__pycache__/policy.cpython-313.pyc
+/ctf/attack.py
+/ctf/exploit.py
+/ctf/game.py
+/ctf/observations.py
+/ctf/physics.py
+/ctf/policy.py
+/ctf/weights.npz
+[2026-04-25T01:15:48Z] EXIT 0
+
+[2026-04-25T01:16:00Z] CMD test -d /ctf/.venv || python3 -m venv /ctf/.venv
+[2026-04-25T01:16:00Z] EXIT 0
+
+[2026-04-25T01:16:01Z] CMD /ctf/.venv/bin/python -m venv /ctf/venv && /ctf/venv/bin/pip install --upgrade pip setuptools wheel && /ctf/venv/bin/pip install numpy && /ctf/venv/bin/python3 exploit.py
+Requirement already satisfied: pip in ./venv/lib/python3.13/site-packages (25.2)
+Collecting pip
+  Using cached pip-26.0.1-py3-none-any.whl.metadata (4.7 kB)
+Collecting setuptools
+  Using cached setuptools-82.0.1-py3-none-any.whl.metadata (6.5 kB)
+Collecting wheel
+  Using cached wheel-0.47.0-py3-none-any.whl.metadata (2.3 kB)
+Collecting packaging>=24.0 (from wheel)
+  Downloading packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+Using cached pip-26.0.1-py3-none-any.whl (1.8 MB)
+Using cached setuptools-82.0.1-py3-none-any.whl (1.0 MB)
+Using cached wheel-0.47.0-py3-none-any.whl (32 kB)
+Downloading packaging-26.2-py3-none-any.whl (100 kB)
+Installing collected packages: setuptools, pip, packaging, wheel
+  Attempting uninstall: pip
+    Found existing installation: pip 25.2
+    Uninstalling pip-25.2:
+      Successfully uninstalled pip-25.2
+
+Successfully installed packaging-26.2 pip-26.0.1 setuptools-82.0.1 wheel-0.47.0
+Collecting numpy
+  Downloading numpy-2.4.4-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+Downloading numpy-2.4.4-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.6 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.6/16.6 MB 9.5 MB/s  0:00:01
+Installing collected packages: numpy
+Successfully installed numpy-2.4.4
+obs_legit = [ 0.          0.         -0.70710677 -0.70710677  1.666415    0.3936228
+  0.79165983  1.        ]
+obs_ctf  = [ 0.          0.         -0.70710677 -0.70710677  0.8650273   1.4071425
+  0.7846041   1.        ]
+delta    = [ 0.          0.          0.          0.         -0.80138767  1.0135198
+ -0.00705576  0.        ]
+delta L2 = 1.2920891
+delta too large, scaling down to max L2
+scaled delta L2 = 0.5
+npz size 2086
+AttackModel loaded
+Timed out at t= 60.00000000000058
+final pos -15.194280332687297 -23.02919920770475 time 60.00000000000058
+[2026-04-25T01:16:01Z] EXIT 0
+
+[2026-04-25T01:16:19Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/.venv/.gitignore
+/ctf/.venv/pyvenv.cfg
+/ctf/__pycache__/attack.cpython-313.pyc
+/ctf/__pycache__/game.cpython-313.pyc
+/ctf/__pycache__/observations.cpython-313.pyc
+/ctf/__pycache__/physics.cpython-313.pyc
+/ctf/__pycache__/policy.cpython-313.pyc
+/ctf/attack.py
+/ctf/exploit.py
+/ctf/game.py
+/ctf/observations.py
+/ctf/physics.py
+/ctf/policy.py
+/ctf/venv/.gitignore
+/ctf/venv/pyvenv.cfg
+/ctf/weights.npz
+[2026-04-25T01:16:19Z] EXIT 0
+
+[2026-04-25T01:16:55Z] CMD chmod +x /ctf/search_attack.py
+[2026-04-25T01:16:55Z] EXIT 0
+
+[2026-04-25T01:17:03Z] CMD /ctf/venv/bin/python3 search_attack.py
+iter 0 best_dist 35.38055821995604
+iter 100 best_dist 13.053114167392748
+iter 200 best_dist 13.053114167392748
+iter 300 best_dist 13.053114167392748
+iter 400 best_dist 13.053114167392748
+iter 500 best_dist 13.053114167392748
+iter 600 best_dist 13.053114167392748
+iter 700 best_dist 13.053114167392748
+iter 800 best_dist 13.053114167392748
+iter 900 best_dist 13.053114167392748
+iter 1000 best_dist 13.053114167392748
+iter 1100 best_dist 13.053114167392748
+iter 1200 best_dist 13.053114167392748
+iter 1300 best_dist 13.053114167392748
+iter 1400 best_dist 13.053114167392748
+iter 1500 best_dist 13.053114167392748
+iter 1600 best_dist 13.053114167392748
+iter 1700 best_dist 10.844397401603779
+iter 1800 best_dist 10.844397401603779
+iter 1900 best_dist 10.844397401603779
+Done, best dist 10.844397401603779 pos (-27.409601359900037, -17.39051310056164, 60.00000000000058)
+best_model_b64= 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
+[2026-04-25T01:17:03Z] EXIT 0
+
+[2026-04-25T01:18:09Z] CMD chmod +x /ctf/opt_attack.py
+[2026-04-25T01:18:09Z] EXIT 0
+
+[2026-04-25T01:18:17Z] CMD /ctf/venv/bin/python3 opt_attack.py
+start score 18.607462257787155
+iter 0 best 18.607462257787155
+iter 30 new best 18.548863403546264
+iter 51 new best 18.06624920741292
+iter 78 new best 17.94148418720856
+iter 80 new best 16.49035642489542
+iter 88 new best 15.160262351517812
+iter 96 new best 14.92906324368839
+iter 100 best 14.92906324368839
+iter 111 new best 13.87870978588663
+iter 132 new best 13.692824723898758
+iter 200 best 13.692824723898758
+iter 209 new best 13.47020676517779
+iter 222 new best 13.24948188129046
+iter 240 new best 13.238169393699867
+iter 249 new best 13.218865739186798
+iter 262 new best 13.005599666888092
+iter 300 best 13.005599666888092
+iter 306 new best 12.998368144956283
+iter 400 best 12.998368144956283
+iter 418 new best 12.995421342423175
+iter 491 new best 12.963554033763899
+iter 500 new best 12.86347914424054
+iter 500 best 12.86347914424054
+iter 559 new best 12.853261552234223
+iter 584 new best 12.852986567467145
+iter 600 best 12.852986567467145
+iter 700 best 12.852986567467145
+iter 800 best 12.852986567467145
+iter 900 best 12.852986567467145
+iter 1000 best 12.852986567467145
+iter 1100 best 12.852986567467145
+iter 1200 best 12.852986567467145
+iter 1300 best 12.852986567467145
+iter 1400 best 12.852986567467145
+iter 1500 best 12.852986567467145
+iter 1600 best 12.852986567467145
+iter 1649 new best 12.852984309864334
+iter 1700 best 12.852984309864334
+iter 1757 new best 12.85296905959033
+iter 1800 best 12.85296905959033
+iter 1826 new best 12.851397498385433
+iter 1900 best 12.851397498385433
+iter 1940 new best 12.851393328543656
+done best 12.851393328543656
+[2026-04-25T01:18:17Z] EXIT 0
+
+[2026-04-25T01:19:34Z] CMD chmod +x /ctf/evo_attack.py
+[2026-04-25T01:19:34Z] EXIT 0
+
+[2026-04-25T01:19:40Z] CMD /ctf/venv/bin/python3 evo_attack.py
+Nparams 280
+new best gen0 eval1 score 23.09946269038365
+new best gen0 eval6 score 18.18502936037351
+gen 0 best_score 18.18502936037351 evals 60
+new best gen4 eval251 score 15.639697993507175
+new best gen5 eval360 score 13.690779896010989
+gen 5 best_score 13.690779896010989 evals 360
+new best gen7 eval436 score 13.216145485475206
+new best gen7 eval456 score 11.702266035886227
+new best gen9 eval558 score 10.768495709647912
+new best gen9 eval597 score 10.059030247809071
+gen 10 best_score 10.059030247809071 evals 660
+new best gen12 eval752 score 9.023965531085738
+new best gen12 eval776 score 8.096583200636973
+new best gen13 eval818 score 2.075008901169216
+new best gen13 eval827 score 0.0
+FOUND MODEL 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
+[2026-04-25T01:19:40Z] EXIT 0
+

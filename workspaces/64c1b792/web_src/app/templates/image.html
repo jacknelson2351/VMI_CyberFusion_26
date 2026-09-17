@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ image.title or image.original_name }} - {{ settings.SITE_NAME }}{% endblock %}
+
+{% block head %}
+<meta property="og:title" content="{{ image.title or image.original_name }}">
+<meta property="og:image" content="{{ settings.SITE_URL }}/raw/{{ image.short_code }}">
+<meta property="og:type" content="image">
+<meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+
+{% block content %}
+<article class="image-view">
+    <header class="image-header">
+        <div class="image-title-row">
+            <h1>{{ image.title or image.original_name }}</h1>
+            {% if image.nsfw %}
+            <span class="badge badge-nsfw"><i data-lucide="alert-triangle"></i> NSFW</span>
+            {% endif %}
+            <span class="badge badge-{{ image.visibility.value }}">
+                {% if image.visibility.value == 'public' %}
+                <i data-lucide="globe"></i>
+                {% elif image.visibility.value == 'unlisted' %}
+                <i data-lucide="link"></i>
+                {% else %}
+                <i data-lucide="lock"></i>
+                {% endif %}
+                {{ image.visibility.value }}
+            </span>
+        </div>
+        <div class="image-meta">
+            {% if image.owner %}
+            <a href="/u/{{ image.owner.username }}" class="meta-item">
+                <i data-lucide="user"></i> {{ image.owner.username }}
+            </a>
+            {% else %}
+            <span class="meta-item"><i data-lucide="user-x"></i> Anonymous</span>
+            {% endif %}
+            <span class="meta-item"><i data-lucide="eye"></i> {{ image.views }} views</span>
+            <span class="meta-item"><i data-lucide="calendar"></i> {{ image.created_at.strftime('%b %d, %Y') }}</span>
+            <span class="meta-item"><i data-lucide="hard-drive"></i> {{ "%.1f"|format(image.size_bytes / 1024)
+                }}KB</span>
+            {% if image.width and image.height %}
+            <span class="meta-item"><i data-lucide="maximize"></i> {{ image.width }}x{{ image.height }}</span>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="image-display">
+        <a href="/raw/{{ image.short_code }}" target="_blank">
+            <img src="/raw/{{ image.short_code }}" alt="{{ image.title or image.original_name }}"
+                class="displayed-image {% if image.nsfw %}nsfw-blur{% endif %}">
+        </a>
+    </div>
+
+    {% if image.description %}
+    <div class="image-description">
+        <p>{{ image.description }}</p>
+    </div>
+    {% endif %}
+
+    <div class="image-actions">
+        <div class="vote-controls" data-code="{{ image.short_code }}">
+            <button class="btn-vote btn-upvote {% if user_vote == 1 %}active{% endif %}" data-value="1" {% if not user
+                %}disabled title="Login to vote" {% endif %}>
+                <i data-lucide="arrow-big-up"></i>
+            </button>
+            <span class="vote-score" id="vote-score">{{ image.vote_score }}</span>
+            <button class="btn-vote btn-downvote {% if user_vote == -1 %}active{% endif %}" data-value="-1" {% if not
+                user %}disabled title="Login to vote" {% endif %}>
+                <i data-lucide="arrow-big-down"></i>
+            </button>
+        </div>
+        <div class="share-actions">
+            <button class="btn btn-sm btn-secondary" id="btn-copy-link"
+                data-copy="{{ settings.SITE_URL }}/i/{{ image.short_code }}">
+                <i data-lucide="link"></i> Copy link
+            </button>
+            <a href="/raw/{{ image.short_code }}" class="btn btn-sm btn-secondary" download>
+                <i data-lucide="download"></i> Download
+            </a>
+        </div>
+    </div>
+
+    <section class="comments-section">
+        <h2><i data-lucide="message-circle"></i> Comments ({{ image.comments|length }})</h2>
+
+        {% if user %}
+        <form id="comment-form" class="comment-form" data-code="{{ image.short_code }}">
+            <textarea name="body" placeholder="Write a comment..." maxlength="2000" required></textarea>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i data-lucide="send"></i> Post
+            </button>
+        </form>
+        {% else %}
+        <p class="login-prompt"><a href="/login">Log in</a> to leave a comment.</p>
+        {% endif %}
+
+        <div id="comments-list" class="comments-list">
+            {% for comment in image.comments|sort(attribute='created_at', reverse=true) %}
+            <div class="comment">
+                <div class="comment-header">
+                    <a href="/u/{{ comment.author.username }}" class="comment-author">
+                        <i data-lucide="user"></i> {{ comment.author.username }}
+                    </a>
+                    <time class="comment-time">{{ comment.created_at.strftime('%b %d, %Y at %H:%M') }}</time>
+                </div>
+                <p class="comment-body">{{ comment.body }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</article>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/image.js"></script>
+{% endblock %}

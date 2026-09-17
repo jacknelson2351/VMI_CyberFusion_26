@@ -1,0 +1,199 @@
+{
+  "status": "stopped",
+  "phase": "stop",
+  "step": 42,
+  "run_id": null,
+  "hypotheses": [],
+  "confirmed": [
+    {
+      "text": "FINAL_URL https://open-insight.challs.umdctf.io/",
+      "step": 1
+    },
+    {
+      "text": "HEADER Content-Encoding: gzip",
+      "step": 1
+    },
+    {
+      "text": "FINAL_URL https://open-insight.challs.umdctf.io/admin",
+      "step": 6
+    },
+    {
+      "text": "FINAL_URL https://open-insight-bot.challs.umdctf.io/",
+      "step": 7
+    },
+    {
+      "text": "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />",
+      "step": 7
+    },
+    {
+      "text": "<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />",
+      "step": 7
+    },
+    {
+      "text": "href=\"https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..800,30..100&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap\"",
+      "step": 7
+    },
+    {
+      "text": "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix value",
+      "step": 7
+    },
+    {
+      "text": "FINAL_URL https://open-insight-bot.challs.umdctf.io/report",
+      "step": 11
+    },
+    {
+      "text": "FINAL_URL https://open-insight-bot.challs.umdctf.io/index.js",
+      "step": 16
+    },
+    {
+      "text": "FINAL_URL https://open-insight-bot.challs.umdctf.io/app/index.js",
+      "step": 17
+    },
+    {
+      "text": "FINAL_URL https://open-insight-bot.challs.umdctf.io/robots.txt",
+      "step": 18
+    },
+    {
+      "text": "FINAL_URL https://open-insight-bot.challs.umdctf.io/package.json",
+      "step": 22
+    },
+    {
+      "text": "FINAL_URL https://open-insight-bot.challs.umdctf.io/.env",
+      "step": 23
+    },
+    {
+      "text": "FINAL_URL https://open-insight-bot.challs.umdctf.io/debug",
+      "step": 24
+    },
+    {
+      "text": "FINAL_URL https://open-insight.challs.umdctf.io/signup",
+      "step": 34
+    },
+    {
+      "text": "1:<!DOCTYPE html><html lang=\"en\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"stylesheet\" href=\"/_next/static/chunks/0_sox8car~dle.css\" data-precedence=\"nex",
+      "step": 35
+    },
+    {
+      "text": "FINAL_URL https://open-insight.challs.umdctf.io/_next/static/chunks/0zmg2kf9rfds7.js",
+      "step": 36
+    },
+    {
+      "text": "SAVED_TO /ctf/ctf/chunk1.js",
+      "step": 36
+    },
+    {
+      "text": "HEADER Accept-Ranges: bytes",
+      "step": 36
+    },
+    {
+      "text": "HEADER Cache-Control: public, max-age=31536000, immutable",
+      "step": 36
+    },
+    {
+      "text": "HEADER Content-Type: application/javascript; charset=UTF-8",
+      "step": 36
+    },
+    {
+      "text": "HEADER Date: Sat, 25 Apr 2026 01:24:25 GMT",
+      "step": 36
+    },
+    {
+      "text": "HEADER Etag: W/\"2386-19dbe496bc0\"",
+      "step": 36
+    },
+    {
+      "text": "HEADER Last-Modified: Fri, 24 Apr 2026 06:59:36 GMT",
+      "step": 36
+    },
+    {
+      "text": "HEADER Vary: Accept-Encoding",
+      "step": 36
+    },
+    {
+      "text": "Flag-like token observed: let{protocol:e,hostname:t,port:r}",
+      "step": 36
+    },
+    {
+      "text": "Flag-like token observed: let{href:e}",
+      "step": 36
+    },
+    {
+      "text": "Flag-like token observed: let{auth:t,hostname:r}",
+      "step": 36
+    },
+    {
+      "text": "Flag-like token observed: let{dispatchNavigateAction:f}",
+      "step": 37
+    }
+  ],
+  "ruled_out": [
+    {
+      "text": "Path failure in command: auto-recon",
+      "step": 0
+    },
+    {
+      "text": "Path failure in command: grep -n \"sheetId\\|report\" /ctf/chunk1.js || true",
+      "step": 38
+    }
+  ],
+  "artifacts": [],
+  "dead_ends": [],
+  "flag_candidates": [],
+  "phase_history": [
+    {
+      "phase": "recon",
+      "step": 0,
+      "reason": "run started"
+    },
+    {
+      "phase": "analyze",
+      "step": 0,
+      "reason": "auto-recon complete"
+    },
+    {
+      "phase": "recon",
+      "step": 1,
+      "reason": "step"
+    },
+    {
+      "phase": "analyze",
+      "step": 2,
+      "reason": "step"
+    },
+    {
+      "phase": "exploit",
+      "step": 5,
+      "reason": "step"
+    },
+    {
+      "phase": "exploit",
+      "step": 27,
+      "reason": "operator resume"
+    }
+  ],
+  "tool_stats": {
+    "http_request": {
+      "calls": 15,
+      "progress": 15,
+      "errors": 0,
+      "last_step": 36
+    },
+    "list_files": {
+      "calls": 1,
+      "progress": 1,
+      "errors": 0,
+      "last_step": 2
+    },
+    "run_command": {
+      "calls": 24,
+      "progress": 12,
+      "errors": 2,
+      "last_step": 41
+    }
+  },
+  "next_best_action": "Build the smallest solver/exploit needed, run it, and inspect concrete output.",
+  "checkpoint_summary": "Stopped.",
+  "repeated_failure_count": 2,
+  "planner_summary": "",
+  "updated_at": "2026-04-25T01:25:19.632228Z"
+}

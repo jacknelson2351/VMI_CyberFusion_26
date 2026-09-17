@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}New Album - {{ settings.SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="form-section">
+    <h1><i data-lucide="folder-plus"></i> Create Album</h1>
+
+    <form action="/album" method="post" class="album-form">
+        <div class="form-group">
+            <label for="title"><i data-lucide="type"></i> Title</label>
+            <input type="text" id="title" name="title" required maxlength="255" placeholder="Album title">
+        </div>
+        <div class="form-group">
+            <label for="description"><i data-lucide="align-left"></i> Description (optional)</label>
+            <textarea id="description" name="description" maxlength="2000" placeholder="Describe your album"></textarea>
+        </div>
+        <div class="form-group">
+            <label for="visibility"><i data-lucide="eye"></i> Visibility</label>
+            <select id="visibility" name="visibility">
+                <option value="public">Public</option>
+                <option value="unlisted">Unlisted</option>
+                <option value="private">Private</option>
+            </select>
+        </div>
+
+        {% if images %}
+        <div class="form-group">
+            <label><i data-lucide="images"></i> Select images</label>
+            <div class="image-select-grid">
+                {% for img in images %}
+                <label class="image-select-item">
+                    <input type="checkbox" name="image_ids" value="{{ img.id }}">
+                    <img src="/thumb/{{ img.short_code }}/{{ settings.thumb_sizes_list[0] }}"
+                        alt="{{ img.title or img.original_name }}">
+                    <span class="image-select-check"><i data-lucide="check"></i></span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i data-lucide="info"></i>
+            <p>You have no uploaded images. <a href="/">Upload some first</a>.</p>
+        </div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i data-lucide="plus"></i> Create Album
+        </button>
+    </form>
+</section>
+{% endblock %}

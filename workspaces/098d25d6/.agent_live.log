@@ -1,0 +1,338 @@
+[2026-09-17T21:43:23Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-09-17T21:43:23Z] EXIT 0
+
+[2026-09-17T21:43:24Z] CMD ls -A1 /ctf 2>/dev/null | grep -v '^\.' | head -1
+vuln
+[2026-09-17T21:43:24Z] EXIT 0
+
+[2026-09-17T21:43:24Z] CMD if [ -f /ctf/.venv/pyvenv.cfg ] && ! grep -qi 'include-system-site-packages *= *true' /ctf/.venv/pyvenv.cfg; then rm -rf /ctf/.venv; fi
+[2026-09-17T21:43:24Z] EXIT 0
+
+[2026-09-17T21:43:24Z] CMD command -v checksec >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:43:24Z] EXIT 0
+
+[2026-09-17T21:43:25Z] CMD command -v gdb >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:43:25Z] EXIT 0
+
+[2026-09-17T21:43:25Z] CMD command -v ROPgadget >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:43:25Z] EXIT 0
+
+[2026-09-17T21:43:26Z] CMD command -v one_gadget >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:43:26Z] EXIT 0
+
+[2026-09-17T21:43:26Z] CMD ls -1 /ctf/ 2>/dev/null || true
+vuln
+vuln.c
+[2026-09-17T21:43:26Z] EXIT 0
+
+[2026-09-17T21:43:26Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 32
+drwxr-xr-x 8 root root   256 Sep 17 21:43 .
+drwxr-xr-x 1 root root  4096 Sep 17 21:43 ..
+-rw-r--r-- 1 root root  1087 Sep 17 21:43 .agent_live.log
+drwxr-xr-x 2 root root    64 Sep 17 21:43 .artifacts
+-rw-r--r-- 1 root root  1200 Sep 17 21:43 .challenge.json
+drwxr-xr-x 2 root root    64 Sep 17 21:43 .sessions
+-rw-r--r-- 1 root root 15840 Sep 17 21:43 vuln
+-rw-r--r-- 1 root root  1193 Sep 17 21:43 vuln.c
+---
+/ctf/vuln:   ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, BuildID[sha1]=108856df2d26e74aacfc1784d9c06d0aacceb988, for GNU/Linux 3.2.0, not stripped
+/ctf/vuln.c: C source, ASCII text
+[2026-09-17T21:43:26Z] EXIT 0
+
+[2026-09-17T21:43:27Z] CMD checksec /ctf/* 2>/dev/null || true
+[2026-09-17T21:43:27Z] EXIT 0
+
+[2026-09-17T21:43:27Z] CMD strings /ctf/* 2>/dev/null | grep -iE 'flag|pass|key|secret|http' | head -20 || true
+flag.txt
+Error opening flag.txt
+FLAG: %s
+Error reading flag
+    char flag[256];
+    fp = fopen("flag.txt", "r");
+        perror("Error opening flag.txt");
+    if (fgets(flag, sizeof(flag), fp) != NULL) {
+        printf("FLAG: %s\n", flag);
+        printf("Error reading flag\n");
+[2026-09-17T21:43:27Z] EXIT 0
+
+[2026-09-17T21:43:28Z] CMD command -v checksec >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:43:28Z] EXIT 0
+
+[2026-09-17T21:43:28Z] CMD command -v gdb >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:43:28Z] EXIT 0
+
+[2026-09-17T21:43:28Z] CMD command -v ROPgadget >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:43:28Z] EXIT 0
+
+[2026-09-17T21:43:29Z] CMD command -v one_gadget >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:43:29Z] EXIT 0
+
+[2026-09-17T21:43:30Z] CMD PWNDBG=$(ls /usr/share/pwndbg/gdbinit.py /opt/pwndbg/gdbinit.py 2>/dev/null | head -1); if [ -n "$PWNDBG" ]; then   gdb -batch -nx -ex "source $PWNDBG" -ex "checksec" -ex "info functions" -ex "disas main" -ex "disas secret" -ex "run A B" /ctf/vuln 2>&1; else   gdb -batch -nx -ex "checksec" -ex "info functions" -ex "disas main" -ex "disas secret" -ex "run A B" /ctf/vuln 2>&1; fi
+Undefined command: "checksec".  Try "help".
+All defined functions:
+
+Non-debugging symbols:
+0x08049000  _init
+0x080490f0  printf@plt
+0x08049100  fflush@plt
+0x08049110  fgets@plt
+0x08049120  fclose@plt
+0x08049130  perror@plt
+0x08049140  strcpy@plt
+0x08049150  malloc@plt
+0x08049160  puts@plt
+0x08049170  exit@plt
+0x08049180  __libc_start_main@plt
+0x08049190  fopen@plt
+0x080491a0  _start
+0x080491e0  _dl_relocate_static_pie
+0x080491f0  __x86.get_pc_thunk.bx
+0x08049200  deregister_tm_clones
+0x08049240  register_tm_clones
+0x08049280  __do_global_dtors_aux
+0x080492b0  frame_dummy
+0x080492b6  winner
+0x0804936c  main
+0x080494e0  __libc_csu_init
+0x08049550  __libc_csu_fini
+0x08049555  __x86.get_pc_thunk.bp
+0x0804955c  _fini
+Dump of assembler code for function main:
+   0x0804936c <+0>:	endbr32
+   0x08049370 <+4>:	lea    0x4(%esp),%ecx
+   0x08049374 <+8>:	and    $0xfffffff0,%esp
+   0x08049377 <+11>:	push   -0x4(%ecx)
+   0x0804937a <+14>:	push   %ebp
+   0x0804937b <+15>:	mov    %esp,%ebp
+   0x0804937d <+17>:	push   %esi
+   0x0804937e <+18>:	push   %ebx
+   0x0804937f <+19>:	push   %ecx
+   0x08049380 <+20>:	sub    $0x1c,%esp
+   0x08049383 <+23>:	call   0x80491f0 <__x86.get_pc_thunk.bx>
+   0x08049388 <+28>:	add    $0x2c78,%ebx
+   0x0804938e <+34>:	mov    %ecx,%esi
+   0x08049390 <+36>:	sub    $0xc,%esp
+   0x08049393 <+39>:	lea    -0x1fb8(%ebx),%eax
+   0x08049399 <+45>:	push   %eax
+   0x0804939a <+46>:	call   0x8049160 <puts@plt>
+   0x0804939f <+51>:	add    $0x10,%esp
+   0x080493a2 <+54>:	mov    -0x4(%ebx),%eax
+   0x080493a8 <+60>:	mov    (%eax),%eax
+   0x080493aa <+62>:	sub    $0xc,%esp
+   0x080493ad <+65>:	push   %eax
+   0x080493ae <+66>:	call   0x8049100 <fflush@plt>
+   0x080493b3 <+71>:	add    $0x10,%esp
+   0x080493b6 <+74>:	cmpl   $0x3,(%esi)
+   0x080493b9 <+77>:	je     0x80493f1 <main+133>
+   0x080493bb <+79>:	mov    0x4(%esi),%eax
+   0x080493be <+82>:	mov    (%eax),%eax
+   0x080493c0 <+84>:	sub    $0x8,%esp
+   0x080493c3 <+87>:	push   %eax
+   0x080493c4 <+88>:	lea    -0x1f94(%ebx),%eax
+   0x080493ca <+94>:	push   %eax
+   0x080493cb <+95>:	call   0x80490f0 <printf@plt>
+   0x080493d0 <+100>:	add    $0x10,%esp
+   0x080493d3 <+103>:	mov    -0x4(%ebx),%eax
+   0x080493d9 <+109>:	mov    (%eax),%eax
+   0x080493db <+111>:	sub    $0xc,%esp
+   0x080493de <+114>:	push   %eax
+   0x080493df <+115>:	call   0x8049100 <fflush@plt>
+   0x080493e4 <+120>:	add    $0x10,%esp
+   0x080493e7 <+123>:	mov    $0x1,%eax
+   0x080493ec <+128>:	jmp    0x80494d2 <main+358>
+   0x080493f1 <+133>:	sub    $0xc,%esp
+   0x080493f4 <+136>:	push   $0xc
+   0x080493f6 <+138>:	call   0x8049150 <malloc@plt>
+   0x080493fb <+143>:	add    $0x10,%esp
+   0x080493fe <+146>:	mov    %eax,-0x1c(%ebp)
+   0x08049401 <+149>:	mov    -0x1c(%ebp),%eax
+   0x08049404 <+152>:	movl   $0x1,(%eax)
+   0x0804940a <+158>:	sub    $0xc,%esp
+   0x0804940d <+161>:	push   $0x8
+   0x0804940f <+163>:	call   0x8049150 <malloc@plt>
+   0x08049414 <+168>:	add    $0x10,%esp
+   0x08049417 <+171>:	mov    %eax,%edx
+   0x08049419 <+173>:	mov    -0x1c(%ebp),%eax
+   0x0804941c <+176>:	mov    %edx,0x4(%eax)
+   0x0804941f <+179>:	mov    -0x1c(%ebp),%eax
+   0x08049422 <+182>:	movl   $0x0,0x8(%eax)
+   0x08049429 <+189>:	sub    $0xc,%esp
+   0x0804942c <+192>:	push   $0xc
+   0x0804942e <+194>:	call   0x8049150 <malloc@plt>
+   0x08049433 <+199>:	add    $0x10,%esp
+   0x08049436 <+202>:	mov    %eax,-0x20(%ebp)
+   0x08049439 <+205>:	mov    -0x20(%ebp),%eax
+   0x0804943c <+208>:	movl   $0x2,(%eax)
+   0x08049442 <+214>:	sub    $0xc,%esp
+   0x08049445 <+217>:	push   $0x8
+   0x08049447 <+219>:	call   0x8049150 <malloc@plt>
+   0x0804944c <+224>:	add    $0x10,%esp
+   0x0804944f <+227>:	mov    %eax,%edx
+   0x08049451 <+229>:	mov    -0x20(%ebp),%eax
+   0x08049454 <+232>:	mov    %edx,0x4(%eax)
+   0x08049457 <+235>:	mov    -0x20(%ebp),%eax
+   0x0804945a <+238>:	movl   $0x0,0x8(%eax)
+   0x08049461 <+245>:	mov    0x4(%esi),%eax
+   0x08049464 <+248>:	add    $0x4,%eax
+   0x08049467 <+251>:	mov    (%eax),%edx
+   0x08049469 <+253>:	mov    -0x1c(%ebp),%eax
+   0x0804946c <+256>:	mov    0x4(%eax),%eax
+   0x0804946f <+259>:	sub    $0x8,%esp
+   0x08049472 <+262>:	push   %edx
+   0x08049473 <+263>:	push   %eax
+   0x08049474 <+264>:	call   0x8049140 <strcpy@plt>
+   0x08049479 <+269>:	add    $0x10,%esp
+   0x0804947c <+272>:	mov    0x4(%esi),%eax
+   0x0804947f <+275>:	add    $0x8,%eax
+   0x08049482 <+278>:	mov    (%eax),%edx
+   0x08049484 <+280>:	mov    -0x20(%ebp),%eax
+   0x08049487 <+283>:	mov    0x4(%eax),%eax
+   0x0804948a <+286>:	sub    $0x8,%esp
+   0x0804948d <+289>:	push   %edx
+   0x0804948e <+290>:	push   %eax
+   0x0804948f <+291>:	call   0x8049140 <strcpy@plt>
+   0x08049494 <+296>:	add    $0x10,%esp
+   0x08049497 <+299>:	mov    -0x1c(%ebp),%eax
+   0x0804949a <+302>:	mov    0x8(%eax),%eax
+   0x0804949d <+305>:	test   %eax,%eax
+   0x0804949f <+307>:	je     0x80494a9 <main+317>
+   0x080494a1 <+309>:	mov    -0x1c(%ebp),%eax
+   0x080494a4 <+312>:	mov    0x8(%eax),%eax
+   0x080494a7 <+315>:	call   *%eax
+   0x080494a9 <+317>:	mov    -0x20(%ebp),%eax
+   0x080494ac <+320>:	mov    0x8(%eax),%eax
+   0x080494af <+323>:	test   %eax,%eax
+   0x080494b1 <+325>:	je     0x80494bb <main+335>
+   0x080494b3 <+327>:	mov    -0x20(%ebp),%eax
+   0x080494b6 <+330>:	mov    0x8(%eax),%eax
+   0x080494b9 <+333>:	call   *%eax
+   0x080494bb <+335>:	sub    $0xc,%esp
+   0x080494be <+338>:	lea    -0x1f74(%ebx),%eax
+   0x080494c4 <+344>:	push   %eax
+   0x080494c5 <+345>:	call   0x8049160 <puts@plt>
+   0x080494ca <+350>:	add    $0x10,%esp
+   0x080494cd <+353>:	mov    $0x0,%eax
+   0x080494d2 <+358>:	lea    -0xc(%ebp),%esp
+   0x080494d5 <+361>:	pop    %ecx
+   0x080494d6 <+362>:	pop    %ebx
+   0x080494d7 <+363>:	pop    %esi
+   0x080494d8 <+364>:	pop    %ebp
+   0x080494d9 <+365>:	lea    -0x4(%ecx),%esp
+   0x080494dc <+368>:	ret
+End of assembler dump.
+No symbol table is loaded.  Use the "file" command.
+warning: linux_ptrace_test_ret_to_nx: Cannot PTRACE_GETREGS: Input/output error
+warning: linux_ptrace_test_ret_to_nx: PC 0x900000000 is neither near return address 0x7ffff8d6e000 nor is the return instruction 0x5555559b8329!
+Couldn't get CS register: Input/output error.
+[2026-09-17T21:43:30Z] EXIT 1
+
+[2026-09-17T21:43:33Z] CMD sed -n '1,200p' vuln.c
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <time.h>
+
+struct internet {
+    int priority;
+    char *name;
+    void (*callback)();
+};
+
+void winner() {
+    FILE *fp;
+    char flag[256];
+
+    fp = fopen("flag.txt", "r");
+    if (fp == NULL) {
+        perror("Error opening flag.txt");
+        exit(1);
+    }
+
+    if (fgets(flag, sizeof(flag), fp) != NULL) {
+        printf("FLAG: %s\n", flag);
+    } else {
+        printf("Error reading flag\n");
+    }
+
+    fclose(fp);
+}
+
+int main(int argc, char **argv) {
+    struct internet *i1, *i2, *i3;
+    printf("Enter two names separated by space:\n");
+    fflush(stdout);   
+    if (argc != 3) {
+        printf("Usage: ./vuln <name1> <name2>\n", argv[0]);
+        fflush(stdout);  
+        return 1;
+    }
+
+i1 = malloc(sizeof(struct internet));
+i1->priority = 1;
+i1->name = malloc(8);
+i1->callback = NULL;
+
+i2 = malloc(sizeof(struct internet));
+i2->priority = 2;
+i2->name = malloc(8);
+i2->callback = NULL;
+
+strcpy(i1->name, argv[1]);  
+strcpy(i2->name, argv[2]); 
+
+if (i1->callback) i1->callback();
+if (i2->callback) i2->callback();
+
+    printf("No winners this time, try again!\n");
+}
+[2026-09-17T21:43:33Z] EXIT 0
+
+[2026-09-17T21:43:35Z] CMD ./vuln AAA BBB
+bash: line 1: ./vuln: Permission denied
+[2026-09-17T21:43:35Z] EXIT 126
+
+[2026-09-17T21:43:37Z] CMD chmod +x vuln && ./vuln AAA BBB
+qemu-i386: Could not open '/lib/ld-linux.so.2': No such file or directory
+[2026-09-17T21:43:37Z] EXIT 255
+
+[2026-09-17T21:43:39Z] CMD file vuln; ls -l /lib
+vuln: ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, BuildID[sha1]=108856df2d26e74aacfc1784d9c06d0aacceb988, for GNU/Linux 3.2.0, not stripped
+lrwxrwxrwx 1 root root 7 Jun 16 10:14 /lib -> usr/lib
+[2026-09-17T21:43:39Z] EXIT 0
+
+[2026-09-17T21:43:41Z] CMD ls -l /lib/ld-linux* /lib/i386-linux-gnu/ld-linux* 2>/dev/null || echo 'no 32-bit loader'
+no 32-bit loader
+[2026-09-17T21:43:41Z] EXIT 0
+
+[2026-09-17T21:43:44Z] CMD chmod +x /ctf/exploit.py
+[2026-09-17T21:43:44Z] EXIT 0
+
+[2026-09-17T21:43:45Z] CMD test -d /ctf/.venv || python3 -m venv --system-site-packages /ctf/.venv
+[2026-09-17T21:43:45Z] EXIT 0
+
+[2026-09-17T21:43:48Z] CMD /ctf/.venv/bin/python exploit.py
+[!] Could not populate PLT: Invalid argument (UC_ERR_ARG)
+[*] '/ctf/vuln'
+    Arch:     i386-32-little
+    RELRO:    Partial RELRO
+    Stack:    No canary found
+    NX:       NX enabled
+    PIE:      No PIE (0x8048000)
+0x80492b6
+[2026-09-17T21:43:48Z] EXIT 0
+
+[2026-09-17T21:43:55Z] CMD grep -r --exclude-dir=.venv --exclude-dir=.sessions --exclude-dir=.artifacts --exclude-dir=__pycache__ --exclude=.agent_live.log --exclude='*.log' --include='*' -E '{.*}' /ctf/ 2>/dev/null | head -50; ec=$?; if [ $ec -eq 2 ]; then grep -r --exclude-dir=.venv --exclude-dir=.sessions --exclude-dir=.artifacts --exclude-dir=__pycache__ --exclude=.agent_live.log --exclude='*.log' --include='*' -F '{.*}' /ctf/ 2>/dev/null | head -50; fi
+/ctf/.agent_live.log:[2026-09-17T21:43:55Z] CMD grep -r --exclude-dir=.venv --exclude-dir=.sessions --exclude-dir=.artifacts --exclude-dir=__pycache__ --exclude=.agent_live.log --exclude='*.log' --include='*' -E '{.*}' /ctf/ 2>/dev/null | head -50; ec=$?; if [ $ec -eq 2 ]; then grep -r --exclude-dir=.venv --exclude-dir=.sessions --exclude-dir=.artifacts --exclude-dir=__pycache__ --exclude=.agent_live.log --exclude='*.log' --include='*' -F '{.*}' /ctf/ 2>/dev/null | head -50; fi
+[2026-09-17T21:43:55Z] EXIT 0
+

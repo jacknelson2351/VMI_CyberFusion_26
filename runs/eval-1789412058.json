@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "generated_at": "2026-09-14T18:54:18.106106Z",
+    "set": "umdctf",
+    "model": "gpt-4.1-mini",
+    "arch": "single_loop",
+    "budget": 1.0,
+    "max_steps": 8,
+    "stopped_for_budget": false
+  },
+  "totals": {
+    "total": 1,
+    "solved": 0,
+    "pending_approval": 1,
+    "solve_rate": 0.0,
+    "total_cost_usd": 0.0029
+  },
+  "results": [
+    {
+      "id": "f30462bd",
+      "name": "sanity check",
+      "category": "misc",
+      "status": "pending_approval",
+      "flag": "UMDCTF{challenge_based_futures_market}",
+      "cost_usd": 0.0029,
+      "steps": 2,
+      "secs": 13.6
+    }
+  ]
+}

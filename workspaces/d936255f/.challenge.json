@@ -1,0 +1,37 @@
+{
+  "id": "d936255f",
+  "name": "flow",
+  "category": "misc",
+  "flag_format": "",
+  "description": "i made a trading algorithm! it uses ai and i think it's really cool. it even purifies the predictor inputs with a flow model!\n\nnc challs.umdctf.io 30302\n\nDownloads",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-09-17T18:37:00.833179Z"
+}

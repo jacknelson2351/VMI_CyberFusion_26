@@ -1,0 +1,39 @@
+{
+  "id": "098d25d6",
+  "name": "Heap Havoc",
+  "category": "pwn",
+  "flag_format": "",
+  "description": "A seemingly harmless program takes two names as arguments, but there\u2019s a catch. By overflowing the input buffer, you can overwrite the saved return address and redirect execution to a hidden part of the binary that prints the flag. You can download the program file and source code from the links on this page.",
+  "tags": [],
+  "target": {
+    "url": "https://learn.cylabacademy.org/library/763?page=1&difficulty=3",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "web",
+    "event": "",
+    "challenge_id": "",
+    "points": "",
+    "source_url": "https://learn.cylabacademy.org",
+    "remote_id": "https://learn.cylabacademy.org/library/763?page=1&difficulty=3"
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-09-17T21:46:15.847433Z"
+}

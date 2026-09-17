@@ -1,0 +1,37 @@
+{
+  "id": "c854df86",
+  "name": "Bypass Me",
+  "category": "rev",
+  "flag_format": "",
+  "description": "Your task is to analyze and exploit a password-protected binary called bypassme.bin and binary performs input sanitization.\n\nHowever, instead of guessing the password, you are expected to reverse engineer or debug the program to bypass the authentication logic and retrieve the hidden flag.\n\nYou'll need to think like an attacker using tool like LLDB\n to uncover how the binary works under the hood and leak the correct password.\n\nssh to foggy-cliff.picoctf.net:56796, and run the binary named \"bypassme.bin\" once connected. Login as ctf-player with the password, 1db87a14",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-09-17T21:56:18.231652Z"
+}

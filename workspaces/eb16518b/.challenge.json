@@ -1,0 +1,39 @@
+{
+  "id": "eb16518b",
+  "name": "Flag Hunters",
+  "category": "rev",
+  "flag_format": "",
+  "description": "Lyrics jump from verses to the refrain kind of like a subroutine call. There's a hidden refrain this program doesn't print by default. Can you get it to print it? There might be something in it for you.\n\nThe program's source code can be downloaded here.\n\nINSTANCE\nLaunch Instance\nAdditional details appear once you launch your instance.\nHINTS\n1\nReveal hint\n2\nReveal hint\n3\nReveal hint\nFLAG\nSubmit\n\ndebug info: [u:573285 e: p: c:472 i:296812]\n\nbrowser_webshell_solvable",
+  "tags": [],
+  "target": {
+    "url": "https://learn.cylabacademy.org/library/472?assigned=true&page=1",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "web",
+    "event": "",
+    "challenge_id": "",
+    "points": "",
+    "source_url": "https://learn.cylabacademy.org",
+    "remote_id": "https://learn.cylabacademy.org/library/472?assigned=true&page=1"
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-09-17T21:39:06.790504Z"
+}

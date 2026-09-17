@@ -1,0 +1,35 @@
+/Users/jacknelson/VMI_CyberFusion_26/scripts/eval.py:186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  "generated_at": datetime.utcnow().isoformat() + "Z",
+Selected 5 challenge(s) from set 'umdctf': gnalekcip, 1+1, oracle, exponential, roulette
+model=gpt-4.1-mini arch=single_loop budget=$4.0 max_steps=30 timeout=420s
+
+▶ running 'gnalekcip' (rev) … spent so far $0.0000
+   → unsolved  cost $0.1462  flag=—
+
+▶ running '1+1' (rev) … spent so far $0.1462
+   → unsolved  cost $0.1167  flag=—
+
+▶ running 'oracle' (rev) … spent so far $0.2629
+   → unsolved  cost $0.1812  flag=—
+
+▶ running 'exponential' (misc) … spent so far $0.4441
+   → unsolved  cost $0.1314  flag=—
+
+▶ running 'roulette' (rev) … spent so far $0.5755
+   → unsolved  cost $0.1232  flag=—
+
+# Eval report — 2026-09-14T20:08:06.306206Z
+
+- set: `umdctf`  model: `gpt-4.1-mini`  arch: `single_loop`  budget: $4.0  max_steps: 30
+- **flag found 0/5** (rate 0%) — of which auto-solved 0, awaiting approval 0; cost **$0.6987**
+- note: no ground-truth flags loaded, so this measures *confident flag reached*, not verified-correct.
+
+| challenge | category | status | flag | cost | steps | secs |
+|---|---|---|---|---|---|---|
+| gnalekcip | rev | unsolved | `` | $0.1462 | 30 | 281.5 |
+| 1+1 | rev | unsolved | `` | $0.1167 | 30 | 219.0 |
+| oracle | rev | unsolved | `` | $0.1812 | 30 | 282.7 |
+| exponential | misc | unsolved | `` | $0.1314 | 30 | 323.7 |
+| roulette | rev | unsolved | `` | $0.1232 | 30 | 227.6 |
+
+Report: runs/eval-batch2.md

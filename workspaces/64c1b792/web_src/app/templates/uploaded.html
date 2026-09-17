@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Upload complete - {{ settings.SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="result-section">
+    <h1 class="result-title">
+        <i data-lucide="check-circle"></i>
+        {% if images|length == 1 %}Image uploaded{% else %}{{ images|length }} images uploaded{% endif %}
+    </h1>
+
+    {% if errors %}
+    <div class="alert alert-error">
+        <i data-lucide="alert-circle"></i>
+        <div>
+            {% for err in errors %}
+            <p>{{ err }}</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% for img in images %}
+    <div class="result-card">
+        <div class="result-preview">
+            <img src="/thumb/{{ img.short_code }}/{{ settings.thumb_sizes_list[-1] }}"
+                alt="{{ img.title or img.original_name }}">
+        </div>
+        <div class="result-links">
+            <h3>{{ img.title or img.original_name }}</h3>
+            <div class="link-group">
+                <label><i data-lucide="link"></i> Page link</label>
+                <div class="copy-field">
+                    <input type="text" readonly value="{{ settings.SITE_URL }}/i/{{ img.short_code }}">
+                    <button class="btn-copy" data-copy="{{ settings.SITE_URL }}/i/{{ img.short_code }}">
+                        <i data-lucide="copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="link-group">
+                <label><i data-lucide="image"></i> Direct link</label>
+                <div class="copy-field">
+                    <input type="text" readonly value="{{ settings.SITE_URL }}/raw/{{ img.short_code }}">
+                    <button class="btn-copy" data-copy="{{ settings.SITE_URL }}/raw/{{ img.short_code }}">
+                        <i data-lucide="copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="link-group">
+                <label><i data-lucide="code"></i> Markdown</label>
+                <div class="copy-field">
+                    <input type="text" readonly
+                        value="![{{ img.original_name }}]({{ settings.SITE_URL }}/raw/{{ img.short_code }})">
+                    <button class="btn-copy"
+                        data-copy="![{{ img.original_name }}]({{ settings.SITE_URL }}/raw/{{ img.short_code }})">
+                        <i data-lucide="copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="link-group">
+                <label><i data-lucide="code-2"></i> HTML</label>
+                <div class="copy-field">
+                    <input type="text" readonly
+                        value='<img src="{{ settings.SITE_URL }}/raw/{{ img.short_code }}" alt="{{ img.original_name }}">'>
+                    <button class="btn-copy"
+                        data-copy='<img src="{{ settings.SITE_URL }}/raw/{{ img.short_code }}" alt="{{ img.original_name }}">'>
+                        <i data-lucide="copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="link-group">
+                <label><i data-lucide="message-square"></i> BBCode</label>
+                <div class="copy-field">
+                    <input type="text" readonly value="[img]{{ settings.SITE_URL }}/raw/{{ img.short_code }}[/img]">
+                    <button class="btn-copy" data-copy="[img]{{ settings.SITE_URL }}/raw/{{ img.short_code }}[/img]">
+                        <i data-lucide="copy"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="result-actions">
+        <a href="/" class="btn btn-secondary">
+            <i data-lucide="plus"></i> Upload more
+        </a>
+        {% if images|length == 1 %}
+        <a href="/i/{{ images[0].short_code }}" class="btn btn-primary">
+            <i data-lucide="external-link"></i> View image
+        </a>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.querySelectorAll('.btn-copy').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const text = btn.dataset.copy;
+            navigator.clipboard.writeText(text).then(() => {
+                const icon = btn.querySelector('i');
+                icon.setAttribute('data-lucide', 'check');
+                lucide.createIcons();
+                setTimeout(() => {
+                    icon.setAttribute('data-lucide', 'copy');
+                    lucide.createIcons();
+                }, 2000);
+            });
+        });
+    });
+</script>
+{% endblock %}

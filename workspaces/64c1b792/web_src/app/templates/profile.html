@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ profile_user.username }} - {{ settings.SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="profile-section">
+    <header class="profile-header">
+        <div class="profile-avatar">
+            <i data-lucide="user" class="avatar-icon"></i>
+        </div>
+        <div class="profile-info">
+            <h1>{{ profile_user.username }}</h1>
+            {% if profile_user.bio %}
+            <p class="profile-bio">{{ profile_user.bio }}</p>
+            {% endif %}
+            <div class="profile-stats">
+                <span class="stat"><i data-lucide="image"></i> {{ total_images }} images</span>
+                <span class="stat"><i data-lucide="calendar"></i> Joined {{ profile_user.created_at.strftime('%b %Y')
+                    }}</span>
+            </div>
+        </div>
+    </header>
+
+    {% if images %}
+    <h2 class="section-title">
+        {% if is_own_profile %}
+        <i data-lucide="images"></i> Your uploads
+        {% else %}
+        <i data-lucide="images"></i> Uploads
+        {% endif %}
+    </h2>
+    <div class="image-grid">
+        {% for img in images %}
+        <a href="/i/{{ img.short_code }}" class="grid-item {% if img.nsfw %}nsfw-blur{% endif %}">
+            <img src="/thumb/{{ img.short_code }}/{{ settings.thumb_sizes_list[1] }}"
+                alt="{{ img.title or img.original_name }}" loading="lazy">
+            <div class="grid-overlay">
+                <span class="grid-views"><i data-lucide="eye"></i> {{ img.views }}</span>
+                {% if is_own_profile %}
+                <span class="grid-visibility">
+                    {% if img.visibility.value == 'unlisted' %}
+                    <i data-lucide="link"></i>
+                    {% elif img.visibility.value == 'private' %}
+                    <i data-lucide="lock"></i>
+                    {% endif %}
+                </span>
+                {% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i data-lucide="image-off" class="empty-icon"></i>
+        <p>No public uploads yet.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

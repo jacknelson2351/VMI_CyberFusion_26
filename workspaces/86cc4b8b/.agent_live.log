@@ -1,0 +1,191 @@
+[2026-09-17T21:40:03Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-09-17T21:40:03Z] EXIT 0
+
+[2026-09-17T21:40:03Z] CMD ls -A1 /ctf 2>/dev/null | grep -v '^\.' | head -1
+img.jpg
+[2026-09-17T21:40:03Z] EXIT 0
+
+[2026-09-17T21:40:04Z] CMD if [ -f /ctf/.venv/pyvenv.cfg ] && ! grep -qi 'include-system-site-packages *= *true' /ctf/.venv/pyvenv.cfg; then rm -rf /ctf/.venv; fi
+[2026-09-17T21:40:04Z] EXIT 0
+
+[2026-09-17T21:40:04Z] CMD command -v exiftool >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:04Z] EXIT 0
+
+[2026-09-17T21:40:04Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:04Z] EXIT 0
+
+[2026-09-17T21:40:05Z] CMD command -v binwalk >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:05Z] EXIT 0
+
+[2026-09-17T21:40:05Z] CMD command -v foremost >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:05Z] EXIT 0
+
+[2026-09-17T21:40:05Z] CMD command -v pdfinfo >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:05Z] EXIT 0
+
+[2026-09-17T21:40:06Z] CMD command -v yara >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:06Z] EXIT 0
+
+[2026-09-17T21:40:06Z] CMD command -v fls >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:06Z] EXIT 0
+
+[2026-09-17T21:40:06Z] CMD command -v pdf-parser.py >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:06Z] EXIT 0
+
+[2026-09-17T21:40:07Z] CMD command -v steghide >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:07Z] EXIT 0
+
+[2026-09-17T21:40:07Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:07Z] EXIT 0
+
+[2026-09-17T21:40:07Z] CMD ls -1 /ctf/ 2>/dev/null || true
+img.jpg
+[2026-09-17T21:40:07Z] EXIT 0
+
+[2026-09-17T21:40:08Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 84
+drwxr-xr-x 7 root root   224 Sep 17 21:40 .
+drwxr-xr-x 1 root root  4096 Sep 17 21:40 ..
+-rw-r--r-- 1 root root  1826 Sep 17 21:40 .agent_live.log
+drwxr-xr-x 2 root root    64 Sep 17 21:40 .artifacts
+-rw-r--r-- 1 root root  1191 Sep 17 21:40 .challenge.json
+drwxr-xr-x 2 root root    64 Sep 17 21:40 .sessions
+-rw-r--r-- 1 root root 73494 Sep 17 21:39 img.jpg
+---
+/ctf/img.jpg: JPEG image data, JFIF standard 1.01, aspect ratio, density 1x1, segment length 16, comment: "c3RlZ2hpZGU6Y0VGNmVuZHZjbVE9", baseline, precision 8, 640x640, components 3
+[2026-09-17T21:40:08Z] EXIT 0
+
+[2026-09-17T21:40:08Z] CMD file /ctf/*
+/ctf/img.jpg: JPEG image data, JFIF standard 1.01, aspect ratio, density 1x1, segment length 16, comment: "c3RlZ2hpZGU6Y0VGNmVuZHZjbVE9", baseline, precision 8, 640x640, components 3
+[2026-09-17T21:40:08Z] EXIT 0
+
+[2026-09-17T21:40:09Z] CMD exiftool /ctf/* 2>/dev/null | head -30 || true
+ExifTool Version Number         : 13.55
+File Name                       : img.jpg
+Directory                       : /ctf
+File Size                       : 73 kB
+File Modification Date/Time     : 2026:09:17 21:39:17+00:00
+File Access Date/Time           : 2026:09:17 21:39:20+00:00
+File Inode Change Date/Time     : 2026:09:17 21:39:17+00:00
+File Permissions                : -rw-r--r--
+File Type                       : JPEG
+File Type Extension             : jpg
+MIME Type                       : image/jpeg
+JFIF Version                    : 1.01
+Resolution Unit                 : None
+X Resolution                    : 1
+Y Resolution                    : 1
+Comment                         : c3RlZ2hpZGU6Y0VGNmVuZHZjbVE9
+Image Width                     : 640
+Image Height                    : 640
+Encoding Process                : Baseline DCT, Huffman coding
+Bits Per Sample                 : 8
+Color Components                : 3
+Y Cb Cr Sub Sampling            : YCbCr4:2:0 (2 2)
+Image Size                      : 640x640
+Megapixels                      : 0.410
+[2026-09-17T21:40:09Z] EXIT 0
+
+[2026-09-17T21:40:09Z] CMD command -v exiftool >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:09Z] EXIT 0
+
+[2026-09-17T21:40:10Z] CMD command -v strings >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:10Z] EXIT 0
+
+[2026-09-17T21:40:10Z] CMD command -v binwalk >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:10Z] EXIT 0
+
+[2026-09-17T21:40:10Z] CMD command -v foremost >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:10Z] EXIT 0
+
+[2026-09-17T21:40:11Z] CMD command -v pdfinfo >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:11Z] EXIT 0
+
+[2026-09-17T21:40:11Z] CMD command -v yara >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:11Z] EXIT 0
+
+[2026-09-17T21:40:11Z] CMD command -v fls >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:11Z] EXIT 0
+
+[2026-09-17T21:40:12Z] CMD command -v pdf-parser.py >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:12Z] EXIT 0
+
+[2026-09-17T21:40:12Z] CMD command -v steghide >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:12Z] EXIT 0
+
+[2026-09-17T21:40:12Z] CMD command -v fcrackzip >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-09-17T21:40:12Z] EXIT 0
+
+[2026-09-17T21:40:13Z] CMD python3 - <<'PY'
+import capstone
+print('OK' if hasattr(capstone, 'CS_ARCH_ARM64') else 'BAD')
+PY
+OK
+[2026-09-17T21:40:13Z] EXIT 0
+
+[2026-09-17T21:40:15Z] CMD echo 'c3RlZ2hpZGU6Y0VGNmVuZHZjbVE9' | base64 -d
+steghide:cEF6endvcmQ=[2026-09-17T21:40:15Z] EXIT 0
+
+[2026-09-17T21:40:15Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/img.jpg
+[2026-09-17T21:40:15Z] EXIT 0
+
+[2026-09-17T21:40:15Z] CMD steghide extract -sf '/ctf/img.jpg' -p 'cEF6endvcmQ=' -f 2>&1
+steghide: could not extract any data with that passphrase!
+[2026-09-17T21:40:15Z] EXIT 1
+
+[2026-09-17T21:40:16Z] CMD steghide extract -sf '/ctf/img.jpg' -p 'pAzzword' -f 2>&1
+wrote extracted data to "flag.txt".
+[2026-09-17T21:40:16Z] EXIT 0
+
+[2026-09-17T21:40:16Z] CMD grep -rE '[A-Za-z0-9_]{2,24}\{[^{}\n]{1,220}\}' /ctf 2>/dev/null | head -40
+[2026-09-17T21:40:16Z] EXIT 0
+
+[2026-09-17T21:40:18Z] CMD echo 'cEF6endvcmQ=' | base64 -d
+pAzzword[2026-09-17T21:40:18Z] EXIT 0
+
+[2026-09-17T21:40:19Z] CMD steghide extract -sf img.jpg -p 'pAzzword'
+the file "flag.txt" does already exist. overwrite ? (y/n) steghide: could not get terminal attributes.
+[2026-09-17T21:40:19Z] EXIT 1
+
+[2026-09-17T21:40:20Z] CMD find /ctf -maxdepth 2 -type f | sort
+/ctf/.agent_live.log
+/ctf/.challenge.json
+/ctf/flag.txt
+/ctf/img.jpg
+[2026-09-17T21:40:20Z] EXIT 0
+
+[2026-09-17T21:40:20Z] CMD steghide extract -sf '/ctf/img.jpg' -p 'could' -f 2>&1
+steghide: could not extract any data with that passphrase!
+[2026-09-17T21:40:20Z] EXIT 1
+
+[2026-09-17T21:40:22Z] CMD steghide extract -sf img.jpg -p 'pAzzword' -f
+wrote extracted data to "flag.txt".
+[2026-09-17T21:40:22Z] EXIT 0
+
+[2026-09-17T21:40:24Z] CMD cat flag.txt
+picoCTF{h1dd3n_1n_1m4g3_656e4d79}
+[2026-09-17T21:40:24Z] EXIT 0
+

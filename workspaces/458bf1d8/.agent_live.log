@@ -1,0 +1,431 @@
+[2026-04-25T02:20:14Z] CMD mkdir -p /ctf /ctf/.sessions /ctf/.artifacts
+[2026-04-25T02:20:14Z] EXIT 0
+
+[2026-04-25T02:20:15Z] CMD command -v curl >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T02:20:15Z] EXIT 0
+
+[2026-04-25T02:20:15Z] CMD command -v ffuf >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T02:20:15Z] EXIT 0
+
+[2026-04-25T02:20:15Z] CMD command -v gobuster >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T02:20:15Z] EXIT 0
+
+[2026-04-25T02:20:15Z] CMD command -v sqlmap >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T02:20:15Z] EXIT 0
+
+[2026-04-25T02:20:16Z] CMD command -v jwt-tool >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T02:20:16Z] EXIT 0
+
+[2026-04-25T02:20:16Z] CMD ls -1 /ctf/ 2>/dev/null || true
+web-markdown21.zip
+[2026-04-25T02:20:16Z] EXIT 0
+
+[2026-04-25T02:20:16Z] CMD ls -la /ctf/ && echo '---' && file /ctf/* 2>/dev/null
+total 36
+drwxr-xr-x 7 root root   224 Apr 25 02:20 .
+drwxr-xr-x 1 root root  4096 Apr 25 02:20 ..
+-rw-r--r-- 1 root root   903 Apr 25 02:20 .agent_live.log
+drwxr-xr-x 2 root root    64 Apr 25 02:20 .artifacts
+-rw-r--r-- 1 root root   761 Apr 25 02:20 .challenge.json
+drwxr-xr-x 2 root root    64 Apr 25 02:20 .sessions
+-rw-r--r-- 1 root root 23862 Apr 25 02:19 web-markdown21.zip
+---
+/ctf/web-markdown21.zip: Zip archive data, made by v2.0 UNIX, extract using at least v2.0, last modified Mar 24 2026 15:26:54, uncompressed size 0, method=store
+[2026-04-25T02:20:16Z] EXIT 0
+
+[2026-04-25T02:20:17Z] CMD cat /ctf/README* /ctf/*.txt /ctf/source.* 2>/dev/null | head -60 || true
+[2026-04-25T02:20:17Z] EXIT 0
+
+[2026-04-25T02:20:17Z] CMD command -v curl >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T02:20:17Z] EXIT 0
+
+[2026-04-25T02:20:18Z] CMD command -v ffuf >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T02:20:18Z] EXIT 0
+
+[2026-04-25T02:20:18Z] CMD command -v gobuster >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T02:20:18Z] EXIT 0
+
+[2026-04-25T02:20:18Z] CMD command -v sqlmap >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T02:20:18Z] EXIT 0
+
+[2026-04-25T02:20:18Z] CMD command -v jwt-tool >/dev/null 2>&1 && echo OK || echo MISSING
+OK
+[2026-04-25T02:20:18Z] EXIT 0
+
+[2026-04-25T02:20:33Z] CMD python3 - '{"url": "http://4ab4a0fedd73.markdown2.ctf.theromanxpl0.it/", "method": "GET", "headers": {}, "body": null, "json_body": null, "form": {}, "files": {}, "save_to": "/ctf/target_root.html", "session_name": "default", "follow_redirects": true, "timeout": 20}' <<'PY'
+import json, sys
+from pathlib import Path
+from http.cookiejar import MozillaCookieJar
+import requests
+spec = json.loads(sys.argv[1])
+session_name = spec.get('session_name') or 'default'
+session_dir = Path('/ctf/.sessions')
+session_dir.mkdir(parents=True, exist_ok=True)
+cookie_path = session_dir / f"{session_name}.cookies.txt"
+jar = MozillaCookieJar(str(cookie_path))
+if cookie_path.exists():
+    try:
+        jar.load(ignore_discard=True, ignore_expires=True)
+    except Exception:
+        pass
+sess = requests.Session()
+sess.cookies = jar
+files_spec = spec.get('files') or {}
+req_files = None
+opened_handles = []
+def ctf_path(value):
+    raw = str(value or '')
+    if raw.startswith('/ctf/'):
+        return Path(raw)
+    return Path('/ctf') / raw.lstrip('/')
+if files_spec:
+    req_files = {}
+    for field, val in files_spec.items():
+        if isinstance(val, dict):
+            fpath_full = ctf_path(val.get('path'))
+            fname = val.get('filename') or fpath_full.name
+            mime = val.get('mime_type') or val.get('mime') or 'application/octet-stream'
+            fh = open(fpath_full, 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fname, fh, mime)
+        elif isinstance(val, list) and len(val) >= 2:
+            fname, fpath = val[0], val[1]
+            mime = val[2] if len(val) > 2 else 'application/octet-stream'
+            fh = open(ctf_path(fpath), 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fname, fh, mime)
+        else:
+            fpath_full = ctf_path(val)
+            fh = open(fpath_full, 'rb')
+            opened_handles.append(fh)
+            req_files[field] = (fpath_full.name, fh, 'application/octet-stream')
+try:
+    if req_files:
+        resp = sess.request(
+            spec.get('method', 'GET').upper(),
+            spec['url'],
+            headers=spec.get('headers') or None,
+            data=spec.get('form') or None,
+            files=req_files,
+            allow_redirects=bool(spec.get('follow_redirects', True)),
+            timeout=int(spec.get('timeout') or 20),
+        )
+    else:
+        resp = sess.request(
+            spec.get('method', 'GET').upper(),
+            spec['url'],
+            headers=spec.get('headers') or None,
+            data=spec.get('body') if spec.get('body') is not None else (spec.get('form') or None),
+            json=spec.get('json_body'),
+            allow_redirects=bool(spec.get('follow_redirects', True)),
+            timeout=int(spec.get('timeout') or 20),
+        )
+finally:
+    for fh in opened_handles:
+        try: fh.close()
+        except Exception: pass
+sess.cookies.save(ignore_discard=True, ignore_expires=True)
+save_to = (spec.get('save_to') or '').lstrip('/')
+saved_path = ''
+if save_to:
+    dest = Path('/ctf') / save_to
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(resp.content)
+    saved_path = str(dest)
+print(f'STATUS {resp.status_code}')
+print(f'FINAL_URL {resp.url}')
+print(f'COOKIE_JAR {cookie_path}')
+if saved_path:
+    print(f'SAVED_TO {saved_path}')
+for key, value in list(resp.headers.items())[:20]:
+    print(f'HEADER {key}: {value}')
+print('')
+print('BODY_PREVIEW')
+text = resp.text[:4000]
+print(text)
+PY
+STATUS 200
+FINAL_URL http://4ab4a0fedd73.markdown2.ctf.theromanxpl0.it/
+COOKIE_JAR /ctf/.sessions/default.cookies.txt
+SAVED_TO /ctf/ctf/target_root.html
+HEADER Content-Length: 420
+HEADER Content-Security-Policy: default-src 'none'; style-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none';
+HEADER Content-Type: text/html; charset=utf-8
+HEADER Date: Sat, 25 Apr 2026 02:20:35 GMT
+HEADER Server: Werkzeug/3.1.8 Python/3.11.2
+
+BODY_PREVIEW
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Markdown Renderer</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+  <div class="container">
+    <form method="get"> <textarea name="markdown" autofocus
+        placeholder="Type your markdown here..."># Hello world</textarea> <button type="submit">Render</button>
+    </form>
+    <h1>Hello world</h1>
+
+  </div>
+</body>
+
+</html>
+[2026-04-25T02:20:33Z] EXIT 0
+
+[2026-04-25T02:20:40Z] CMD sed -n '1,200p' /ctf/target_root.html
+sed: can't read /ctf/target_root.html: No such file or directory
+[2026-04-25T02:20:40Z] EXIT 2
+
+[2026-04-25T02:20:49Z] CMD sed -n '1,200p' /ctf/ctf/target_root.html
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Markdown Renderer</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+  <div class="container">
+    <form method="get"> <textarea name="markdown" autofocus
+        placeholder="Type your markdown here..."># Hello world</textarea> <button type="submit">Render</button>
+    </form>
+    <h1>Hello world</h1>
+
+  </div>
+</body>
+
+</html>[2026-04-25T02:20:49Z] EXIT 0
+
+[2026-04-25T02:20:56Z] CMD file web-markdown21.zip && unzip -l web-markdown21.zip
+web-markdown21.zip: Zip archive data, made by v2.0 UNIX, extract using at least v2.0, last modified Mar 24 2026 15:26:54, uncompressed size 0, method=store
+Archive:  web-markdown21.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+        0  2026-03-24 14:26   bot/
+     1255  2026-03-24 14:24   bot/bot.js
+      581  2025-10-16 11:13   bot/index.js
+       81  2026-03-24 14:22   bot/package.json
+    68894  2026-03-24 14:22   bot/package-lock.json
+        0  2025-10-15 22:19   config/
+      523  2025-10-15 22:19   config/supervisord.conf
+      115  2025-10-15 22:21   docker-compose.yml
+      867  2026-03-30 20:02   Dockerfile
+        0  2026-03-30 20:02   src/
+     1248  2026-03-24 13:50   src/app.py
+        0  2025-10-12 21:40   src/templates/
+      451  2026-03-24 14:17   src/templates/index.html
+        0  2026-03-10 11:19   src/static/
+      484  2025-10-12 21:52   src/static/styles.css
+---------                     -------
+    74499                     15 files
+[2026-04-25T02:20:56Z] EXIT 0
+
+[2026-04-25T02:20:58Z] CMD mkdir -p '/ctf/web-src' && unzip -o  '/ctf/web-markdown21.zip' -d '/ctf/web-src' 2>&1 && find '/ctf/web-src' -maxdepth 3 -type f | sed 's#^/ctf/##' | sort | head -80
+Archive:  /ctf/web-markdown21.zip
+   creating: /ctf/web-src/bot/
+  inflating: /ctf/web-src/bot/bot.js  
+  inflating: /ctf/web-src/bot/index.js  
+  inflating: /ctf/web-src/bot/package.json  
+  inflating: /ctf/web-src/bot/package-lock.json  
+   creating: /ctf/web-src/config/
+  inflating: /ctf/web-src/config/supervisord.conf  
+  inflating: /ctf/web-src/docker-compose.yml  
+  inflating: /ctf/web-src/Dockerfile  
+   creating: /ctf/web-src/src/
+  inflating: /ctf/web-src/src/app.py  
+   creating: /ctf/web-src/src/templates/
+  inflating: /ctf/web-src/src/templates/index.html  
+   creating: /ctf/web-src/src/static/
+  inflating: /ctf/web-src/src/static/styles.css  
+web-src/Dockerfile
+web-src/bot/bot.js
+web-src/bot/index.js
+web-src/bot/package-lock.json
+web-src/bot/package.json
+web-src/config/supervisord.conf
+web-src/docker-compose.yml
+web-src/src/app.py
+web-src/src/static/styles.css
+web-src/src/templates/index.html
+[2026-04-25T02:20:58Z] EXIT 0
+
+[2026-04-25T02:20:59Z] CMD grep -rE '[A-Za-z0-9_]{2,24}\{[^{}\n]{1,220}\}' '/ctf/web-src' 2>/dev/null | head -30
+[2026-04-25T02:20:59Z] EXIT 0
+
+[2026-04-25T02:21:00Z] CMD sed -n '1,240p' /ctf/web-src/src/app.py
+import requests
+import bleach
+import markdown2
+from markupsafe import Markup
+from flask import Flask, render_template, request
+
+app = Flask(__name__)
+
+@app.get("/")
+def index():
+    md = request.args.get("markdown", "# Hello world")
+
+    # remove xss attempts
+    safe_md = bleach.clean(
+        md,
+        tags=[],
+        attributes={},
+        protocols=[],
+        strip=True,
+        strip_comments=True,
+    )
+
+    # Convert markdown to html
+    # use safe_mode to prevent further xss attempts
+    html = Markup(markdown2.markdown(safe_md, safe_mode="escape"))
+
+    response = render_template(
+        "index.html",
+        markdown_input=md,
+        html_output=html,
+    )
+
+    response = app.make_response(response)
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; "
+        "style-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "form-action 'self'; "
+        "base-uri 'none'; "
+        "frame-ancestors 'none'; "
+        "object-src 'none';"
+    )
+
+    return response
+
+@app.post("/report")
+def report():
+    url = request.form.get("url")
+    if not url:
+        return {"result": "no url"}
+    return {"result": requests.post("http://localhost:3000/report", json={"url": url}).text}[2026-04-25T02:21:00Z] EXIT 0
+
+[2026-04-25T02:21:03Z] CMD sed -n '1,240p' /ctf/web-src/src/templates/index.html
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Markdown Renderer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+
+<body>
+  <div class="container">
+    <form method="get"> <textarea name="markdown" autofocus
+        placeholder="Type your markdown here...">{{ markdown_input }}</textarea> <button type="submit">Render</button>
+    </form>
+    {{ html_output }}
+  </div>
+</body>
+
+</html>[2026-04-25T02:21:03Z] EXIT 0
+
+[2026-04-25T02:21:07Z] CMD sed -n '1,240p' /ctf/web-src/bot/index.js
+import express from "express";
+
+import { visit } from "./bot.js";
+
+const PORT = "3000"
+
+const app = express();
+
+app.use(express.json());
+app.use(express.static("public"));
+
+app.post("/report", async (req, res) => {
+  const { url } = req.body;
+  if (
+    typeof url !== "string" ||
+    (!url.startsWith("http://") && !url.startsWith("https://"))
+  ) {
+    return res.status(400).send("Invalid url");
+  }
+
+  try {
+    visit(url);
+    return res.status(200).send(`Visiting...`);
+  } catch (e) {
+    return res.status(500).send(`Something went wrong: ${e}`);
+  }
+});
+
+app.listen(PORT);[2026-04-25T02:21:07Z] EXIT 0
+
+[2026-04-25T02:21:16Z] CMD sed -n '1,240p' /ctf/web-src/bot/bot.js
+import puppeteer from "puppeteer";
+
+const FLAG = process.env.FLAG ?? console.log("No flag") ?? process.exit(1);
+
+const APP_PORT = process.env.PORT || "1337";
+const APP_URL = `http://localhost:${APP_PORT}`;
+
+if (!/^TRX{\w+}$/.test(FLAG)) {
+  console.log("Bad flag");
+  process.exit(1);
+}
+
+const sleep = async (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const visit = async (url) => {
+  console.log(`start: ${url}`);
+
+  const browser = await puppeteer.launch({
+    headless: "new",
+    executablePath: "/usr/bin/chromium",
+    args: [
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      '--js-flags="--noexpose_wasm"',
+    ],
+  });
+
+  const context = await browser.createBrowserContext();
+
+  try {
+    const page1 = await context.newPage();
+
+    await page1.goto(APP_URL, { timeout: 3_000 });
+    await page1.evaluate((flag) => {
+      localStorage.setItem("flag", flag);
+    }, FLAG);
+    await sleep(1_000);
+    await page1.close();
+
+    const page2 = await context.newPage();
+    await page2.goto(url, { timeout: 5_000 });
+    await sleep(5_000);
+    await page2.close();
+  } catch (e) {
+    console.error(e);
+  }
+
+  await context.close();
+  await browser.close();
+
+  console.log(`end: ${url}`);
+};
+[2026-04-25T02:21:16Z] EXIT 0
+

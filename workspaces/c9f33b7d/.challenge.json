@@ -1,0 +1,37 @@
+{
+  "id": "c9f33b7d",
+  "name": "rainbet",
+  "category": "rev",
+  "flag_format": "",
+  "description": "sponsored by rainbet (for legal reasons this is not true). their rng backend was leaked (for legal reasons this is also not true)! can you get enough max wins?\n\nrainbet.challs.umdctf.io",
+  "tags": [],
+  "target": {
+    "url": "",
+    "host": "",
+    "port": "",
+    "protocol": "",
+    "entrypoint": "",
+    "instance_label": "",
+    "username": "",
+    "password": "",
+    "access_code": "",
+    "proxy": "",
+    "http_proxy": "",
+    "https_proxy": "",
+    "socks_proxy": "",
+    "no_proxy": "",
+    "cookies": "",
+    "headers": "",
+    "extra_env": "",
+    "notes": ""
+  },
+  "source_meta": {
+    "platform": "",
+    "event": "",
+    "challenge_id": "",
+    "points": ""
+  },
+  "credentials": [],
+  "notes": "",
+  "updated_at": "2026-04-25T01:19:15.615705Z"
+}
