@@ -1495,12 +1495,15 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 .chat-msg.user {
   align-self: flex-end;
   width: auto;
-  max-width: min(620px, 86%);
-  background: var(--accent);
-  color: white;
-  border-radius: 8px;
-  padding: 9px 12px;
-  line-height: 1.5;
+  max-width: min(560px, 82%);
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border2);
+  border-radius: 12px 12px 4px 12px;
+  padding: 8px 13px;
+  margin: 6px 0;
+  font-size: 14px;
+  line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -1609,6 +1612,43 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   font-family: var(--font-sans); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s;
 }
 .comp-add:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+/* Challenge importer */
+.import-help { font-size: 12.5px; line-height: 1.55; color: var(--text-dim); margin-bottom: 14px; }
+.import-help code { font-family: var(--font-mono); font-size: 11px; background: var(--bg3); padding: 1px 5px; border-radius: 4px; color: var(--text); }
+.import-status { font-size: 12px; color: var(--text-muted); }
+.import-status.err { color: var(--danger, #d9534f); }
+.import-status.ok { color: var(--accent); }
+.import-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.import-toolbar input { flex: 1; }
+.import-count { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.import-quick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.import-chip {
+  font-family: var(--font-mono); font-size: 10.5px; padding: 4px 9px; border-radius: 999px;
+  border: 1px solid var(--border2); background: var(--bg2); color: var(--text-dim);
+  cursor: pointer; transition: all 0.13s;
+}
+.import-chip:hover { border-color: var(--accent); color: var(--accent); }
+.import-list { max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.import-cat-group { }
+.import-cat-head {
+  display: flex; align-items: center; gap: 8px; padding: 4px 2px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted);
+}
+.import-cat-head .import-cat-count { color: var(--text-dim); }
+.import-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg2); cursor: pointer; transition: all 0.13s;
+}
+.import-row:hover { border-color: var(--border2); }
+.import-row.sel { border-color: var(--accent); background: var(--accent-soft); }
+.import-row input[type=checkbox] { accent-color: var(--accent); flex-shrink: 0; }
+.import-row .import-row-main { flex: 1; min-width: 0; }
+.import-row .import-row-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.import-row .import-row-sub { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+.import-row.done { opacity: 0.5; }
+.import-row.done .import-row-name::after { content: ' ✓ imported'; color: var(--accent); font-weight: 500; }
+.import-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 
 /* Searchable model picker */
 #model-picker { position: relative; }
@@ -2045,6 +2085,7 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
           <span class="tokens" id="dash-cost-tokens"></span>
         </div>
         <button class="btn btn-ghost" id="btn-run-all" title="Launch the agent on every unsolved challenge, one at a time, unattended">&#9654; Run All</button>
+        <button class="btn btn-ghost" id="btn-import" title="Import challenges from a CTF platform">&#8681; Import</button>
         <button class="btn btn-primary" id="btn-new-challenge">+ New Challenge</button>
       </div>
     </div>
@@ -2259,6 +2300,40 @@ thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
 </div>
 
 <!--  New Challenge Modal  -->
+<div class="modal-overlay" id="modal-import">
+  <div class="modal" style="width:min(680px,95vw)">
+    <div class="modal-header">
+      <div class="modal-title">Import from a CTF platform</div>
+      <button class="modal-close" data-close="modal-import">X</button>
+    </div>
+    <div class="modal-body">
+      <div id="import-connect-step">
+        <div class="import-help">Log into the CTF site in your browser, then paste your <b>session cookie</b> (from DevTools → Application → Cookies, e.g. <code>session=…</code>) or a CTFd <b>API token</b>. Challenges import into <b id="import-target-comp">the active competition</b>, with files, description, target, and a flag-submission link.</div>
+        <div class="field"><label>PLATFORM URL</label><input type="text" id="import-url" placeholder="https://ctf.example.com" autocomplete="off"></div>
+        <div class="field"><label>SESSION COOKIE or API TOKEN</label><input type="text" id="import-auth" placeholder="session=abc123…   or   ctfd_token…" autocomplete="off"></div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <a id="import-open-site" class="btn btn-sm btn-ghost" href="#" target="_blank" rel="noopener">Open site to log in ↗</a>
+          <button id="import-connect-btn" class="btn btn-sm btn-primary">Connect</button>
+          <span id="import-connect-status" class="import-status"></span>
+        </div>
+      </div>
+      <div id="import-select-step" hidden>
+        <div class="import-toolbar">
+          <input type="text" id="import-search" placeholder="Filter challenges…" autocomplete="off">
+          <span class="import-count" id="import-count"></span>
+        </div>
+        <div id="import-quick" class="import-quick"></div>
+        <div id="import-list" class="import-list"></div>
+        <div class="import-actions">
+          <button class="btn btn-sm btn-ghost" id="import-back">← Back</button>
+          <span id="import-run-status" class="import-status" style="margin-right:auto;"></span>
+          <button class="btn btn-sm btn-primary" id="import-run-btn">Import selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-new-comp">
   <div class="modal" style="width:min(440px,92vw)">
     <div class="modal-header">
@@ -3282,6 +3357,152 @@ async function createCompetition() {
   await loadChallengeSets();
   await loadChallenges();
   toast(`Created "${name}" — new challenges will go here.`, 'success');
+}
+
+/* ─── Challenge importer ─────────────────────────────────────────────────── */
+let _importConn = null;           // { platform, base, challenges:[...] }
+const _importSel = new Set();     // selected remote ids (as strings)
+const _importDone = new Set();    // ids already imported this session
+
+function openImport() {
+  const active = _compSets.find(s => s.active) || _compSets[0];
+  const tgt = document.getElementById('import-target-comp');
+  if (tgt) tgt.textContent = active ? `“${active.name}”` : 'the active competition';
+  // reset to step 1
+  _importConn = null; _importSel.clear();
+  document.getElementById('import-connect-step').hidden = false;
+  document.getElementById('import-select-step').hidden = true;
+  setImportStatus('import-connect-status', '');
+  setImportStatus('import-run-status', '');
+  openModal('modal-import');
+  setTimeout(() => document.getElementById('import-url')?.focus(), 60);
+}
+
+function setImportStatus(id, msg, kind) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = 'import-status' + (kind ? ' ' + kind : '');
+}
+
+function _importCreds() {
+  const url = (document.getElementById('import-url').value || '').trim();
+  const auth = (document.getElementById('import-auth').value || '').trim();
+  // Heuristic: a cookie has "=", a token usually doesn't.
+  const looksCookie = auth.includes('=');
+  return { url, cookie: looksCookie ? auth : '', token: looksCookie ? '' : auth };
+}
+
+async function importConnect() {
+  const { url, cookie, token } = _importCreds();
+  if (!url) { setImportStatus('import-connect-status', 'Enter the platform URL.', 'err'); return; }
+  setImportStatus('import-connect-status', 'Connecting…');
+  let res;
+  try {
+    res = await api('/api/import/connect', { method: 'POST', body: { url, cookie, token } });
+  } catch (e) {
+    setImportStatus('import-connect-status', (e && e.message) || 'Connection failed.', 'err');
+    return;
+  }
+  if (!res || res.error) { setImportStatus('import-connect-status', (res && res.error) || 'Connection failed.', 'err'); return; }
+  _importConn = res;
+  const n = (res.challenges || []).length;
+  setImportStatus('import-connect-status', `Connected — ${n} challenge${n === 1 ? '' : 's'}.`, 'ok');
+  document.getElementById('import-connect-step').hidden = true;
+  document.getElementById('import-select-step').hidden = false;
+  renderImportList('');
+}
+
+function renderImportList(filter) {
+  const list = document.getElementById('import-list');
+  if (!list || !_importConn) return;
+  const q = (filter || '').toLowerCase();
+  const chals = (_importConn.challenges || []).filter(c =>
+    !q || (c.name || '').toLowerCase().includes(q) || (c.category || '').toLowerCase().includes(q));
+  // group by category
+  const groups = {};
+  chals.forEach(c => { (groups[c.category] = groups[c.category] || []).push(c); });
+  const cats = Object.keys(groups).sort();
+  // quick-select chips
+  const quick = document.getElementById('import-quick');
+  if (quick) {
+    quick.innerHTML = `<span class="import-chip" data-q="all">Select all</span>` +
+      `<span class="import-chip" data-q="none">Clear</span>` +
+      `<span class="import-chip" data-q="unsolved">Unsolved only</span>` +
+      cats.map(cat => `<span class="import-chip" data-q="cat:${escHtml(cat)}">+ ${escHtml(cat)}</span>`).join('');
+    quick.querySelectorAll('.import-chip').forEach(chip =>
+      chip.addEventListener('click', () => importQuickSelect(chip.getAttribute('data-q'))));
+  }
+  list.innerHTML = cats.map(cat => `
+    <div class="import-cat-group">
+      <div class="import-cat-head">${escHtml(cat)} <span class="import-cat-count">· ${groups[cat].length}</span></div>
+      ${groups[cat].map(c => {
+        const id = String(c.id);
+        const sel = _importSel.has(id);
+        const done = _importDone.has(id);
+        return `<div class="import-row${sel ? ' sel' : ''}${done ? ' done' : ''}" data-id="${escHtml(id)}">
+          <input type="checkbox" ${sel ? 'checked' : ''} ${done ? 'disabled' : ''}>
+          <div class="import-row-main">
+            <div class="import-row-name">${escHtml(c.name)}</div>
+            <div class="import-row-sub">${c.value != null ? c.value + ' pts · ' : ''}${escHtml(c.raw_category || c.category)}${c.solved ? ' · solved' : ''}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`).join('') || '<div class="import-help" style="margin:0">No challenges match.</div>';
+  list.querySelectorAll('.import-row').forEach(row => {
+    if (row.classList.contains('done')) return;
+    row.addEventListener('click', (e) => {
+      const id = row.getAttribute('data-id');
+      if (_importSel.has(id)) _importSel.delete(id); else _importSel.add(id);
+      row.classList.toggle('sel', _importSel.has(id));
+      const cb = row.querySelector('input'); if (cb) cb.checked = _importSel.has(id);
+      updateImportCount();
+    });
+  });
+  updateImportCount();
+}
+
+function importQuickSelect(q) {
+  const chals = (_importConn.challenges || []);
+  if (q === 'all') chals.forEach(c => { if (!_importDone.has(String(c.id))) _importSel.add(String(c.id)); });
+  else if (q === 'none') _importSel.clear();
+  else if (q === 'unsolved') { _importSel.clear(); chals.forEach(c => { if (!c.solved && !_importDone.has(String(c.id))) _importSel.add(String(c.id)); }); }
+  else if (q.startsWith('cat:')) { const cat = q.slice(4); chals.forEach(c => { if (c.category === cat && !_importDone.has(String(c.id))) _importSel.add(String(c.id)); }); }
+  renderImportList(document.getElementById('import-search').value || '');
+}
+
+function updateImportCount() {
+  const el = document.getElementById('import-count');
+  if (el) el.textContent = _importSel.size ? `${_importSel.size} selected` : '';
+}
+
+async function importRun() {
+  if (!_importConn || !_importSel.size) { setImportStatus('import-run-status', 'Select at least one challenge.', 'err'); return; }
+  const { cookie, token } = _importCreds();
+  const ids = [..._importSel];
+  const btn = document.getElementById('import-run-btn');
+  if (btn) btn.disabled = true;
+  setImportStatus('import-run-status', `Importing ${ids.length}…`);
+  let res;
+  try {
+    res = await api('/api/import/run', { method: 'POST', body: { url: _importConn.base, ids, cookie, token } });
+  } catch (e) {
+    setImportStatus('import-run-status', (e && e.message) || 'Import failed.', 'err');
+    if (btn) btn.disabled = false;
+    return;
+  }
+  if (btn) btn.disabled = false;
+  if (!res || res.error) { setImportStatus('import-run-status', (res && res.error) || 'Import failed.', 'err'); return; }
+  const created = (res.created || []).length, failed = (res.failed || []).length;
+  ids.forEach(id => _importDone.add(id));
+  _importSel.clear();
+  const totalFiles = (res.created || []).reduce((n, c) => n + (c.files || []).length, 0);
+  setImportStatus('import-run-status',
+    `Imported ${created}${totalFiles ? ` · ${totalFiles} file${totalFiles === 1 ? '' : 's'}` : ''}${failed ? ` · ${failed} failed` : ''}.`, 'ok');
+  renderImportList(document.getElementById('import-search').value || '');
+  await loadChallengeSets();
+  await loadChallenges();
+  toast(`Imported ${created} challenge${created === 1 ? '' : 's'}.`, 'success');
 }
 
 async function loadChallenges() {
@@ -4559,6 +4780,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const compNameInput = document.getElementById('new-comp-name');
   if (compNameInput) compNameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') createCompetition(); });
   document.addEventListener('click', (e) => { if (!e.target.closest('#comp-picker')) closeCompPanel(); });
+  // Challenge importer
+  const btnImport = document.getElementById('btn-import');
+  if (btnImport) btnImport.addEventListener('click', openImport);
+  const importConnectBtn = document.getElementById('import-connect-btn');
+  if (importConnectBtn) importConnectBtn.addEventListener('click', importConnect);
+  const importUrl = document.getElementById('import-url');
+  if (importUrl) {
+    importUrl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('import-auth')?.focus(); } });
+    const syncOpen = () => {
+      let u = (importUrl.value || '').trim();
+      if (u && !/^https?:\/\//i.test(u)) u = 'https://' + u;
+      const a = document.getElementById('import-open-site');
+      if (a) a.href = u || '#';
+    };
+    importUrl.addEventListener('input', syncOpen); syncOpen();
+  }
+  const importAuth = document.getElementById('import-auth');
+  if (importAuth) importAuth.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); importConnect(); } });
+  const importSearch = document.getElementById('import-search');
+  if (importSearch) importSearch.addEventListener('input', () => renderImportList(importSearch.value));
+  const importBack = document.getElementById('import-back');
+  if (importBack) importBack.addEventListener('click', () => {
+    document.getElementById('import-select-step').hidden = true;
+    document.getElementById('import-connect-step').hidden = false;
+  });
+  const importRunBtn = document.getElementById('import-run-btn');
+  if (importRunBtn) importRunBtn.addEventListener('click', importRun);
   // Model picker + orb appearance
   updateModelTrigger();
   buildOrbSettings();

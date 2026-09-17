@@ -36,7 +36,7 @@ from db import (
 )
 from docker_mgr import (
     get_container, sync_challenge_uploads, image_exists, get_docker,
-    _containers, CONTAINER_PREFIX,
+    force_remove_container, _containers, CONTAINER_PREFIX,
 )
 from agent import _agents, _logs, _log_event, _load_log_events, CTFAgent
 from storage import (
@@ -669,6 +669,54 @@ def create_challenge():
     write_workspace_manifest(chal)
     _broadcast_challenge(chal)
     return jsonify(_challenge_payload(chal))
+
+
+# ── CTF platform importer ─────────────────────────────────────────────────────
+@app.route("/api/import/connect", methods=["POST"])
+def import_connect():
+    import importer
+    data = request.get_json(force=True) or {}
+    try:
+        return jsonify(importer.connect(data.get("url", ""), data.get("cookie", ""), data.get("token", "")))
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 401
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/import/run", methods=["POST"])
+def import_run():
+    import importer
+    data = request.get_json(force=True) or {}
+    ids = data.get("ids") or []
+    if not ids:
+        return jsonify({"error": "No challenges selected."}), 400
+
+    def _create(ch: dict) -> str:
+        with _db_lock:
+            chals = _load_challenges_unlocked()
+            ch = dict(ch)
+            ch["id"] = str(uuid.uuid4())[:8]
+            ch.setdefault("created_at", utc_now_iso())
+            ch["last_activity_at"] = utc_now_iso()
+            chal = apply_challenge_defaults(ch)
+            chals.append(chal)
+            _save_challenges_unlocked(chals)
+        return chal["id"]
+
+    try:
+        result = importer.import_challenges(
+            data.get("url", ""), ids, data.get("cookie", ""), data.get("token", ""), create_fn=_create)
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 401
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    for c in result.get("created", []):
+        if c.get("cid"):
+            ch = get_challenge(c["cid"])
+            if ch:
+                _broadcast_challenge(ch)
+    return jsonify(result)
 
 
 @app.route("/api/challenges/<cid>", methods=["GET"])
@@ -1506,9 +1554,9 @@ def stop_agent(cid):
 def reset_container(cid):
     if cid in _agents:
         _agents[cid].stop()
-    if cid in _containers:
-        _containers[cid].stop()
-        del _containers[cid]
+    # Authoritatively remove the real container (by name) — not just one this process happens
+    # to track — so a stale/dead container can't linger after reset.
+    force_remove_container(cid)
     _manual_mode_cids.discard(cid)
     _logs.pop(cid, None)
     try:

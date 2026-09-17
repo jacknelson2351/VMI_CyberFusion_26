@@ -8,6 +8,8 @@ from flask_socketio import SocketIO
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config["SECRET_KEY"] = "ctf-agent-secret"
 app.config["MAX_CONTENT_LENGTH"] = 256 * 1024 * 1024  # 256 MB max upload
+app.config["TEMPLATES_AUTO_RELOAD"] = True  # re-read templates on change (single-file UI, frequent edits)
+app.jinja_env.auto_reload = True
 
 # Flask 3.x removed RequestContext.session setter; disable server-managed sessions
 # to avoid Socket.IO setting ctx.session (not needed here).

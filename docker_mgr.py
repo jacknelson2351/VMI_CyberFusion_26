@@ -58,12 +58,17 @@ class ContainerConnection:
             command="sleep infinity",
             detach=True,
             remove=False,
-            mem_limit="2g",
+            mem_limit="4g",
             cpu_period=100000,
             cpu_quota=200000,
             network_mode="bridge",
             privileged=False,
-            security_opt=["no-new-privileges"],
+            # SYS_PTRACE + unconfined seccomp are required for gdb/ltrace/strace dynamic
+            # analysis inside the container; without them gdb `run`/`starti` fail with
+            # `PTRACE_GETREGS: Input/output error`, which silently killed all rev/pwn
+            # dynamic work. We drop "no-new-privileges" because it blocks ptrace attach.
+            cap_add=["SYS_PTRACE"],
+            security_opt=["seccomp=unconfined"],
             working_dir="/ctf",
             environment=env,
             volumes={
@@ -72,6 +77,47 @@ class ContainerConnection:
                     "mode": "rw",
                 }
             },
+        )
+        self.run("mkdir -p /ctf /ctf/.sessions /ctf/.artifacts")
+        self._verify_mount()
+        # Drop stale venvs created without --system-site-packages (they hid the image's
+        # pre-installed pwntools/z3/capstone/numpy from the agent and caused a cascade of
+        # bogus ModuleNotFoundError failures). They get recreated correctly on next use.
+        self.run(
+            "if [ -f /ctf/.venv/pyvenv.cfg ] && "
+            "! grep -qi 'include-system-site-packages *= *true' /ctf/.venv/pyvenv.cfg; "
+            "then rm -rf /ctf/.venv; fi"
+        )
+
+    def _host_files(self) -> list[str]:
+        """Non-hidden files present in the host workspace (the mount source)."""
+        try:
+            return [p.name for p in self.workspace.iterdir() if p.is_file() and not p.name.startswith(".")]
+        except Exception:
+            return []
+
+    def _verify_mount(self):
+        """Guard against Docker Desktop bind-mount races: if the host workspace has files but
+        /ctf came up empty, the mount didn't attach — remove and recreate once so the agent
+        never sees an empty, 'dead' container. Also fails loudly if the container isn't running."""
+        host_files = self._host_files()
+        if not host_files:
+            return  # nothing to mount; empty /ctf is expected for a fresh challenge
+        seen = self.run("ls -A1 /ctf 2>/dev/null | grep -v '^\\.' | head -1", timeout=15)
+        if (seen or "").strip():
+            return  # mount is live
+        # Mount looks empty despite host files — recreate the container once.
+        name = f"{CONTAINER_PREFIX}{self.cid}"
+        try:
+            get_docker().containers.get(name).remove(force=True)
+        except Exception:
+            pass
+        self.container = get_docker().containers.run(
+            IMAGE_NAME, name=name, command="sleep infinity", detach=True, remove=False,
+            mem_limit="4g", cpu_period=100000, cpu_quota=200000, network_mode="bridge",
+            privileged=False, cap_add=["SYS_PTRACE"], security_opt=["seccomp=unconfined"],
+            working_dir="/ctf", environment={"TERM": "xterm-256color"},
+            volumes={str(self.workspace): {"bind": "/ctf", "mode": "rw"}},
         )
         self.run("mkdir -p /ctf /ctf/.sessions /ctf/.artifacts")
 
@@ -84,7 +130,7 @@ class ContainerConnection:
                 if "/ctf/.venv/bin/activate" in cmd:
                     cmd = cmd.replace("source /ctf/.venv/bin/activate && ", "")
                     cmd = re.sub(r"^\s*python(3(\.\d+)*)?\b", "/ctf/.venv/bin/python", cmd, count=1)
-                    cmd = "python3 -m venv /ctf/.venv >/dev/null 2>&1 || true; " + cmd
+                    cmd = "test -d /ctf/.venv || python3 -m venv --system-site-packages /ctf/.venv >/dev/null 2>&1; " + cmd
                 qcmd = _shell_quote(cmd)
                 exec_cmd = f"bash -lc {qcmd}"
                 if timeout and int(timeout) > 0:
@@ -120,11 +166,14 @@ class ContainerConnection:
                     "} 2>&1 | tee -a \"$LOG\"; "
                     "exit ${PIPESTATUS[0]}"
                 )
-                _, output = self.container.exec_run(
+                exit_code, output = self.container.exec_run(
                     ["bash", "-lc", wrapped], workdir="/ctf",
                     demux=False
                 )
-                return (output or b"").decode("utf-8", errors="replace").strip()
+                result = (output or b"").decode("utf-8", errors="replace").strip()
+                if exit_code == 124:
+                    result = (result + "\n" if result else "") + f"[TIMEOUT after {timeout}s — set long_running:true for slow operations like hashcat/sqlmap/volatility]"
+                return result
             except Exception as e:
                 return f"[exec error: {e}]"
 
@@ -191,6 +240,24 @@ def get_container(cid: str) -> ContainerConnection:
         _containers[cid] = ContainerConnection(cid)
         _containers[cid].start()
     return _containers[cid]
+
+
+def force_remove_container(cid: str):
+    """Authoritatively remove a challenge's Docker container by name, whether or not this
+    process tracks it in `_containers` (e.g. after a server restart). Without this, Reset
+    silently leaves a stale container running and 'start again' fights a dead husk."""
+    conn = _containers.pop(cid, None)
+    if conn:
+        try:
+            conn.stop()
+        except Exception:
+            pass
+    try:
+        get_docker().containers.get(f"{CONTAINER_PREFIX}{cid}").remove(force=True)
+    except docker.errors.NotFound:
+        pass
+    except Exception:
+        pass
 
 
 def sync_challenge_uploads(cid: str, container: ContainerConnection):
