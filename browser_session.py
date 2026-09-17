@@ -152,19 +152,16 @@ class BrowserSession:
 
     # ── worker thread ────────────────────────────────────────────────────────
     def _launch(self, pw):
-        """Headed (beats Cloudflare) if the server has a display; else headless 'new' as a fallback
-        so a display-less VPS still works (screencast works in both)."""
+        """ALWAYS headless — Big Stein runs on a (possibly remote) server, so it must never pop a
+        Chromium window on that machine. We stream the page via CDP instead. Chromium's new headless
+        mode renders a real browser (far less bot-detectable than old headless) with no window."""
         _PROFILE_DIR.mkdir(parents=True, exist_ok=True)
         _reap_profile()
-        common = dict(user_agent=_UA, locale="en-US", viewport=self.viewport,
-                      ignore_default_args=["--enable-automation"])
-        try:
-            return pw.chromium.launch_persistent_context(str(_PROFILE_DIR), headless=False,
-                                                          args=_LAUNCH_ARGS, **common)
-        except Exception:
-            return pw.chromium.launch_persistent_context(str(_PROFILE_DIR), headless=True,
-                                                         args=[a for a in _LAUNCH_ARGS if not a.startswith("--window")],
-                                                         **common)
+        return pw.chromium.launch_persistent_context(
+            str(_PROFILE_DIR), headless=True,
+            args=_LAUNCH_ARGS + ["--headless=new"],
+            user_agent=_UA, locale="en-US", viewport=self.viewport,
+            ignore_default_args=["--enable-automation"])
 
     def _run(self, start_url: str):
         try:
@@ -318,11 +315,11 @@ class BrowserSession:
             ap = page.context.new_page()
             self._agent_page = ap
         try:
-            ap.goto(url, timeout=30000, wait_until="domcontentloaded")
+            ap.goto(url, timeout=20000, wait_until="domcontentloaded")
             try:
-                ap.wait_for_load_state("networkidle", timeout=4000)
+                ap.wait_for_load_state("networkidle", timeout=1500)
             except Exception:
-                ap.wait_for_timeout(500)
+                pass
             text = ap.evaluate("() => (document.body && document.body.innerText || '')")
             links = ap.evaluate(
                 """() => {

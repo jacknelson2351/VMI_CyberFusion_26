@@ -1811,11 +1811,12 @@ details:not([open]) .accordion-icon::before { content: '+'; }
   font-family: var(--font-mono); font-size: 11px;
 }
 /* Orb color: user override (Settings → Appearance) falls back to the clay accent. */
-thinking-orb.agent-orb, thinking-orb#orb-preview, .orb-anim-opt thinking-orb {
+thinking-orb.agent-orb, thinking-orb#orb-preview, .orb-anim-opt thinking-orb, thinking-orb.import-orb {
   --orb-color-dark: var(--user-orb-dark, #d97757);
   --orb-color-light: var(--user-orb-light, #cc785c);
 }
 thinking-orb.agent-orb { flex-shrink: 0; display: block; line-height: 0; }
+thinking-orb.import-orb { flex-shrink: 0; display: inline-block; line-height: 0; vertical-align: middle; transform: scale(1.35); transform-origin: center; margin: 0 6px; }
 /* Render the inline orb bigger visually while keeping its 20px layout box (transform doesn't
    affect layout), so the chat footer height never changes. */
 .agent-orb.inline { vertical-align: middle; display: inline-block; transform: scale(1.45); transform-origin: center; margin: 0 6px; }

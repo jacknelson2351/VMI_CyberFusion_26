@@ -814,18 +814,24 @@ Work in a loop. Each step, reply with EXACTLY ONE JSON object and nothing else:
   {"thought":"...", "action":"save",  "challenge":{"name":"...", "category":"web|pwn|crypto|rev|forensics|osint|network|misc", "description":"...", "source_url":"<page url>", "file_urls":["<absolute file url>", ...]}}
   {"thought":"...", "action":"say",   "message":"<message to the operator>"}   — finish this turn
 
-Rules:
-- Start by opening the page the operator is on (given below) or a listing/challenges page, and follow \
-links to find individual challenges. Prefer absolute URLs from the links you're given.
+Be direct and fast — do the minimum browsing needed:
+- Open the page the operator is on FIRST. It usually lists the challenges directly, or links to them.
+  Work ONLY from that page and the links on it. Do NOT wander to site-wide search, /library, or
+  dashboard pages — the operator already navigated to what they want; trust that page.
+- NEVER re-open a page you've already read. Never guess/enumerate URLs by incrementing ids — only
+  follow links you were actually given.
+- If you genuinely can't find what was asked on the current page or its links, say() and ask the
+  operator to navigate the login browser to the exact page — don't keep exploring.
+- If the current page already shows a challenge (title + prompt + file links), save it straight away
+  without opening more pages. Open a sub-page only when you need its prompt/files.
 - category must be one of the allowed values; infer it, default "misc".
-- Put the challenge's real prompt/description in description. Include any connection info (nc host port, \
-URLs) in the description.
-- file_urls: ALWAYS include every downloadable file link visible on the challenge page — \
-attachments, handouts, and artifact links (e.g. .zip/.tar/.key/.enc/.bin/.pcap or anything under an \
-artifacts/download host). Copy the full absolute URLs from the page's links. Only omit if there are none.
-- Only save real challenges the operator asked for. Don't save nav pages or duplicates.
-- Use "say" when you've imported what was asked, need clarification, or can't find anything. Keep it short.
-- Budget: at most %(max_steps)d steps. Save challenges as you find them rather than all at the end."""
+- description = the challenge's real prompt text (include any connection info like `nc host port`).
+- file_urls: include every downloadable file link on the challenge page (attachments, handouts,
+  artifact links — .zip/.key/.enc/.bin/.pcap or anything under an artifacts/download host), as full
+  absolute URLs copied from the page's links. Omit only if there are genuinely none.
+- Save exactly what the operator asked for — no nav pages, no duplicates.
+- Finish with say() as soon as you've imported what was asked; keep the message to one short sentence.
+- Hard budget: %(max_steps)d steps. Don't waste them — favor saving over exploring."""
 
 
 def _import_agent_step(msgs, model_ref):
@@ -852,7 +858,7 @@ def _import_agent_step(msgs, model_ref):
 _import_agent_cancel = set()   # sids that asked the running import agent to stop
 
 
-def _run_import_agent(sid, base, start_url, user_msg, history, model_ref, max_steps=16):
+def _run_import_agent(sid, base, start_url, user_msg, history, model_ref, max_steps=30):
     import browser_session, importer
     _import_agent_cancel.discard(sid)
     sess = browser_session.get_session()
@@ -872,6 +878,7 @@ def _run_import_agent(sid, base, start_url, user_msg, history, model_ref, max_st
                  f"You are logged in at: {start_url or base}\nBase site: {base}\n\nInstruction: {user_msg}"})
 
     saved = []
+    visited = set()
     for _ in range(max_steps):
         if sid in _import_agent_cancel:
             _import_agent_cancel.discard(sid)
@@ -896,6 +903,12 @@ def _run_import_agent(sid, base, start_url, user_msg, history, model_ref, max_st
 
         if action == "open":
             url = (act.get("url") or "").strip()
+            if url in visited:
+                msgs.append({"role": "user", "content":
+                             f"OBSERVATION: you already read {url}. Don't re-open pages — open a "
+                             f"challenge link you haven't visited, save a challenge, or say() if done."})
+                continue
+            visited.add(url)
             if thought:
                 emit_step(thought)
             emit_step(f"Reading {url}", "open")
