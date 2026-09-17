@@ -81,6 +81,23 @@ def _trim_text(value: str, limit: int = 260) -> str:
     return v[:limit] + "..."
 
 
+def _provider_slug(spec) -> str:
+    """Short provider slug for UI logos (openai / anthropic / shannon / openrouter / google / other)."""
+    ref = (getattr(spec, "api_key_ref", "") or "").lower()
+    url = (getattr(spec, "base_url", "") or "").lower()
+    mid = (getattr(spec, "model_id", "") or "").lower()
+    name = (getattr(spec, "name", "") or "").lower()
+    hay = f"{ref} {url} {mid} {name}"
+    if spec.provider_kind == "anthropic" or "anthropic" in hay or mid.startswith("claude"):
+        return "anthropic"
+    for slug in ("shannon", "openrouter", "deepinfra", "together", "groq", "mistral", "google", "gemini"):
+        if slug in hay:
+            return "gemini" if slug == "gemini" else slug
+    if "openai" in hay or mid.startswith(("gpt", "o1", "o3", "o4", "chatgpt")):
+        return "openai"
+    return "other"
+
+
 def _registry_launch_models(cfg: dict | None = None) -> list[dict]:
     """Launch-dropdown choices sourced from the provider registry. Falls back to the
     static LAUNCH_MODEL_CHOICES only if the registry is somehow empty."""
@@ -92,7 +109,16 @@ def _registry_launch_models(cfg: dict | None = None) -> list[dict]:
     for s in specs:
         price = f" · ${s.pricing[0]:g}/${s.pricing[1]:g}" if s.pricing else ""
         key_note = "" if s.has_key else " · no key"
-        out.append({"id": s.id, "label": f"{s.name}{price}{key_note}"})
+        out.append({
+            "id": s.id,
+            "label": f"{s.name}{price}{key_note}",
+            "name": s.name,
+            "provider": _provider_slug(s),
+            "price_in": s.pricing[0] if s.pricing else None,
+            "price_out": s.pricing[1] if s.pricing else None,
+            "has_key": s.has_key,
+            "vision": bool((s.caps or {}).get("vision", False)),
+        })
     return out
 
 
