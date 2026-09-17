@@ -738,6 +738,15 @@ def _run_import(url, ids, cookie="", token="", listing=None):
                                            create_fn=_create)
     else:
         result = importer.import_challenges(url, ids, cookie, token, create_fn=_create)
+    # Record downloaded files on each challenge so the challenge view shows them.
+    for c in result.get("created", []):
+        cid, files = c.get("cid"), c.get("files") or []
+        if cid and files:
+            try:
+                existing = (get_challenge(cid) or {}).get("files") or []
+                update_challenge(cid, files=list(dict.fromkeys([*existing, *files])))
+            except Exception:
+                pass
     for cid in created_new:
         ch = get_challenge(cid)
         if ch:
@@ -940,8 +949,16 @@ def _run_import_agent(sid, base, start_url, user_msg, history, model_ref, max_st
                 else:
                     why = "not logged-in / redirected to HTML" if is_html else f"HTTP {status}"
                     file_fails.append((full.rsplit("/", 1)[-1][:40], why))
+            # Record the downloaded files on the challenge so the challenge view shows them.
+            if files:
+                try:
+                    existing = (get_challenge(cid) or {}).get("files") or []
+                    merged = list(dict.fromkeys([*existing, *files]))
+                    update_challenge(cid, files=merged)
+                except Exception:
+                    pass
             chd = get_challenge(cid)
-            if chd and is_new:
+            if chd:
                 _broadcast_challenge(chd)
             if is_new:
                 saved.append({"name": name, "files": files})
