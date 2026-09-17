@@ -1479,45 +1479,33 @@ details:not([open]) .accordion-icon::before { content: '+'; }
 .agent-activity.running .activity-dot { background: var(--accent); animation: pulse 1.2s infinite; }
 .agent-activity .activity-label { color: var(--text-muted); font-weight: 700; }
 .agent-activity .activity-time  { color: var(--text-muted); letter-spacing: 0; font-weight: 400; }
-.agent-status-panel {
+/* Slim single-line agent status strip (was a 3-card panel eating the top third). */
+.agent-status-strip {
   flex-shrink: 0;
-  display: grid;
-  grid-template-columns: minmax(120px, 170px) 1fr minmax(110px, 150px);
+  display: flex;
+  align-items: center;
   gap: 10px;
-  align-items: stretch;
-  padding: 10px 28px;
-  background: linear-gradient(90deg, rgba(204,120,92,0.08), rgba(91,156,246,0.04));
+  padding: 7px 28px;
+  background: var(--bg1);
   border-bottom: 1px solid var(--border);
-}
-.agent-status-card {
-  background: rgba(0,0,0,0.12);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px 10px;
-  min-width: 0;
-}
-.agent-status-kicker {
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--text-muted);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin-bottom: 4px;
+  font-size: 11px;
 }
-.agent-status-value {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.agent-status-strip .ass-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-muted); flex-shrink: 0;
 }
-.agent-status-value.phase { color: var(--accent); font-weight: 700; }
-.agent-status-value.subtle { color: var(--text-muted); }
-@media (max-width: 760px) {
-  .agent-status-panel { grid-template-columns: 1fr; padding: 8px 18px; }
+.agent-status-strip.running .ass-dot { background: var(--accent); animation: pulse 1.2s infinite; }
+.ass-phase {
+  color: var(--accent); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0;
 }
+.ass-checkpoint {
+  color: var(--text-muted); flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ass-checkpoint::before { content: '·'; color: var(--border2); margin-right: 8px; }
+.ass-step { color: var(--text-dim); flex-shrink: 0; }
 #btn-launch {
   margin-left: auto;
   display: inline-flex; align-items: center; justify-content: center;
@@ -1965,19 +1953,11 @@ details:not([open]) .accordion-icon::before { content: '+'; }
         <pre id="writeup-inline-content">No writeup generated yet.</pre>
       </div>
 
-      <div class="agent-status-panel" id="agent-status-panel">
-        <div class="agent-status-card">
-          <div class="agent-status-kicker">Phase</div>
-          <div class="agent-status-value phase" id="agent-phase-value">Idle</div>
-        </div>
-        <div class="agent-status-card">
-          <div class="agent-status-kicker">Checkpoint</div>
-          <div class="agent-status-value" id="agent-checkpoint-value">No active checkpoint.</div>
-        </div>
-        <div class="agent-status-card">
-          <div class="agent-status-kicker">Stall Count</div>
-          <div class="agent-status-value subtle" id="agent-stall-value">0</div>
-        </div>
+      <div class="agent-status-strip" id="agent-status-panel">
+        <span class="ass-dot"></span>
+        <span class="ass-phase" id="agent-phase-value">Idle</span>
+        <span class="ass-checkpoint" id="agent-checkpoint-value">No active checkpoint.</span>
+        <span class="ass-step" id="agent-stall-value">0</span>
       </div>
 
       <!-- Chat feed -->
@@ -2559,7 +2539,9 @@ function renderAgentStatus() {
   const next = state.agentStatus.nextAction ? ` Next: ${state.agentStatus.nextAction}` : '';
   checkpointEl.textContent = `${checkpoint}${next}`;
   checkpointEl.title = checkpointEl.textContent;
-  stallEl.textContent = `${state.agentStatus.stallCount || 0}${state.agentStatus.step ? ` / step ${state.agentStatus.step}` : ''}`;
+  stallEl.textContent = `${state.agentStatus.stallCount ? `stall ${state.agentStatus.stallCount} · ` : ''}${state.agentStatus.step ? `step ${state.agentStatus.step}` : ''}`;
+  const strip = document.getElementById('agent-status-panel');
+  if (strip) strip.classList.toggle('running', !!state.agentRunning);
 }
 
 function handleLoopTrace(data, cache = true) {
